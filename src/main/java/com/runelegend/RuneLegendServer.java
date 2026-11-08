@@ -8,8 +8,6 @@ import com.runelegend.game.GameController;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
-import com.runelegend.resonance.ResonanceSavedData;
-import com.runelegend.resonance.ResonanceService;
 import com.runelegend.token.TokenEngine;
 import com.runelegend.token.TokenConfig;
 import com.runelegend.token.TokenRegistry;
@@ -31,7 +29,6 @@ public final class RuneLegendServer {
     private final TokenEngine tokens;
     private final PlayerStateSync sync;
     private final GuardStaminaService stamina;
-    private final ResonanceService resonance;
     private final Map<UUID, ServerGamePacketListenerImpl> transports = new HashMap<>();
     private long tick;
 
@@ -44,7 +41,6 @@ public final class RuneLegendServer {
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
         stamina = new GuardStaminaService(game, this::tick);
-        resonance = new ResonanceService(game, ResonanceSavedData.load(minecraft));
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }
@@ -58,7 +54,6 @@ public final class RuneLegendServer {
     public TokenEngine tokens() { return tokens; }
     public GuardStaminaService stamina() { return stamina; }
     public PlayerStateSync sync() { return sync; }
-    public ResonanceService resonance() { return resonance; }
 
     public void join(ServerPlayer player) {
         checkThread();
