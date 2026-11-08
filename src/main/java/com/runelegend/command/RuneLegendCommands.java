@@ -6,7 +6,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
-import com.runelegend.combat.StaminaManager;
 import com.runelegend.player.PlayerTokenService;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
@@ -36,8 +35,8 @@ public final class RuneLegendCommands {
             var token = literal("token")
                     .then(literal("list").executes(RuneLegendCommands::list))
                     .then(literal("info").then(tokenArg().executes(RuneLegendCommands::info)));
+            addStatus(token, ctx -> ctx.getSource().getPlayerOrException());
             addEquipmentChanges(token, ctx -> ctx.getSource().getPlayerOrException());
-            addStatus(root, ctx -> ctx.getSource().getPlayerOrException());
             root.then(token);
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
@@ -93,8 +92,7 @@ public final class RuneLegendCommands {
 
     private static int list(CommandContext<CommandSourceStack> ctx) {
         var server = instance(ctx);
-        server.registry().all().forEach(definition -> ctx.getSource().sendSuccess(
-                () -> Component.literal(definition.id() + " — ").append(definition.name()), false));
+        server.registry().all().forEach(definition -> ctx.getSource().sendSuccess(definition::name, false));
         return server.registry().all().size();
     }
 
@@ -130,12 +128,9 @@ public final class RuneLegendCommands {
 
     private static int status(CommandContext<CommandSourceStack> ctx, ServerPlayer player) {
         var server = instance(ctx);
-        int percent = server.stamina().stamina(player) * 100 / StaminaManager.MAX;
-        var view = server.tokens().views(player);
-        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status", player.getDisplayName(), percent), false);
-        for (var token : view) {
+        for (var token : server.tokens().views(player)) {
             var definition = server.registry().get(token.id());
-            var line = Component.literal("  " + token.id()).append(" — ");
+            var line = Component.literal("");
             if (definition == null) line.append(RuneLegendText.message("runelegend.unavailable"));
             else {
                 line.append(definition.name());

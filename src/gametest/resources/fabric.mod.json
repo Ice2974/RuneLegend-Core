@@ -6,7 +6,7 @@
   "environment": "*",
   "mixins": [{"config": "runelegend.item-lock.client-test.mixins.json", "environment": "client"}],
   "entrypoints": {
-    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests", "com.runelegend.token.TokenLifecycleGameTests", "com.runelegend.game.GameRulesStorageGameTests", "com.runelegend.test.ItemLockGameTests", "com.runelegend.test.ItemLockTransferGameTests"],
+    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests", "com.runelegend.token.TokenLifecycleGameTests", "com.runelegend.game.GameRulesStorageGameTests", "com.runelegend.test.ItemLockGameTests", "com.runelegend.test.ItemLockTransferGameTests", "com.runelegend.command.CommandOutputGameTests"],
     "fabric-client-gametest": ["com.runelegend.test.HudClientGameTest", "com.runelegend.test.TokenLifecycleClientGameTest", "com.runelegend.test.ItemLockClientGameTest"]
   },
   "depends": {"runelegend": "*"}
