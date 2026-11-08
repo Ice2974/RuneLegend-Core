@@ -117,7 +117,8 @@ public final class RuneLegendCommands {
 
     private static int list(CommandContext<CommandSourceStack> ctx) {
         var server = instance(ctx);
-        server.registry().all().forEach(definition -> ctx.getSource().sendSuccess(definition::name, false));
+        server.registry().all().forEach(definition -> ctx.getSource().sendSuccess(
+                () -> Component.literal(definition.id() + " — ").append(definition.name()), false));
         return server.registry().all().size();
     }
 
@@ -157,7 +158,7 @@ public final class RuneLegendCommands {
         ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status", player.getDisplayName()), false);
         for (var id : data.equipped()) {
             var definition = server.registry().get(id);
-            var line = Component.literal("  ");
+            var line = Component.literal("  " + id).append(" — ");
             if (definition == null) line.append(RuneLegendText.message("runelegend.unavailable"));
             else line.append(definition.name());
             ctx.getSource().sendSuccess(() -> line, false);
