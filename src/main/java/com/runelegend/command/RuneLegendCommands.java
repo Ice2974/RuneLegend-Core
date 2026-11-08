@@ -6,8 +6,9 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
-import com.runelegend.combat.StaminaManager;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.resonance.ResonanceAttribute;
+import com.runelegend.resonance.ResonanceService;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
 import net.minecraft.commands.CommandSourceStack;
@@ -17,6 +18,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionLevel;
+
+import java.util.UUID;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -39,6 +42,11 @@ public final class RuneLegendCommands {
             addEquipmentChanges(token, ctx -> ctx.getSource().getPlayerOrException());
             addStatus(root, ctx -> ctx.getSource().getPlayerOrException());
             root.then(token);
+            var resonance = literal("resonance")
+                    .then(literal("list").executes(RuneLegendCommands::resonanceList))
+                    .then(literal("equip").then(resonanceArg().executes(RuneLegendCommands::equipResonance)))
+                    .then(literal("unequip").executes(RuneLegendCommands::unequipResonance));
+            root.then(resonance);
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
             root.then(literal("admin").requires(PermissionPredicates.require(RuneLegendMod.id("admin"), PermissionLevel.ADMINS)).then(admin));
@@ -80,8 +88,24 @@ public final class RuneLegendCommands {
         });
     }
 
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Identifier> resonanceArg() {
+        return argument("resonance_id", IdentifierArgument.id()).suggests((ctx, builder) -> {
+            String prefix = builder.getRemaining();
+            ResonanceAttribute.selectable().forEach(attribute -> {
+                if (attribute.id().toString().startsWith(prefix)) builder.suggest(attribute.id().toString());
+                else if (attribute.id().getPath().startsWith(prefix)) builder.suggest(attribute.id().getPath());
+            });
+            return builder.buildFuture();
+        });
+    }
+
     private static Identifier tokenId(CommandContext<CommandSourceStack> ctx) {
         var id = ctx.getArgument("token_id", Identifier.class);
+        return id.getNamespace().equals("minecraft") ? RuneLegendMod.id(id.getPath()) : id;
+    }
+
+    private static Identifier resonanceId(CommandContext<CommandSourceStack> ctx) {
+        var id = ctx.getArgument("resonance_id", Identifier.class);
         return id.getNamespace().equals("minecraft") ? RuneLegendMod.id(id.getPath()) : id;
     }
 
@@ -130,22 +154,77 @@ public final class RuneLegendCommands {
 
     private static int status(CommandContext<CommandSourceStack> ctx, ServerPlayer player) {
         var server = instance(ctx);
-        int percent = server.stamina().stamina(player) * 100 / StaminaManager.MAX;
-        var view = server.tokens().views(player);
-        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status", player.getDisplayName(), percent), false);
-        for (var token : view) {
-            var definition = server.registry().get(token.id());
-            var line = Component.literal("  " + token.id()).append(" — ");
+        var data = server.players().get(player.getUUID());
+        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status", player.getDisplayName()), false);
+        for (var id : data.equipped()) {
+            var definition = server.registry().get(id);
+            var line = Component.literal("  " + id).append(" — ");
             if (definition == null) line.append(RuneLegendText.message("runelegend.unavailable"));
-            else {
-                line.append(definition.name());
-                if ((token.flags() & com.runelegend.token.TokenEngine.COOLDOWN) != 0) {
-                    line.append(" (" + ((token.cooldownUntil() - server.tick() + 19) / 20) + "s)");
-                }
-            }
+            else line.append(definition.name());
             ctx.getSource().sendSuccess(() -> line, false);
         }
+        if (data.equipped().isEmpty()) {
+            ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status.empty"), false);
+        }
+        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status.resonance",
+                resonanceLabel(server, player.getUUID())), false);
         return 1;
+    }
+
+    private static Component resonanceLabel(RuneLegendServer server, UUID player) {
+        return server.resonance().guardSelection(player)
+                .map(id -> ResonanceAttribute.byId(id)
+                        .<Component>map(ResonanceAttribute::displayName)
+                        .orElseGet(() -> Component.literal(id + " — ")
+                                .append(RuneLegendText.message("runelegend.unavailable"))))
+                .orElseGet(() -> RuneLegendText.message("runelegend.resonance.none"));
+    }
+
+    private static int resonanceList(CommandContext<CommandSourceStack> ctx) {
+        var selectable = ResonanceAttribute.selectable();
+        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.resonance.list"), false);
+        for (var attribute : selectable) {
+            var line = Component.literal("  " + attribute.id()).append(" — ").append(attribute.displayName());
+            ctx.getSource().sendSuccess(() -> line, false);
+        }
+        return selectable.size();
+    }
+
+    private static int equipResonance(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = ctx.getSource().getPlayerOrException();
+        var id = resonanceId(ctx);
+        return resonanceResult(ctx, player, instance(ctx).resonance().equip(player.getUUID(), id), id, true);
+    }
+
+    private static int unequipResonance(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = ctx.getSource().getPlayerOrException();
+        return resonanceResult(ctx, player, instance(ctx).resonance().unequip(player.getUUID()), null, false);
+    }
+
+    private static int resonanceResult(CommandContext<CommandSourceStack> ctx, ServerPlayer player,
+                                       ResonanceService.Result result, Identifier id, boolean equip) {
+        if (result == ResonanceService.Result.CHANGED) {
+            if (equip) {
+                var name = ResonanceAttribute.byId(id)
+                        .<Component>map(ResonanceAttribute::displayName)
+                        .orElseGet(() -> Component.literal(id.toString()));
+                var message = RuneLegendText.message("runelegend.resonance.result.equipped",
+                        player.getDisplayName(), name);
+                ctx.getSource().sendSuccess(() -> message, false);
+            } else {
+                var message = RuneLegendText.message("runelegend.resonance.result.unequipped", player.getDisplayName());
+                ctx.getSource().sendSuccess(() -> message, false);
+            }
+            return 1;
+        }
+        var message = RuneLegendText.message("runelegend.resonance.result."
+                + result.name().toLowerCase(java.util.Locale.ROOT), player.getDisplayName());
+        if (result == ResonanceService.Result.UNCHANGED) {
+            ctx.getSource().sendSuccess(() -> message, false);
+        } else {
+            ctx.getSource().sendFailure(message);
+        }
+        return 0;
     }
 
     private static int rules(CommandContext<CommandSourceStack> ctx) {
