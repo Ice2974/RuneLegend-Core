@@ -6,11 +6,14 @@ import com.runelegend.player.PlayerTokenService;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.commands.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public final class ResonanceCommandGameTests {
     private static final Identifier PROTECTION = Identifier.parse("runelegend:protection");
@@ -73,12 +76,7 @@ public final class ResonanceCommandGameTests {
         var player = GuardGameTests.fixture(test);
         var commands = test.getLevel().getServer().getCommands();
         var messages = new ArrayList<String>();
-        var source = player.createCommandSourceStack().withSource(new CommandSource() {
-            @Override public void sendSystemMessage(Component message) { messages.add(message.getString()); }
-            @Override public boolean acceptsSuccess() { return true; }
-            @Override public boolean acceptsFailure() { return true; }
-            @Override public boolean shouldInformAdmins() { return false; }
-        });
+        var source = capturingSource(player, messages);
         try {
             server.game().stopGame();
             server.resonance().unequip(player.getUUID());
@@ -92,8 +90,10 @@ public final class ResonanceCommandGameTests {
 
             test.assertTrue(messages.stream().anyMatch(message -> message.contains("tokens:")),
                     "The status header names the token list");
-            test.assertTrue(messages.stream().anyMatch(message -> message.contains("echo") && message.contains("Echo")),
-                    "The equipped token is still shown");
+            test.assertTrue(messages.stream().anyMatch(message -> message.contains("Echo")),
+                    "The equipped token's display name is still shown");
+            test.assertTrue(messages.stream().noneMatch(message -> message.contains("runelegend:echo")),
+                    "The status line does not show the internal token ID");
             test.assertTrue(messages.stream().anyMatch(message -> message.contains("Protection")),
                     "The selected resonance is shown");
             test.assertTrue(messages.stream().noneMatch(message -> message.contains("Stamina")
@@ -106,5 +106,33 @@ public final class ResonanceCommandGameTests {
             server.game().stopGame();
             server.leave(player);
         }
+    }
+
+    @GameTest
+    public void tokenListOnlyShowsDisplayNames(GameTestHelper test) {
+        var server = RuneLegendServer.find(test.getLevel().getServer());
+        var player = GuardGameTests.fixture(test);
+        var messages = new ArrayList<String>();
+        var source = capturingSource(player, messages);
+        try {
+            var commands = test.getLevel().getServer().getCommands();
+            commands.performPrefixedCommand(source, "runelegend token list");
+            test.assertTrue(messages.stream().anyMatch(message -> message.contains("Echo")),
+                    "The token list shows display names");
+            test.assertTrue(messages.stream().noneMatch(message -> message.contains("runelegend:")),
+                    "The token list does not show internal token IDs");
+            test.succeed();
+        } finally {
+            server.leave(player);
+        }
+    }
+
+    private static CommandSourceStack capturingSource(ServerPlayer player, List<String> messages) {
+        return player.createCommandSourceStack().withSource(new CommandSource() {
+            @Override public void sendSystemMessage(Component message) { messages.add(message.getString()); }
+            @Override public boolean acceptsSuccess() { return true; }
+            @Override public boolean acceptsFailure() { return true; }
+            @Override public boolean shouldInformAdmins() { return false; }
+        });
     }
 }
