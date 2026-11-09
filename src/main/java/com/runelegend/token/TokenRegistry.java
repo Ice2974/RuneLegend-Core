@@ -38,7 +38,7 @@ public final class TokenRegistry {
                 .addNoEffect("phantom_wolf")
                 .addNoEffect("substitute")
                 .addNoEffect("wet_doom_arrow")
-                .addNoEffect("spring_water")
+                .addNoEffect("fountain")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")
                 .addNoEffect("trusting_sacrifice")
