@@ -42,7 +42,7 @@ public final class TokenRegistry {
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")
                 .addNoEffect("trusting_sacrifice")
-                .addNoEffect("group_taunt")
+                .addNoEffect("asura_form")
                 .addNoEffect("revival")
                 .addNoEffect("execution_clone")
                 .addNoEffect("surging_fury")
