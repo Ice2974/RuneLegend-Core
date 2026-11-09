@@ -37,7 +37,7 @@ public final class TokenRegistry {
                 .addNoEffect("ghost_bane")
                 .addNoEffect("phantom_wolf")
                 .addNoEffect("substitute")
-                .addNoEffect("wet_doom_arrow")
+                .addNoEffect("poisoned_arrow")
                 .addNoEffect("fountain")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")

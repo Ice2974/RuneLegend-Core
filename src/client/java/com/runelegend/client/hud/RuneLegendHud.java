@@ -22,7 +22,7 @@ public final class RuneLegendHud {
     private static final Set<String> ICONS = Set.of(
             "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
             // Every built-in token currently uses a placeholder sprite copied from unknown.png.
-            "venomous_tip", "ghost_bane", "phantom_wolf", "substitute", "wet_doom_arrow",
+            "venomous_tip", "ghost_bane", "phantom_wolf", "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution", "trusting_sacrifice",
             "asura_form", "revival", "execution_clone", "surging_fury", "divine_healing",
             "conjugate_healing", "arrogance", "retreat_to_advance");
