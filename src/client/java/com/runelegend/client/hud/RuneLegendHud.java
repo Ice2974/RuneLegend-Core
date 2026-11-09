@@ -23,7 +23,7 @@ public final class RuneLegendHud {
             "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
             // Every built-in token currently uses a placeholder sprite copied from unknown.png.
             "venomous_tip", "ghost_bane", "phantom_wolf", "substitute", "wet_doom_arrow",
-            "spring_water", "full_blessing", "return_to_sender", "trusting_sacrifice",
+            "spring_water", "full_blessing", "retribution", "trusting_sacrifice",
             "group_taunt", "revival", "execution_clone", "surging_fury", "divine_healing",
             "conjugate_healing", "arrogance", "retreat_to_advance");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);

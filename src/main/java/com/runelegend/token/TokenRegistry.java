@@ -40,7 +40,7 @@ public final class TokenRegistry {
                 .addNoEffect("wet_doom_arrow")
                 .addNoEffect("spring_water")
                 .addNoEffect("full_blessing")
-                .addNoEffect("return_to_sender")
+                .addNoEffect("retribution")
                 .addNoEffect("trusting_sacrifice")
                 .addNoEffect("group_taunt")
                 .addNoEffect("revival")
