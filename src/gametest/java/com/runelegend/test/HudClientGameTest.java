@@ -177,7 +177,7 @@ public final class HudClientGameTest implements FabricClientGameTest {
     private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache, GuardConfig guard) {
         var fixture = RuneLegendMod.id("hud_screenshot_fixture");
         var ids = List.of(RuneLegendMod.id("venomous_tip"), RuneLegendMod.id("asura_form"),
-                RuneLegendMod.id("poisoned_arrow"));
+                RuneLegendMod.id("resonance_healing"));
         long cooldownUntil = cache.serverTick() + 600;
         var trigger = new java.util.concurrent.atomic.AtomicLong(1_000_000);
         var frameAge = new java.util.concurrent.atomic.AtomicLong();

@@ -35,7 +35,6 @@ public final class TokenRegistry {
                 // Their effects are intentionally left unimplemented for now.
                 .addNoEffect("venomous_tip")
                 .addNoEffect("ghost_bane")
-                .addNoEffect("phantom_wolf")
                 .addNoEffect("substitute")
                 .addNoEffect("poisoned_arrow")
                 .addNoEffect("fountain")
@@ -47,7 +46,7 @@ public final class TokenRegistry {
                 .addNoEffect("execution_clone")
                 .addNoEffect("surging_fury")
                 .addNoEffect("divine_healing")
-                .addNoEffect("conjugate_healing")
+                .addNoEffect("resonance_healing")
                 .addNoEffect("arrogance")
                 .addNoEffect("retreat_to_advance")
                 .build();
