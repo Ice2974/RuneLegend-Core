@@ -24,8 +24,8 @@ public final class RuneLegendHud {
             // Every built-in token currently uses a placeholder sprite copied from unknown.png.
             "venomous_tip", "ghost_bane", "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution",
-            "asura_form", "vernal_tide", "execution_clone", "surging_fury",
-            "resonance_healing", "arrogance", "retreat_to_advance");
+            "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
+            "resonance_healing", "arrogance", "deflective_backlash");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
     private static final int GLOW_SIZE = 32;
     private static final List<Identifier> GLOW = IntStream.range(0, TokenHudAnimation.FRAME_COUNT)
