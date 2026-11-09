@@ -15,7 +15,7 @@ class TokenRegistryTest {
     private static final List<String> REGISTERED_ONLY = List.of(
             "venomous_tip", "ghost_bane", "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution", "trusting_sacrifice",
-            "asura_form", "revival", "execution_clone", "surging_fury", "divine_healing",
+            "asura_form", "vernal_tide", "execution_clone", "surging_fury", "divine_healing",
             "resonance_healing", "arrogance", "retreat_to_advance");
 
     @Test void builtInRegistryContainsEveryTokenWithAUniqueId() {
