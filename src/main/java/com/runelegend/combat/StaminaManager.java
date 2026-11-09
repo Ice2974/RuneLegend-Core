@@ -1,18 +1,22 @@
 package com.runelegend.combat;
 
-/** All values are integral; timing follows server ticks. */
+import java.util.Objects;
+
+/** Integral guard stamina math; timing follows server ticks. */
 public final class StaminaManager {
-    public static final int MAX = 20_000;
-    public static final int MIN_TO_START = 2_000;
-    public static final int DRAIN_PER_TICK = 125;
-    public static final int REGEN_PER_TICK = 100;
-    public static final int REGEN_DELAY = 10;
+    private final GuardConfig config;
 
-    private StaminaManager() {}
+    public StaminaManager(GuardConfig config) {
+        this.config = Objects.requireNonNull(config, "config");
+    }
 
-    public static boolean canStart(int value) { return value >= MIN_TO_START; }
-    public static int drain(int value) { return Math.max(0, value - DRAIN_PER_TICK); }
-    public static int recover(int value, long tick, long stoppedAt) {
-        return tick - stoppedAt > REGEN_DELAY ? Math.min(MAX, value + REGEN_PER_TICK) : value;
+    public GuardConfig config() { return config; }
+    public int max() { return config.max(); }
+
+    public boolean canStart(int value) { return value >= config.minToStart(); }
+    public int drain(int value) { return Math.max(0, value - config.drainPerTick()); }
+    public int recover(int value, long tick, long stoppedAt) {
+        return tick - stoppedAt > config.regenDelayTicks()
+                ? Math.min(config.max(), value + config.regenPerTick()) : value;
     }
 }

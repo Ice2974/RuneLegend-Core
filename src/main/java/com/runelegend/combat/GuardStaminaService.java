@@ -11,19 +11,24 @@ public final class GuardStaminaService {
     private final Map<UUID, PlayerCombatRuntime> players = new HashMap<>();
     private final GameController game;
     private final LongSupplier clock;
+    private final StaminaManager stamina;
 
-    public GuardStaminaService(GameController game, LongSupplier clock) {
+    public GuardStaminaService(GameController game, LongSupplier clock, GuardConfig config) {
         this.game = game;
         this.clock = clock;
+        this.stamina = new StaminaManager(config);
     }
 
-    public void join(ServerPlayer player) { players.put(player.getUUID(), new PlayerCombatRuntime()); }
+    /** Server-wide tuning used by the guard stamina calculations and the client HUD sync. */
+    public GuardConfig config() { return stamina.config(); }
+
+    public void join(ServerPlayer player) { players.put(player.getUUID(), new PlayerCombatRuntime(stamina.config())); }
 
     public void leave(ServerPlayer player) { players.remove(player.getUUID()); }
 
     public int stamina(ServerPlayer player) {
         var runtime = players.get(player.getUUID());
-        return runtime == null ? StaminaManager.MAX : runtime.stamina;
+        return runtime == null ? stamina.max() : runtime.stamina;
     }
 
     public boolean tryStart(ServerPlayer player) {
@@ -31,7 +36,7 @@ public final class GuardStaminaService {
         boolean running = game.getRules().running();
         if (runtime == null || !player.isAlive() || player.isSpectator() || running && runtime.releaseRequired) return false;
         runtime.releaseRequired = true;
-        if (running && !StaminaManager.canStart(runtime.stamina)) return false;
+        if (running && !stamina.canStart(runtime.stamina)) return false;
         runtime.startedAt = clock.getAsLong();
         return true;
     }
@@ -52,7 +57,7 @@ public final class GuardStaminaService {
     public void resetRound(ServerPlayer player) {
         var runtime = players.get(player.getUUID());
         if (runtime != null) {
-            runtime.stamina = StaminaManager.MAX;
+            runtime.stamina = stamina.max();
             runtime.releaseRequired = GuardItems.using(player);
         }
     }
@@ -76,10 +81,10 @@ public final class GuardStaminaService {
         validateUse(player);
         if (!game.getRules().running()) return;
         if (GuardItems.using(player)) {
-            runtime.stamina = StaminaManager.drain(runtime.stamina);
+            runtime.stamina = stamina.drain(runtime.stamina);
             if (runtime.stamina == 0) player.stopUsingItem();
-        } else if (player.isAlive() && runtime.stamina < StaminaManager.MAX) {
-            runtime.stamina = StaminaManager.recover(runtime.stamina, clock.getAsLong(), runtime.stoppedAt);
+        } else if (player.isAlive() && runtime.stamina < stamina.max()) {
+            runtime.stamina = stamina.recover(runtime.stamina, clock.getAsLong(), runtime.stoppedAt);
         }
     }
 }

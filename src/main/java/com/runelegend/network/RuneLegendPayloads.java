@@ -3,7 +3,6 @@ package com.runelegend.network;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.api.GameState;
 import com.runelegend.api.RuleSnapshot;
-import com.runelegend.combat.StaminaManager;
 import com.runelegend.player.PlayerTokenData;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -15,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 2;
+    public static final int PROTOCOL = 3;
     public static final int TOKENS = 1, STAMINA = 2, ALL = TOKENS | STAMINA;
 
     private RuneLegendPayloads() {}
@@ -67,7 +66,8 @@ public final class RuneLegendPayloads {
         @Override public Type<Rules> type() { return TYPE; }
     }
 
-    public record View(List<TokenEngine.View> tokens, int stamina) {
+    /** The current stamina cap travels with the value so the client HUD scales configurable values. */
+    public record View(List<TokenEngine.View> tokens, int stamina, int staminaMax) {
         public View { tokens = List.copyOf(tokens); }
     }
 
@@ -94,8 +94,10 @@ public final class RuneLegendPayloads {
     }
 
     public static View merge(View old, View incoming, int mask) {
+        boolean staminaChanged = (mask & STAMINA) != 0;
         return new View((mask & TOKENS) != 0 ? incoming.tokens : old.tokens,
-                (mask & STAMINA) != 0 ? incoming.stamina : old.stamina);
+                staminaChanged ? incoming.stamina : old.stamina,
+                staminaChanged ? incoming.staminaMax : old.staminaMax);
     }
 
     private static void writeView(FriendlyByteBuf buf, View view, int mask) {
@@ -109,7 +111,10 @@ public final class RuneLegendPayloads {
                 buf.writeVarLong(token.cooldownUntil());
             }
         }
-        if ((mask & STAMINA) != 0) buf.writeShort(view.stamina);
+        if ((mask & STAMINA) != 0) {
+            buf.writeShort(view.stamina);
+            buf.writeShort(view.staminaMax);
+        }
     }
 
     private static View readView(FriendlyByteBuf buf, int mask) {
@@ -124,8 +129,10 @@ public final class RuneLegendPayloads {
             }
             tokens = list;
         }
-        int stamina = (mask & STAMINA) != 0 ? buf.readUnsignedShort() : StaminaManager.MAX;
-        if (stamina > StaminaManager.MAX) throw new IllegalArgumentException("Invalid RuneLegend stamina");
-        return new View(tokens, stamina);
+        if ((mask & STAMINA) == 0) return new View(tokens, 0, 0);
+        int stamina = buf.readUnsignedShort();
+        int staminaMax = buf.readUnsignedShort();
+        if (staminaMax == 0 || stamina > staminaMax) throw new IllegalArgumentException("Invalid RuneLegend stamina");
+        return new View(tokens, stamina, staminaMax);
     }
 }

@@ -3,7 +3,6 @@ package com.runelegend.client.hud;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.client.network.ClientStateCache;
 import com.runelegend.combat.GuardItems;
-import com.runelegend.combat.StaminaManager;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -20,7 +19,13 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 public final class RuneLegendHud {
-    private static final Set<String> ICONS = Set.of("sharpened_tip", "soul_siphon", "echo", "immediate_counter");
+    private static final Set<String> ICONS = Set.of(
+            "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
+            // Every built-in token currently uses a placeholder sprite copied from unknown.png.
+            "venomous_tip", "ghost_bane", "phantom_wolf", "substitute", "wet_doom_arrow",
+            "spring_water", "full_blessing", "return_to_sender", "trusting_sacrifice",
+            "group_taunt", "revival", "execution_clone", "surging_fury", "divine_healing",
+            "conjugate_healing", "arrogance", "retreat_to_advance");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
     private static final int GLOW_SIZE = 32;
     private static final List<Identifier> GLOW = IntStream.range(0, TokenHudAnimation.FRAME_COUNT)
@@ -37,7 +42,7 @@ public final class RuneLegendHud {
         var cache = ClientStateCache.INSTANCE;
         var view = cache.view();
         if (view == null || client.player == null || client.gui.hud.isHidden() || client.player.isSpectator()) return;
-        boolean showStamina = view.stamina() < StaminaManager.MAX || GuardItems.using(client.player);
+        boolean showStamina = view.stamina() < view.staminaMax() || GuardItems.using(client.player);
         var rules = cache.rules();
         int slots = rules != null && rules.running() && client.player.isAlive() ? view.tokens().size() : 0;
         if (slots == 0 && !showStamina) return;
@@ -72,7 +77,7 @@ public final class RuneLegendHud {
             }
         }
         if (showStamina) {
-            int percent = view.stamina() * 100 / StaminaManager.MAX;
+            int percent = view.stamina() * 100 / view.staminaMax();
             var text = Component.translatable("runelegend.hud.stamina", percent);
             graphics.centeredText(client.font, text, layout.center(), layout.staminaTop(), 0xFFFFFFFF);
         }

@@ -4,7 +4,6 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
-import com.runelegend.combat.StaminaManager;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -204,26 +203,27 @@ public final class GuardGameTests {
         var player = fixture(test);
         var server = RuneLegendServer.find(test.getLevel().getServer());
         var stamina = server.stamina();
-        int exhaustionTicks = StaminaManager.MAX / StaminaManager.DRAIN_PER_TICK;
+        var guard = stamina.config();
+        int exhaustionTicks = Math.ceilDiv(guard.max(), guard.drainPerTick());
         try {
             server.game().stopGame();
             start(test, player, SWORD);
             for (int i = 0; i <= exhaustionTicks; i++) stamina.tick(player);
-            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX, "WAITING never drains stamina");
+            test.assertValueEqual(stamina.stamina(player), guard.max(), "WAITING never drains stamina");
             test.assertTrue(player.isBlocking(), "WAITING can block beyond the normal exhaustion time");
 
             server.game().startGame();
             // Mock players are not on the online list used by the round-reset callback.
             stamina.resetRound(player);
             stamina.tick(player);
-            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX - StaminaManager.DRAIN_PER_TICK,
+            test.assertValueEqual(stamina.stamina(player), guard.max() - guard.drainPerTick(),
                     "Starting begins draining an already active block");
             test.assertTrue(player.isBlocking(), "Starting preserves the active block");
 
             server.game().stopGame();
             stamina.resetRound(player);
             for (int i = 0; i <= exhaustionTicks; i++) stamina.tick(player);
-            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX, "Stopping restores and preserves full stamina");
+            test.assertValueEqual(stamina.stamina(player), guard.max(), "Stopping restores and preserves full stamina");
             test.assertTrue(player.isBlocking(), "Stopping preserves the active block");
 
             server.game().startGame();
@@ -256,37 +256,44 @@ public final class GuardGameTests {
         var other = fixture(test);
         var server = RuneLegendServer.find(test.getLevel().getServer());
         var stamina = server.stamina();
+        var guard = stamina.config();
+        int exhaustionTicks = Math.ceilDiv(guard.max(), guard.drainPerTick());
+        int staminaBeforeExhaustion = guard.max() - (exhaustionTicks - 1) * guard.drainPerTick();
+        int recoveryTicks = guard.regenDelayTicks() + Math.ceilDiv(guard.minToStart(), guard.regenPerTick());
+        int recoveredStamina = Math.min(guard.max(), guard.regenPerTick() * (recoveryTicks - guard.regenDelayTicks()));
         server.game().startGame();
         start(test, player, SWORD);
         player.setSprinting(true);
         test.assertTrue(!player.isSprinting(), "The server rejects sprint with the configured use effects");
         test.assertTrue(player.cannotAttackWithItem(player.getMainHandItem(), 5), "Vanilla melee packets are denied while using");
-        for (int i = 0; i < 159; i++) stamina.tick(player);
-        test.assertValueEqual(stamina.stamina(player), 125, "159 ticks leave 125 stamina");
+        for (int i = 0; i < exhaustionTicks - 1; i++) stamina.tick(player);
+        test.assertValueEqual(stamina.stamina(player), staminaBeforeExhaustion,
+                (exhaustionTicks - 1) + " ticks leave " + staminaBeforeExhaustion + " stamina");
         test.assertTrue(player.isBlocking(), "Player is still blocking one tick before exhaustion");
         stamina.tick(player);
-        test.assertValueEqual(stamina.stamina(player), 0, "160 ticks exhaust the player");
+        test.assertValueEqual(stamina.stamina(player), 0, exhaustionTicks + " ticks exhaust the player");
         test.assertTrue(!player.isUsingItem(), "Exhaustion ends vanilla item use");
-        test.assertValueEqual(stamina.stamina(other), 20_000, "The other player's stamina is untouched");
+        test.assertValueEqual(stamina.stamina(other), guard.max(), "The other player's stamina is untouched");
         release(player);
         use(player);
         test.assertTrue(!player.isUsingItem(), "A fresh press at zero stamina fails");
         // In this fixture the mock player isn't on the online tick list, so tick its stamina once per game tick.
-        for (int i = 1; i < 30; i++) test.runAfterDelay(i, () -> {
+        for (int i = 1; i < recoveryTicks; i++) test.runAfterDelay(i, () -> {
             // Other tests in this batch can change the shared game state.
             server.game().startGame();
             stamina.tick(player);
         });
-        test.runAfterDelay(30, () -> {
+        test.runAfterDelay(recoveryTicks, () -> {
             try {
                 server.game().startGame();
                 stamina.tick(player);
-                test.assertValueEqual(stamina.stamina(player), 2_000, "Recovery starts after ten full ticks");
+                test.assertValueEqual(stamina.stamina(player), recoveredStamina,
+                        "Recovery reaches the start threshold after " + recoveryTicks + " ticks");
                 use(player);
                 test.assertTrue(!player.isUsingItem(), "A repeated request cannot rearm the press");
                 release(player);
                 use(player);
-                test.assertTrue(player.isBlocking(), "A new press at exactly 10 percent can block");
+                test.assertTrue(player.isBlocking(), "A new press at the configured start threshold can block");
                 player.getInventory().setItem(1, player.getMainHandItem().copy());
                 player.connection.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(1));
                 test.assertTrue(!player.isUsingItem(), "Vanilla slot switching drops the block even with identical swords");
@@ -298,7 +305,7 @@ public final class GuardGameTests {
                 test.assertTrue(!player.isUsingItem(), "Same-slot replacement drops the block");
                 stamina.leave(player);
                 stamina.join(player);
-                test.assertValueEqual(stamina.stamina(player), 20_000, "A new connection gets full stamina");
+                test.assertValueEqual(stamina.stamina(player), guard.max(), "A new connection gets full stamina");
                 test.succeed();
             } finally {
                 server.game().stopGame();

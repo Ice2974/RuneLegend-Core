@@ -1,7 +1,6 @@
 package com.runelegend.network;
 
 import com.runelegend.RuneLegendServer;
-import com.runelegend.combat.StaminaManager;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.HashMap;
@@ -59,7 +58,7 @@ public final class PlayerStateSync {
         int mask = 0;
         if (!before.tokens().equals(after.tokens())) mask |= TOKENS;
         if (before.stamina() != after.stamina() && (server.tick() - peer.staminaSent >= 4
-                || after.stamina() == 0 || after.stamina() == StaminaManager.MAX)) {
+                || after.stamina() == 0 || after.stamina() == after.staminaMax())) {
             mask |= STAMINA;
             peer.staminaSent = server.tick();
         }
@@ -70,6 +69,7 @@ public final class PlayerStateSync {
     }
 
     private View current(ServerPlayer player) {
-        return new View(server.tokens().views(player), server.stamina().stamina(player));
+        var stamina = server.stamina();
+        return new View(server.tokens().views(player), stamina.stamina(player), stamina.config().max());
     }
 }

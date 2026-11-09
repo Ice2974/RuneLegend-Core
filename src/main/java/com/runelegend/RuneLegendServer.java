@@ -1,6 +1,7 @@
 package com.runelegend;
 
 import com.runelegend.api.RuleSnapshot;
+import com.runelegend.combat.GuardConfig;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameRulesSavedData;
@@ -35,12 +36,13 @@ public final class RuneLegendServer {
     private RuneLegendServer(MinecraftServer minecraft) {
         this.minecraft = minecraft;
         var savedRules = GameRulesSavedData.load(minecraft);
+        var guard = GuardConfig.loadOrGenerate(GuardConfig.defaultPath());
         game = new GameController(this::checkThread, this::rulesChanged, savedRules.rules(), savedRules::update);
         registry = TokenRegistry.builtIn(TokenConfig.loadOrGenerate(TokenConfig.defaultPath()));
         players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
-        stamina = new GuardStaminaService(game, this::tick);
+        stamina = new GuardStaminaService(game, this::tick, guard);
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }

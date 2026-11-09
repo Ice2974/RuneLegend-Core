@@ -13,6 +13,8 @@ import java.util.Set;
 import static com.runelegend.token.TokenEvent.Kind.*;
 
 public final class TokenRegistry {
+    /** Shared handler for tokens that are registered but whose effects are intentionally not implemented yet. */
+    private static final TokenEffectHandler NO_EFFECT = new TokenEffectHandler() {};
     private final Map<Identifier, TokenDefinition> definitions;
 
     private TokenRegistry(Map<Identifier, TokenDefinition> definitions) {
@@ -29,6 +31,25 @@ public final class TokenRegistry {
                 .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
                 .add("echo", new EchoEffect(config.echo()), KILL)
                 .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)
+                // Registered so the token system can recognise, equip, store and sync them.
+                // Their effects are intentionally left unimplemented for now.
+                .addNoEffect("venomous_tip")
+                .addNoEffect("ghost_bane")
+                .addNoEffect("phantom_wolf")
+                .addNoEffect("substitute")
+                .addNoEffect("wet_doom_arrow")
+                .addNoEffect("spring_water")
+                .addNoEffect("full_blessing")
+                .addNoEffect("return_to_sender")
+                .addNoEffect("trusting_sacrifice")
+                .addNoEffect("group_taunt")
+                .addNoEffect("revival")
+                .addNoEffect("execution_clone")
+                .addNoEffect("surging_fury")
+                .addNoEffect("divine_healing")
+                .addNoEffect("conjugate_healing")
+                .addNoEffect("arrogance")
+                .addNoEffect("retreat_to_advance")
                 .build();
     }
 
@@ -49,6 +70,10 @@ public final class TokenRegistry {
 
         private Builder add(String id, TokenEffectHandler effect, TokenEvent.Kind... events) {
             return register(new TokenDefinition(RuneLegendMod.id(id), Set.of(events), effect));
+        }
+
+        private Builder addNoEffect(String id) {
+            return register(new TokenDefinition(RuneLegendMod.id(id), Set.of(), NO_EFFECT));
         }
 
         public TokenRegistry build() {

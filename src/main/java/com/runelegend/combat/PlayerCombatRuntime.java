@@ -2,8 +2,13 @@ package com.runelegend.combat;
 
 final class PlayerCombatRuntime {
     static final long NOT_USING = -1;
-    int stamina = StaminaManager.MAX;
+    int stamina;
     long startedAt = NOT_USING;
-    long stoppedAt = -StaminaManager.REGEN_DELAY - 1L;
+    long stoppedAt;
     boolean releaseRequired;
+
+    PlayerCombatRuntime(GuardConfig config) {
+        stamina = config.max();
+        stoppedAt = -config.regenDelayTicks() - 1L;
+    }
 }

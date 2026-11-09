@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.client.hud.TokenHudAnimation;
-import com.runelegend.combat.StaminaManager;
+import com.runelegend.combat.GuardConfig;
 import com.runelegend.client.network.ClientStateCache;
 import com.runelegend.network.RuneLegendPayloads.PlayerSnapshot;
 import com.runelegend.network.RuneLegendPayloads.View;
@@ -33,6 +33,8 @@ public final class HudClientGameTest implements FabricClientGameTest {
              var connection = server.connect()) {
             var cache = ClientStateCache.INSTANCE;
             context.waitFor(client -> client.level != null && client.player != null && cache.view() != null);
+            var guard = server.computeOnServer(minecraft -> RuneLegendServer.find(minecraft).stamina().config());
+            context.waitFor(client -> cache.view() != null && cache.view().staminaMax() == guard.max());
             server.runCommand("runelegend admin @p equip runelegend:echo");
             server.runCommand("item replace entity @p weapon.mainhand with " + GuardGameTests.SWORD);
             context.waitFor(client -> cache.rules() != null && !cache.rules().running() && cache.view() != null
@@ -42,20 +44,20 @@ public final class HudClientGameTest implements FabricClientGameTest {
             server.runCommand("tp @p ~ ~ ~ 0 -35");
             context.getInput().holdKey(options -> options.keyUse);
             try {
-                assertWaitingGuard(context, server, connection, cache,
-                        StaminaManager.MAX / StaminaManager.DRAIN_PER_TICK + StaminaManager.REGEN_DELAY);
+                assertWaitingGuard(context, server, connection, cache, guard,
+                        Math.ceilDiv(guard.max(), guard.drainPerTick()) + guard.regenDelayTicks());
                 server.runCommand("title @a actionbar {text:'Vanilla action bar'}");
                 context.takeScreenshot("runelegend-waiting-stamina-only");
                 server.runCommand("runelegend game start");
                 context.waitFor(client -> cache.rules().running() && client.player.isBlocking()
-                        && cache.view() != null && cache.view().stamina() < StaminaManager.MAX);
+                        && cache.view() != null && cache.view().stamina() < guard.max());
                 context.takeScreenshot("runelegend-hud-and-action-bar");
                 context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
                 context.waitTick();
                 context.takeScreenshot("runelegend-native-third-person-block");
                 context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
                 context.waitFor(client -> cache.view() != null && cache.view().stamina() == 0 && !client.player.isUsingItem(), 240);
-                context.waitFor(client -> cache.view() != null && cache.view().stamina() >= StaminaManager.MIN_TO_START, 100);
+                context.waitFor(client -> cache.view() != null && cache.view().stamina() >= guard.minToStart(), 100);
                 context.waitTicks(12);
                 if (context.computeOnClient(client -> client.player.isUsingItem())) {
                     throw new AssertionError("Held Use automatically restarted blocking after exhaustion");
@@ -72,15 +74,15 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 long round = context.computeOnClient(client -> cache.rules().round());
                 // Keep Use held while an active guard crosses both round transitions.
                 server.runCommand("runelegend game stop");
-                assertWaitingGuard(context, server, connection, cache, StaminaManager.REGEN_DELAY + 20);
+                assertWaitingGuard(context, server, connection, cache, guard, guard.regenDelayTicks() + 20);
                 server.runCommand("runelegend game start");
                 context.waitFor(client -> cache.rules().running() && cache.rules().round() == round + 1
                         && client.player.isBlocking() && cache.view() != null
-                        && cache.view().stamina() > 0 && cache.view().stamina() < StaminaManager.MAX);
+                        && cache.view().stamina() > 0 && cache.view().stamina() < guard.max());
                 server.runOnServer(minecraft -> {
                     var runtime = RuneLegendServer.find(minecraft);
                     var player = connection.getServerPlayer();
-                    if (!player.isBlocking() || runtime.stamina().stamina(player) >= StaminaManager.MAX) {
+                    if (!player.isBlocking() || runtime.stamina().stamina(player) >= guard.max()) {
                         throw new AssertionError("Held guard did not resume draining on the next round");
                     }
                 });
@@ -88,7 +90,7 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
             context.waitFor(client -> !client.player.isUsingItem());
-            context.waitFor(client -> cache.view() != null && cache.view().stamina() == StaminaManager.MAX, 240);
+            context.waitFor(client -> cache.view() != null && cache.view().stamina() == guard.max(), 240);
             server.runCommand("item replace entity @p weapon.mainhand with minecraft:diamond_sword");
             server.runCommand("item replace entity @p weapon.offhand with minecraft:shield");
             context.waitFor(client -> client.player.getOffhandItem().is(Items.SHIELD));
@@ -99,19 +101,20 @@ public final class HudClientGameTest implements FabricClientGameTest {
             context.getInput().holdKey(options -> options.keyUse);
             try {
                 context.waitFor(client -> client.player.isBlocking() && client.player.getUsedItemHand() == InteractionHand.OFF_HAND
-                        && cache.view() != null && cache.view().stamina() < StaminaManager.MAX);
+                        && cache.view() != null && cache.view().stamina() < guard.max());
             } finally {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
             context.waitFor(client -> !client.player.isUsingItem());
-            captureThreeGlows(context, cache);
+            captureThreeGlows(context, cache, guard);
         }
     }
 
     private static void assertWaitingGuard(ClientGameTestContext context, TestDedicatedServerContext server,
-                                           TestDedicatedServerConnection connection, ClientStateCache cache, int ticks) {
+                                           TestDedicatedServerConnection connection, ClientStateCache cache,
+                                           GuardConfig guard, int ticks) {
         context.waitFor(client -> cache.rules() != null && !cache.rules().running() && client.player.isBlocking()
-                && cache.view() != null && cache.view().stamina() == StaminaManager.MAX);
+                && cache.view() != null && cache.view().stamina() == guard.max());
         server.waitFor(minecraft -> connection.getServerPlayer().isBlocking());
         long until = server.computeOnServer(minecraft -> RuneLegendServer.find(minecraft).tick()) + ticks;
         // Observe real server ticks so a fast client cannot skip the stamina calculation window.
@@ -119,14 +122,15 @@ public final class HudClientGameTest implements FabricClientGameTest {
             var runtime = RuneLegendServer.find(minecraft);
             var player = connection.getServerPlayer();
             if (runtime.game().getRules().running() || !player.isBlocking()
-                    || runtime.stamina().stamina(player) != StaminaManager.MAX) {
+                    || runtime.stamina().stamina(player) != guard.max()) {
                 throw new AssertionError("WAITING changed stamina or interrupted the held guard");
             }
             return runtime.tick() >= until;
         }, ticks + 100);
         connection.waitForClientboundPackets();
         if (!context.computeOnClient(client -> !cache.rules().running() && client.options.keyUse.isDown()
-                && client.player.isBlocking() && cache.view() != null && cache.view().stamina() == StaminaManager.MAX)) {
+                && client.player.isBlocking() && cache.view() != null && cache.view().stamina() == guard.max()
+                && cache.view().staminaMax() == guard.max())) {
             throw new AssertionError("WAITING guard and full stamina were not preserved on the client");
         }
     }
@@ -170,9 +174,10 @@ public final class HudClientGameTest implements FabricClientGameTest {
         if (!expected.equals(actual)) throw new AssertionError("HUD at " + now + "ms: expected " + expected + ", got " + actual);
     }
 
-    private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache) {
+    private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache, GuardConfig guard) {
         var fixture = RuneLegendMod.id("hud_screenshot_fixture");
-        var ids = List.of(RuneLegendMod.id("sharpened_tip"), RuneLegendMod.id("echo"), RuneLegendMod.id("immediate_counter"));
+        var ids = List.of(RuneLegendMod.id("venomous_tip"), RuneLegendMod.id("substitute"),
+                RuneLegendMod.id("execution_clone"));
         long cooldownUntil = cache.serverTick() + 600;
         var trigger = new java.util.concurrent.atomic.AtomicLong(1_000_000);
         var frameAge = new java.util.concurrent.atomic.AtomicLong();
@@ -180,7 +185,7 @@ public final class HudClientGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             cache.apply(new PlayerSnapshot(Long.MAX_VALUE, cache.serverTick(), new View(
                     ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.COOLDOWN, 0, 0, cooldownUntil)).toList(),
-                    StaminaManager.MAX)));
+                    guard.max(), guard.max())));
             HudElementRegistry.attachElementBefore(RuneLegendMod.id("hud"), fixture, (graphics, delta) -> {
                 // Pin a visual frame with synthetic triggers so screenshot timing does not depend on FPS.
                 long stamp = trigger.incrementAndGet();
