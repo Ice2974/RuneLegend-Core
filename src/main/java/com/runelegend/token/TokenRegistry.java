@@ -41,11 +41,10 @@ public final class TokenRegistry {
                 .addNoEffect("retribution")
                 .addNoEffect("asura_form")
                 .addNoEffect("vernal_tide")
-                .addNoEffect("execution_momentum")
+                .addNoEffect("execution_echo")
                 .addNoEffect("surging_fury")
                 .addNoEffect("resonance_healing")
                 .addNoEffect("arrogance")
-                .addNoEffect("deflective_backlash")
                 .build();
     }
 

@@ -15,8 +15,8 @@ class TokenRegistryTest {
     private static final List<String> REGISTERED_ONLY = List.of(
             "substitute", "poisoned_arrow",
             "fountain_of_life", "full_blessing", "retribution",
-            "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
-            "resonance_healing", "arrogance", "deflective_backlash");
+            "asura_form", "vernal_tide", "execution_echo", "surging_fury",
+            "resonance_healing", "arrogance");
 
     @Test void builtInRegistryContainsEveryTokenWithAUniqueId() {
         var registry = TokenRegistry.builtIn();
