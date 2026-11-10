@@ -106,12 +106,14 @@ public final class TokenEffectsGameTests {
         var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
         var nearSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 3);
         var farSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 4);
+        var venomTarget = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 2, 2, 5);
         var clock = new AtomicLong(100);
         var config = new TokenConfig(
                 new TokenConfig.SharpenedTipSettings(0.25F, 4.0F),
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
-                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30));
+                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
+                new TokenConfig.VenomousTipSettings(0.25F, 3, 3));
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
@@ -169,12 +171,73 @@ public final class TokenEffectsGameTests {
             var view = tokens.views(player).getFirst();
             test.assertTrue((view.flags() & TokenEngine.COOLDOWN) != 0 && view.cooldownUntil() == 230,
                     "Configured cooldown starts when the configured effect ends");
+
+            game.stopGame();
+            players.clear(player.getUUID());
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("venomous_tip")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Venomous Tip");
+            game.startGame();
+            tokens.dispatch(new TokenEvent(TokenEvent.Kind.MELEE, player, venomTarget, test.getLevel(),
+                    player.damageSources().playerAttack(player), 6, 6, 0));
+            var poison = venomTarget.getEffect(MobEffects.POISON);
+            test.assertTrue(poison != null, "Configured Venomous Tip applies Poison");
+            test.assertValueEqual(poison.getAmplifier(), 2, "Configured level 3 becomes amplifier 2");
+            test.assertValueEqual(poison.getDuration(), 60, "Configured three seconds become sixty ticks");
             test.succeed();
         } finally {
             tokens.clearRound();
             game.stopGame();
             players.clear(player.getUUID());
             server.leave(player);
+        }
+    }
+
+    @GameTest
+    public void meleeAttackAppliesDefaultPoisonOnlyToEnemies(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var attacker = GuardGameTests.fixture(test);
+        var enemy = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 2, 2, 3);
+        var ally = GuardGameTests.fixture(test);
+        attacker.setPos(test.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 2.5)));
+        ally.setPos(test.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 4.5)));
+        try {
+            server.game().stopGame();
+            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("venomous_tip")),
+                    PlayerTokenService.Result.CHANGED, "Equip Venomous Tip");
+            server.game().startGame();
+
+            long procSeed = 0;
+            while (RandomSource.create(procSeed).nextDouble() >= 0.50) procSeed++;
+            attacker.getRandom().setSeed(procSeed);
+            attacker.resetAttackStrengthTicker();
+            attacker.attack(enemy);
+            var poison = enemy.getEffect(MobEffects.POISON);
+            test.assertTrue(poison != null, "A successful roll applies Poison to the melee target");
+            test.assertValueEqual(poison.getAmplifier(), 1, "Default poison level 2 is amplifier 1");
+            test.assertValueEqual(poison.getDuration(), 120, "Default six seconds is 120 ticks");
+
+            enemy.removeEffect(MobEffects.POISON);
+            enemy.setHealth(enemy.getMaxHealth());
+            enemy.damageCooldownTime = 0;
+            long missSeed = 0;
+            while (RandomSource.create(missSeed).nextDouble() < 0.50) missSeed++;
+            attacker.getRandom().setSeed(missSeed);
+            attacker.resetAttackStrengthTicker();
+            attacker.attack(enemy);
+            test.assertTrue(enemy.getEffect(MobEffects.POISON) == null, "A failed roll does not apply Poison");
+
+            attacker.getRandom().setSeed(procSeed);
+            attacker.resetAttackStrengthTicker();
+            attacker.attack(ally);
+            test.assertTrue(ally.getEffect(MobEffects.POISON) == null,
+                    "A player target is not a token enemy and is not poisoned");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.players().clear(attacker.getUUID());
+            server.leave(attacker);
+            server.leave(ally);
         }
     }
 

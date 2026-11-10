@@ -27,6 +27,7 @@ public final class ImmediateCounterEffect implements TokenEffectHandler {
     }
 
     @Override public Object[] descriptionArguments() {
-        return new Object[]{settings.bonusDamage(), settings.durationTicks(), settings.cooldownAfterEffectTicks()};
+        return new Object[]{settings.bonusDamage(), TokenConfig.seconds(settings.durationTicks()),
+                TokenConfig.seconds(settings.cooldownAfterEffectTicks())};
     }
 }

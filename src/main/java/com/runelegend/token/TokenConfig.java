@@ -27,11 +27,13 @@ public record TokenConfig(
         SharpenedTipSettings sharpenedTip,
         SoulSiphonSettings soulSiphon,
         EchoSettings echo,
-        ImmediateCounterSettings immediateCounter) {
+        ImmediateCounterSettings immediateCounter,
+        VenomousTipSettings venomousTip) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:sharpened_tip", "runelegend:soul_siphon",
-            "runelegend:echo", "runelegend:immediate_counter");
+            "runelegend:echo", "runelegend:immediate_counter",
+            "runelegend:venomous_tip");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SharpenedTipSettings(float chance, float bonusDamage) {
@@ -42,10 +44,10 @@ public record TokenConfig(
         ).apply(instance, SharpenedTipSettings::new));
 
         public SharpenedTipSettings {
-            requireFinite(chance, "chance");
-            requireFinite(bonusDamage, "bonus_damage");
-            if (chance < 0.0F || chance > 1.0F) throw invalid("chance must be between 0 and 1");
-            if (bonusDamage < 0.0F) throw invalid("bonus_damage must be non-negative");
+            TokenSettingValidation.requireFinite(chance, "chance");
+            TokenSettingValidation.requireFinite(bonusDamage, "bonus_damage");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (bonusDamage < 0.0F) throw TokenSettingValidation.invalid("bonus_damage must be non-negative");
         }
     }
 
@@ -57,10 +59,10 @@ public record TokenConfig(
         ).apply(instance, SoulSiphonSettings::new));
 
         public SoulSiphonSettings {
-            requireFinite(chance, "chance");
-            requireFinite(maxHealthBonus, "max_health_bonus");
-            if (chance < 0.0F || chance > 1.0F) throw invalid("chance must be between 0 and 1");
-            if (maxHealthBonus < 0.0F) throw invalid("max_health_bonus must be non-negative");
+            TokenSettingValidation.requireFinite(chance, "chance");
+            TokenSettingValidation.requireFinite(maxHealthBonus, "max_health_bonus");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (maxHealthBonus < 0.0F) throw TokenSettingValidation.invalid("max_health_bonus must be non-negative");
         }
     }
 
@@ -75,13 +77,13 @@ public record TokenConfig(
         ).apply(instance, EchoSettings::new));
 
         public EchoSettings {
-            requireFinite(chance, "chance");
-            requireFinite(damage, "damage");
-            if (chance < 0.0F || chance > 1.0F) throw invalid("chance must be between 0 and 1");
-            if (!Double.isFinite(radius) || radius <= 0.0) throw invalid("radius must be positive");
-            if (damage < 0.0F) throw invalid("damage must be non-negative");
-            if (durationTicks < 0) throw invalid("duration_ticks must be non-negative");
-            if (intervalTicks <= 0) throw invalid("interval_ticks must be positive");
+            TokenSettingValidation.requireFinite(chance, "chance");
+            TokenSettingValidation.requireFinite(damage, "damage");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (!Double.isFinite(radius) || radius <= 0.0) throw TokenSettingValidation.invalid("radius must be positive");
+            if (damage < 0.0F) throw TokenSettingValidation.invalid("damage must be non-negative");
+            if (durationTicks < 0) throw TokenSettingValidation.invalid("duration_ticks must be non-negative");
+            if (intervalTicks <= 0) throw TokenSettingValidation.invalid("interval_ticks must be positive");
         }
 
         private static DataResult<Double> positiveRadius(double value) {
@@ -100,15 +102,39 @@ public record TokenConfig(
         ).apply(instance, ImmediateCounterSettings::new));
 
         public ImmediateCounterSettings {
-            requireFinite(bonusDamage, "bonus_damage");
-            if (bonusDamage < 0.0F) throw invalid("bonus_damage must be non-negative");
-            if (durationTicks < 0) throw invalid("duration_ticks must be non-negative");
-            if (cooldownAfterEffectTicks < 0) throw invalid("cooldown_after_effect_ticks must be non-negative");
+            TokenSettingValidation.requireFinite(bonusDamage, "bonus_damage");
+            if (bonusDamage < 0.0F) throw TokenSettingValidation.invalid("bonus_damage must be non-negative");
+            if (durationTicks < 0) throw TokenSettingValidation.invalid("duration_ticks must be non-negative");
+            if (cooldownAfterEffectTicks < 0) throw TokenSettingValidation.invalid("cooldown_after_effect_ticks must be non-negative");
         }
     }
 
+    /** {@code level} is 1-based: 1 applies Poison I, 2 applies Poison II. */
+    public record VenomousTipSettings(float chance, int durationSeconds, int level) {
+        public static final VenomousTipSettings DEFAULT = new VenomousTipSettings(0.50F, 6, 2);
+        public static final Codec<VenomousTipSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(VenomousTipSettings::chance),
+                field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(VenomousTipSettings::durationSeconds),
+                field(ExtraCodecs.intRange(1, 256), "level", DEFAULT.level()).forGetter(VenomousTipSettings::level)
+        ).apply(instance, VenomousTipSettings::new));
+
+        public VenomousTipSettings {
+            TokenSettingValidation.requireFinite(chance, "chance");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (durationSeconds <= 0 || durationSeconds > Integer.MAX_VALUE / 20) {
+                throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
+            }
+            if (level < 1 || level > 256) throw TokenSettingValidation.invalid("level must be between 1 and 256");
+        }
+
+        public int durationTicks() { return durationSeconds * 20; }
+        public int amplifier() { return level - 1; }
+    }
+
     public static final TokenConfig DEFAULT = new TokenConfig(SharpenedTipSettings.DEFAULT,
-            SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT);
+            SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
+            VenomousTipSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -145,7 +171,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:sharpened_tip", SharpenedTipSettings.CODEC, SharpenedTipSettings.DEFAULT),
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
-                section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT));
+                section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
+                section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -154,6 +181,7 @@ public record TokenConfig(
         tokens.add("runelegend:soul_siphon", encode(SoulSiphonSettings.CODEC, soulSiphon));
         tokens.add("runelegend:echo", encode(EchoSettings.CODEC, echo));
         tokens.add("runelegend:immediate_counter", encode(ImmediateCounterSettings.CODEC, immediateCounter));
+        tokens.add("runelegend:venomous_tip", encode(VenomousTipSettings.CODEC, venomousTip));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);
         root.add("tokens", tokens);
@@ -199,12 +227,9 @@ public record TokenConfig(
         return ExtraCodecs.optionalAlwaysPresentFieldOf(codec, name, fallback);
     }
 
-    private static void requireFinite(float value, String name) {
-        if (!Float.isFinite(value)) throw invalid(name + " must be finite");
-    }
-
-    private static IllegalArgumentException invalid(String message) {
-        return new IllegalArgumentException("Invalid RuneLegend token setting: " + message);
+    /** Formats a tick count as seconds for player-visible descriptions; 20 ticks = 1 second. */
+    public static String seconds(int ticks) {
+        return trimNumber(ticks / 20.0F);
     }
 
     public static String percent(float chance) {

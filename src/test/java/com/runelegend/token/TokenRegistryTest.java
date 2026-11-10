@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TokenRegistryTest {
     private static final List<String> IMPLEMENTED = List.of(
-            "sharpened_tip", "soul_siphon", "echo", "immediate_counter");
+            "sharpened_tip", "soul_siphon", "echo", "immediate_counter", "venomous_tip");
     private static final List<String> REGISTERED_ONLY = List.of(
-            "venomous_tip", "ghost_bane", "substitute", "poisoned_arrow",
+            "ghost_bane", "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
             "resonance_healing", "arrogance", "deflective_backlash");
@@ -48,6 +48,7 @@ class TokenRegistryTest {
         assertEquals(Set.of(TokenEvent.Kind.KILL), registry.get(id("echo")).events());
         assertEquals(Set.of(TokenEvent.Kind.GUARD_SUCCESS, TokenEvent.Kind.MELEE),
                 registry.get(id("immediate_counter")).events());
+        assertEquals(Set.of(TokenEvent.Kind.MELEE), registry.get(id("venomous_tip")).events());
     }
 
     private static Identifier id(String path) {

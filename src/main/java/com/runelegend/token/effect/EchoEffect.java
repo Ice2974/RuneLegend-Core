@@ -34,6 +34,6 @@ public final class EchoEffect implements TokenEffectHandler {
 
     @Override public Object[] descriptionArguments() {
         return new Object[]{TokenConfig.percent(settings.chance()), settings.radius(), settings.damage(),
-                settings.durationTicks(), settings.intervalTicks()};
+                TokenConfig.seconds(settings.durationTicks()), TokenConfig.seconds(settings.intervalTicks())};
     }
 }

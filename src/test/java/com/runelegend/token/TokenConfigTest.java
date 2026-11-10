@@ -12,11 +12,16 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(4, tokens.size());
+        assertEquals(5, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:sharpened_tip").size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
+        var venomous = tokens.getAsJsonObject("runelegend:venomous_tip");
+        assertEquals(3, venomous.size());
+        assertEquals(0.50F, venomous.get("chance").getAsFloat());
+        assertEquals(6, venomous.get("duration_seconds").getAsInt());
+        assertEquals(2, venomous.get("level").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -24,7 +29,8 @@ class TokenConfigTest {
                 new TokenConfig.SharpenedTipSettings(0.25F, 4.0F),
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
-                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30));
+                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
+                new TokenConfig.VenomousTipSettings(0.35F, 8, 3));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
         var tokens = encoded.getAsJsonObject("tokens");
@@ -32,6 +38,7 @@ class TokenConfigTest {
         tokens.add("runelegend:soul_siphon", encode(TokenConfig.SoulSiphonSettings.CODEC, config.soulSiphon()));
         tokens.add("runelegend:echo", encode(TokenConfig.EchoSettings.CODEC, config.echo()));
         tokens.add("runelegend:immediate_counter", encode(TokenConfig.ImmediateCounterSettings.CODEC, config.immediateCounter()));
+        tokens.add("runelegend:venomous_tip", encode(TokenConfig.VenomousTipSettings.CODEC, config.venomousTip()));
         assertEquals(config, TokenConfig.fromJson(encoded));
     }
 
@@ -46,6 +53,19 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(-1, 20, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, -1, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, 20, -1));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(-0.1F, 6, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(1.1F, 6, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 0, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 257));
+    }
+
+    @Test void venomousTipConvertsSecondsAndOneBasedLevel() {
+        var settings = new TokenConfig.VenomousTipSettings(0.5F, 6, 2);
+        assertEquals(120, settings.durationTicks());
+        assertEquals(1, settings.amplifier());
+        assertEquals(20, new TokenConfig.VenomousTipSettings(0.5F, 1, 1).durationTicks());
+        assertEquals(0, new TokenConfig.VenomousTipSettings(0.5F, 1, 1).amplifier());
     }
 
     @Test void invalidRootUsesAllDefaultsAndInvalidTokenUsesOnlyThatDefault() {

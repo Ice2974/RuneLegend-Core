@@ -31,9 +31,9 @@ public final class TokenRegistry {
                 .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
                 .add("echo", new EchoEffect(config.echo()), KILL)
                 .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)
+                .add("venomous_tip", new VenomousTipEffect(config.venomousTip()), MELEE)
                 // Registered so the token system can recognise, equip, store and sync them.
                 // Their effects are intentionally left unimplemented for now.
-                .addNoEffect("venomous_tip")
                 .addNoEffect("ghost_bane")
                 .addNoEffect("substitute")
                 .addNoEffect("poisoned_arrow")
