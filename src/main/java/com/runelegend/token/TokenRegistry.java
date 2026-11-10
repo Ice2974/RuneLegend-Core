@@ -34,7 +34,6 @@ public final class TokenRegistry {
                 .add("venomous_tip", new VenomousTipEffect(config.venomousTip()), MELEE)
                 // Registered so the token system can recognise, equip, store and sync them.
                 // Their effects are intentionally left unimplemented for now.
-                .addNoEffect("ghost_bane")
                 .addNoEffect("substitute")
                 .addNoEffect("poisoned_arrow")
                 .addNoEffect("fountain")

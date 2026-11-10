@@ -21,8 +21,8 @@ import java.util.stream.IntStream;
 public final class RuneLegendHud {
     private static final Set<String> ICONS = Set.of(
             "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
-            // Every built-in token currently uses a placeholder sprite copied from unknown.png.
-            "venomous_tip", "ghost_bane", "substitute", "poisoned_arrow",
+            // Built-in tokens with a HUD sprite; any other ID falls back to the unknown placeholder.
+            "venomous_tip", "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
             "resonance_healing", "arrogance", "deflective_backlash");

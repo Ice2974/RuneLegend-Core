@@ -23,8 +23,6 @@
   "token.runelegend.immediate_counter.description": "成功格挡后，随后 %2$s 秒内直接近战每击增加 %1$s HP；冷却 %3$s 秒",
   "token.runelegend.venomous_tip": "刃尖毒发",
   "token.runelegend.venomous_tip.description": "近战攻击有 %s 概率赋予敌人 %s 秒中毒 %s 效果",
-  "token.runelegend.ghost_bane": "鬼魅克星",
-  "token.runelegend.ghost_bane.description": "该令牌的效果尚未实现",
   "token.runelegend.substitute": "替身",
   "token.runelegend.substitute.description": "该令牌的效果尚未实现",
   "token.runelegend.poisoned_arrow": "淬毒之箭",

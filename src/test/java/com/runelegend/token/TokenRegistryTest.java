@@ -13,7 +13,7 @@ class TokenRegistryTest {
     private static final List<String> IMPLEMENTED = List.of(
             "sharpened_tip", "soul_siphon", "echo", "immediate_counter", "venomous_tip");
     private static final List<String> REGISTERED_ONLY = List.of(
-            "ghost_bane", "substitute", "poisoned_arrow",
+            "substitute", "poisoned_arrow",
             "fountain", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
             "resonance_healing", "arrogance", "deflective_backlash");
