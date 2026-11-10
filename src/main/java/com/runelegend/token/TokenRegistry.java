@@ -36,7 +36,7 @@ public final class TokenRegistry {
                 // Their effects are intentionally left unimplemented for now.
                 .addNoEffect("substitute")
                 .addNoEffect("poisoned_arrow")
-                .addNoEffect("fountain")
+                .addNoEffect("fountain_of_life")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")
                 .addNoEffect("asura_form")

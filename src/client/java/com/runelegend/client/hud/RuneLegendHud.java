@@ -23,7 +23,7 @@ public final class RuneLegendHud {
             "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
             // Built-in tokens with a HUD sprite; any other ID falls back to the unknown placeholder.
             "venomous_tip", "substitute", "poisoned_arrow",
-            "fountain", "full_blessing", "retribution",
+            "fountain_of_life", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_momentum", "surging_fury",
             "resonance_healing", "arrogance", "deflective_backlash");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
