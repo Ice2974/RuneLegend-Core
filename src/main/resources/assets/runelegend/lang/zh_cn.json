@@ -44,7 +44,5 @@
   "token.runelegend.resonance_healing": "共鸣疗愈",
   "token.runelegend.resonance_healing.description": "该令牌的效果尚未实现",
   "token.runelegend.arrogance": "狂妄",
-  "token.runelegend.arrogance.description": "该令牌的效果尚未实现",
-  "death.attack.runelegend_token": "%1$s 被令牌击败了",
-  "death.attack.runelegend_token.player": "%1$s 被 %2$s 的令牌击败了"
+  "token.runelegend.arrogance.description": "该令牌的效果尚未实现"
 }

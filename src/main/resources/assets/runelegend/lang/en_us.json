@@ -44,7 +44,5 @@
   "token.runelegend.resonance_healing": "Resonance Healing",
   "token.runelegend.resonance_healing.description": "This token's effect is not implemented yet",
   "token.runelegend.arrogance": "Arrogance",
-  "token.runelegend.arrogance.description": "This token's effect is not implemented yet",
-  "death.attack.runelegend_token": "%1$s was felled by a rune",
-  "death.attack.runelegend_token.player": "%1$s was felled by %2$s's rune"
+  "token.runelegend.arrogance.description": "This token's effect is not implemented yet"
 }
