@@ -11,11 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TokenRegistryTest {
     private static final List<String> IMPLEMENTED = List.of(
-            "sharpened_tip", "soul_siphon", "echo", "immediate_counter", "venomous_tip");
+            "sharpened_tip", "soul_siphon", "echo", "immediate_counter", "venomous_tip", "asura_form");
     private static final List<String> REGISTERED_ONLY = List.of(
             "substitute", "poisoned_arrow",
             "fountain_of_life", "full_blessing", "retribution",
-            "asura_form", "vernal_tide", "execution_echo", "surging_fury",
+            "vernal_tide", "execution_echo", "surging_fury",
             "resonance_healing", "arrogance");
 
     @Test void builtInRegistryContainsEveryTokenWithAUniqueId() {
@@ -49,6 +49,7 @@ class TokenRegistryTest {
         assertEquals(Set.of(TokenEvent.Kind.GUARD_SUCCESS, TokenEvent.Kind.MELEE),
                 registry.get(id("immediate_counter")).events());
         assertEquals(Set.of(TokenEvent.Kind.MELEE), registry.get(id("venomous_tip")).events());
+        assertEquals(Set.of(TokenEvent.Kind.KILL, TokenEvent.Kind.MELEE), registry.get(id("asura_form")).events());
     }
 
     private static Identifier id(String path) {

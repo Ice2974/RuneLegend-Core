@@ -34,7 +34,7 @@
   "token.runelegend.retribution": "Retribution",
   "token.runelegend.retribution.description": "This token's effect is not implemented yet",
   "token.runelegend.asura_form": "Asura Form",
-  "token.runelegend.asura_form.description": "This token's effect is not implemented yet",
+  "token.runelegend.asura_form.description": "Kill %1$s monsters to transform for %2$s seconds: melee hits add %3$s HP of true damage, you move as if you had Speed %4$s, and you use a temporary %5$s HP health bar. Healing restores both bars. When the form ends, your original health returns and a %6$s-second cooldown begins.",
   "token.runelegend.vernal_tide": "Vernal Tide",
   "token.runelegend.vernal_tide.description": "This token's effect is not implemented yet",
   "token.runelegend.execution_echo": "Execution Echo",

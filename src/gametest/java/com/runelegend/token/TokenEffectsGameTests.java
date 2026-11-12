@@ -113,7 +113,8 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
-                new TokenConfig.VenomousTipSettings(0.25F, 3, 3));
+                new TokenConfig.VenomousTipSettings(0.25F, 3, 3),
+                TokenConfig.AsuraFormSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);

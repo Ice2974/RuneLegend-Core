@@ -34,7 +34,7 @@
   "token.runelegend.retribution": "奉还",
   "token.runelegend.retribution.description": "该令牌的效果尚未实现",
   "token.runelegend.asura_form": "修罗化身",
-  "token.runelegend.asura_form.description": "该令牌的效果尚未实现",
+  "token.runelegend.asura_form.description": "击杀 %1$s 只怪物后变身 %2$s 秒：近战追加 %3$s HP 真伤，获得速度 %4$s 等效加速，换用 %5$s HP 临时血条。治疗同时补两条血，结束后恢复原血条并冷却 %6$s 秒。",
   "token.runelegend.vernal_tide": "回春怒涛",
   "token.runelegend.vernal_tide.description": "该令牌的效果尚未实现",
   "token.runelegend.execution_echo": "斩杀回响",

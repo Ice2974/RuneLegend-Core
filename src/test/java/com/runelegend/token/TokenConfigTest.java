@@ -12,7 +12,7 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(5, tokens.size());
+        assertEquals(6, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:sharpened_tip").size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
@@ -22,6 +22,14 @@ class TokenConfigTest {
         assertEquals(0.50F, venomous.get("chance").getAsFloat());
         assertEquals(6, venomous.get("duration_seconds").getAsInt());
         assertEquals(2, venomous.get("level").getAsInt());
+        var asura = tokens.getAsJsonObject("runelegend:asura_form");
+        assertEquals(6, asura.size());
+        assertEquals(3, asura.get("required_kills").getAsInt());
+        assertEquals(12, asura.get("duration_seconds").getAsInt());
+        assertEquals(4F, asura.get("bonus_damage").getAsFloat());
+        assertEquals(2, asura.get("speed_level").getAsInt());
+        assertEquals(16F, asura.get("temporary_health").getAsFloat());
+        assertEquals(9, asura.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -30,7 +38,8 @@ class TokenConfigTest {
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
-                new TokenConfig.VenomousTipSettings(0.35F, 8, 3));
+                new TokenConfig.VenomousTipSettings(0.35F, 8, 3),
+                new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
         var tokens = encoded.getAsJsonObject("tokens");
@@ -39,6 +48,7 @@ class TokenConfigTest {
         tokens.add("runelegend:echo", encode(TokenConfig.EchoSettings.CODEC, config.echo()));
         tokens.add("runelegend:immediate_counter", encode(TokenConfig.ImmediateCounterSettings.CODEC, config.immediateCounter()));
         tokens.add("runelegend:venomous_tip", encode(TokenConfig.VenomousTipSettings.CODEC, config.venomousTip()));
+        tokens.add("runelegend:asura_form", config.toJson().getAsJsonObject("tokens").get("runelegend:asura_form"));
         assertEquals(config, TokenConfig.fromJson(encoded));
     }
 
@@ -88,6 +98,22 @@ class TokenConfigTest {
         root.add("tokens", JsonParser.parseString("{\"runelegend:sharpened_tip\":{\"chance\":1}}").getAsJsonObject());
         var parsed = TokenConfig.fromJson(root);
         assertEquals(new TokenConfig.SharpenedTipSettings(1, 2), parsed.sharpenedTip());
+        assertEquals(TokenConfig.AsuraFormSettings.DEFAULT, parsed.asuraForm());
+    }
+
+    @Test void invalidAsuraSettingsFallBackWithoutDiscardingOtherTokens() {
+        var root = TokenConfig.DEFAULT.toJson();
+        var tokens = root.getAsJsonObject("tokens");
+        tokens.add("runelegend:sharpened_tip", JsonParser.parseString("{\"chance\":1}"));
+        for (String invalid : new String[]{"\"required_kills\":1.5", "\"required_kills\":0",
+                "\"duration_seconds\":107374183", "\"duration_seconds\":0", "\"bonus_damage\":1e300",
+                "\"bonus_damage\":-1", "\"speed_level\":0", "\"temporary_health\":0.5",
+                "\"temporary_health\":1025", "\"cooldown_seconds\":-1"}) {
+            tokens.add("runelegend:asura_form", JsonParser.parseString("{" + invalid + "}"));
+            var parsed = TokenConfig.fromJson(root);
+            assertEquals(TokenConfig.AsuraFormSettings.DEFAULT, parsed.asuraForm(), invalid);
+            assertEquals(1F, parsed.sharpenedTip().chance());
+        }
     }
 
     private static <T> JsonElement encode(com.mojang.serialization.Codec<T> codec, T value) {

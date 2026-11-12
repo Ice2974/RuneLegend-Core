@@ -28,12 +28,13 @@ public record TokenConfig(
         SoulSiphonSettings soulSiphon,
         EchoSettings echo,
         ImmediateCounterSettings immediateCounter,
-        VenomousTipSettings venomousTip) {
+        VenomousTipSettings venomousTip,
+        AsuraFormSettings asuraForm) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:sharpened_tip", "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
-            "runelegend:venomous_tip");
+            "runelegend:venomous_tip", "runelegend:asura_form");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SharpenedTipSettings(float chance, float bonusDamage) {
@@ -132,9 +133,56 @@ public record TokenConfig(
         public int amplifier() { return level - 1; }
     }
 
+    public record AsuraFormSettings(int requiredKills, int durationSeconds, float bonusDamage,
+                                    int speedLevel, float temporaryHealth, int cooldownSeconds) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final AsuraFormSettings DEFAULT = new AsuraFormSettings(3, 12, 4, 2, 16, 9);
+        public static final Codec<AsuraFormSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(wholeNumber(1, Integer.MAX_VALUE), "required_kills", DEFAULT.requiredKills())
+                        .forGetter(AsuraFormSettings::requiredKills),
+                field(wholeNumber(1, MAX_SECONDS), "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(AsuraFormSettings::durationSeconds),
+                field(ExtraCodecs.floatRange(0, Float.MAX_VALUE), "bonus_damage", DEFAULT.bonusDamage())
+                        .forGetter(AsuraFormSettings::bonusDamage),
+                field(wholeNumber(1, Integer.MAX_VALUE), "speed_level", DEFAULT.speedLevel())
+                        .forGetter(AsuraFormSettings::speedLevel),
+                field(ExtraCodecs.floatRange(1, 1024), "temporary_health", DEFAULT.temporaryHealth())
+                        .forGetter(AsuraFormSettings::temporaryHealth),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(AsuraFormSettings::cooldownSeconds)
+        ).apply(instance, AsuraFormSettings::new));
+
+        public AsuraFormSettings {
+            TokenSettingValidation.requireFinite(bonusDamage, "bonus_damage");
+            TokenSettingValidation.requireFinite(temporaryHealth, "temporary_health");
+            if (requiredKills < 1) throw TokenSettingValidation.invalid("required_kills must be positive");
+            if (durationSeconds < 1 || durationSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
+            }
+            if (bonusDamage < 0) throw TokenSettingValidation.invalid("bonus_damage must be non-negative");
+            if (speedLevel < 1) throw TokenSettingValidation.invalid("speed_level must be positive");
+            if (temporaryHealth < 1 || temporaryHealth > 1024) {
+                throw TokenSettingValidation.invalid("temporary_health must be between 1 and 1024");
+            }
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+        }
+
+        public int durationTicks() { return durationSeconds * 20; }
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+
+        // JsonOps' integer codec would silently truncate fractional input.
+        private static Codec<Integer> wholeNumber(int min, int max) {
+            return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
+                    ? DataResult.success(value) : DataResult.error(() -> "Expected an integer between " + min + " and " + max))
+                    .xmap(Double::intValue, Integer::doubleValue);
+        }
+    }
+
     public static final TokenConfig DEFAULT = new TokenConfig(SharpenedTipSettings.DEFAULT,
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
-            VenomousTipSettings.DEFAULT);
+            VenomousTipSettings.DEFAULT, AsuraFormSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -172,7 +220,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
                 section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
-                section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT));
+                section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT),
+                section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -182,6 +231,7 @@ public record TokenConfig(
         tokens.add("runelegend:echo", encode(EchoSettings.CODEC, echo));
         tokens.add("runelegend:immediate_counter", encode(ImmediateCounterSettings.CODEC, immediateCounter));
         tokens.add("runelegend:venomous_tip", encode(VenomousTipSettings.CODEC, venomousTip));
+        tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);
         root.add("tokens", tokens);

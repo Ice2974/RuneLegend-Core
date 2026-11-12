@@ -1,6 +1,7 @@
 package com.runelegend.token;
 
 import com.google.gson.JsonParser;
+import com.runelegend.token.effect.AsuraFormEffect;
 import com.runelegend.token.effect.EchoEffect;
 import com.runelegend.token.effect.ImmediateCounterEffect;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,22 @@ class TokenDescriptionTest {
         assertEquals("0.05", TokenConfig.seconds(1));
         assertEquals("50", TokenConfig.seconds(1000));
         assertEquals("0", TokenConfig.seconds(0));
+    }
+
+    @Test void asuraDescriptionsUseEveryConfiguredValue() throws IOException {
+        var args = new AsuraFormEffect(new TokenConfig.AsuraFormSettings(7, 13, 4.25F, 3, 18.5F, 11))
+                .descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.asura_form.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"7", "13", "4.25", "3", "18.5", "11"}) {
+                    assertTrue(description.contains(" " + value), description);
+                }
+            }
+        }
     }
 
     @Test void noDescriptionTextExposesRawTicks() {
