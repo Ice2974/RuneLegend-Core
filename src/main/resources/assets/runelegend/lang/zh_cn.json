@@ -26,7 +26,7 @@
   "token.runelegend.substitute": "替身",
   "token.runelegend.substitute.description": "该令牌的效果尚未实现",
   "token.runelegend.poisoned_arrow": "淬毒之箭",
-  "token.runelegend.poisoned_arrow.description": "该令牌的效果尚未实现",
+  "token.runelegend.poisoned_arrow.description": "弓箭命中有 %1$s 概率赋予敌人 %2$s 秒中毒 %3$s 效果",
   "token.runelegend.fountain_of_life": "生命之泉",
   "token.runelegend.fountain_of_life.description": "该令牌的效果尚未实现",
   "token.runelegend.full_blessing": "全域祝福",

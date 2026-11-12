@@ -114,6 +114,7 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.25F, 3, 3),
+                new TokenConfig.PoisonedArrowSettings(0.25F, 4, 3),
                 TokenConfig.AsuraFormSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
@@ -184,6 +185,20 @@ public final class TokenEffectsGameTests {
             test.assertTrue(poison != null, "Configured Venomous Tip applies Poison");
             test.assertValueEqual(poison.getAmplifier(), 2, "Configured level 3 becomes amplifier 2");
             test.assertValueEqual(poison.getDuration(), 60, "Configured three seconds become sixty ticks");
+
+            game.stopGame();
+            players.clear(player.getUUID());
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("poisoned_arrow")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Poisoned Arrow");
+            game.startGame();
+            venomTarget.removeEffect(MobEffects.POISON);
+            var arrow = test.spawn(EntityTypes.ARROW, 2, 3, 3);
+            tokens.dispatch(new TokenEvent(TokenEvent.Kind.ARROW, player, venomTarget, test.getLevel(),
+                    test.getLevel().damageSources().arrow(arrow, player), 6, 6, 0));
+            var arrowPoison = venomTarget.getEffect(MobEffects.POISON);
+            test.assertTrue(arrowPoison != null, "Configured Poisoned Arrow applies Poison to an arrow hit");
+            test.assertValueEqual(arrowPoison.getAmplifier(), 2, "Configured level 3 becomes amplifier 2");
+            test.assertValueEqual(arrowPoison.getDuration(), 80, "Configured four seconds become eighty ticks");
             test.succeed();
         } finally {
             tokens.clearRound();
@@ -231,6 +246,54 @@ public final class TokenEffectsGameTests {
             attacker.getRandom().setSeed(procSeed);
             attacker.resetAttackStrengthTicker();
             attacker.attack(ally);
+            test.assertTrue(ally.getEffect(MobEffects.POISON) == null,
+                    "A player target is not a token enemy and is not poisoned");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.players().clear(attacker.getUUID());
+            server.leave(attacker);
+            server.leave(ally);
+        }
+    }
+
+    @GameTest
+    public void arrowHitAppliesDefaultPoisonOnlyToEnemies(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var attacker = GuardGameTests.fixture(test);
+        var enemy = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 2, 2, 3);
+        var ally = GuardGameTests.fixture(test);
+        var arrow = test.spawn(EntityTypes.ARROW, 2, 3, 3);
+        try {
+            server.game().stopGame();
+            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("poisoned_arrow")),
+                    PlayerTokenService.Result.CHANGED, "Equip Poisoned Arrow");
+            server.game().startGame();
+
+            long procSeed = 0;
+            while (RandomSource.create(procSeed).nextDouble() >= 0.50) procSeed++;
+            attacker.getRandom().setSeed(procSeed);
+            enemy.damageCooldownTime = 0;
+            enemy.hurtServer(level, level.damageSources().arrow(arrow, attacker), 2);
+            var poison = enemy.getEffect(MobEffects.POISON);
+            test.assertTrue(poison != null, "A successful arrow hit applies Poison");
+            test.assertValueEqual(poison.getAmplifier(), 1, "Default poison level 2 is amplifier 1");
+            test.assertValueEqual(poison.getDuration(), 240, "Default twelve seconds is 240 ticks");
+
+            enemy.removeEffect(MobEffects.POISON);
+            enemy.setHealth(enemy.getMaxHealth());
+            enemy.damageCooldownTime = 0;
+            long missSeed = 0;
+            while (RandomSource.create(missSeed).nextDouble() < 0.50) missSeed++;
+            attacker.getRandom().setSeed(missSeed);
+            enemy.hurtServer(level, level.damageSources().arrow(arrow, attacker), 2);
+            test.assertTrue(enemy.getEffect(MobEffects.POISON) == null, "A failed roll does not apply Poison");
+
+            ally.setHealth(ally.getMaxHealth());
+            ally.damageCooldownTime = 0;
+            attacker.getRandom().setSeed(procSeed);
+            ally.hurtServer(level, level.damageSources().arrow(arrow, attacker), 2);
             test.assertTrue(ally.getEffect(MobEffects.POISON) == null,
                     "A player target is not a token enemy and is not poisoned");
             test.succeed();

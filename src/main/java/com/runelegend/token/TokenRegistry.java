@@ -32,11 +32,11 @@ public final class TokenRegistry {
                 .add("echo", new EchoEffect(config.echo()), KILL)
                 .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)
                 .add("venomous_tip", new VenomousTipEffect(config.venomousTip()), MELEE)
+                .add("poisoned_arrow", new PoisonedArrowEffect(config.poisonedArrow()), ARROW)
                 .add("asura_form", new AsuraFormEffect(config.asuraForm()), KILL, MELEE)
                 // Registered so the token system can recognise, equip, store and sync them.
                 // Their effects are intentionally left unimplemented for now.
                 .addNoEffect("substitute")
-                .addNoEffect("poisoned_arrow")
                 .addNoEffect("fountain_of_life")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")

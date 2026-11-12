@@ -29,12 +29,14 @@ public record TokenConfig(
         EchoSettings echo,
         ImmediateCounterSettings immediateCounter,
         VenomousTipSettings venomousTip,
+        PoisonedArrowSettings poisonedArrow,
         AsuraFormSettings asuraForm) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:sharpened_tip", "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
-            "runelegend:venomous_tip", "runelegend:asura_form");
+            "runelegend:venomous_tip", "runelegend:poisoned_arrow",
+            "runelegend:asura_form");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SharpenedTipSettings(float chance, float bonusDamage) {
@@ -133,6 +135,29 @@ public record TokenConfig(
         public int amplifier() { return level - 1; }
     }
 
+    /** {@code level} is 1-based: 1 applies Poison I, 2 applies Poison II. */
+    public record PoisonedArrowSettings(float chance, int durationSeconds, int level) {
+        public static final PoisonedArrowSettings DEFAULT = new PoisonedArrowSettings(0.50F, 12, 2);
+        public static final Codec<PoisonedArrowSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(PoisonedArrowSettings::chance),
+                field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(PoisonedArrowSettings::durationSeconds),
+                field(ExtraCodecs.intRange(1, 256), "level", DEFAULT.level()).forGetter(PoisonedArrowSettings::level)
+        ).apply(instance, PoisonedArrowSettings::new));
+
+        public PoisonedArrowSettings {
+            TokenSettingValidation.requireFinite(chance, "chance");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (durationSeconds <= 0 || durationSeconds > Integer.MAX_VALUE / 20) {
+                throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
+            }
+            if (level < 1 || level > 256) throw TokenSettingValidation.invalid("level must be between 1 and 256");
+        }
+
+        public int durationTicks() { return durationSeconds * 20; }
+        public int amplifier() { return level - 1; }
+    }
+
     public record AsuraFormSettings(int requiredKills, int durationSeconds, float bonusDamage,
                                     int speedLevel, float temporaryHealth, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
@@ -182,7 +207,7 @@ public record TokenConfig(
 
     public static final TokenConfig DEFAULT = new TokenConfig(SharpenedTipSettings.DEFAULT,
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
-            VenomousTipSettings.DEFAULT, AsuraFormSettings.DEFAULT);
+            VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -221,6 +246,7 @@ public record TokenConfig(
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
                 section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
                 section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT),
+                section(tokens, "runelegend:poisoned_arrow", PoisonedArrowSettings.CODEC, PoisonedArrowSettings.DEFAULT),
                 section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT));
     }
 
@@ -231,6 +257,7 @@ public record TokenConfig(
         tokens.add("runelegend:echo", encode(EchoSettings.CODEC, echo));
         tokens.add("runelegend:immediate_counter", encode(ImmediateCounterSettings.CODEC, immediateCounter));
         tokens.add("runelegend:venomous_tip", encode(VenomousTipSettings.CODEC, venomousTip));
+        tokens.add("runelegend:poisoned_arrow", encode(PoisonedArrowSettings.CODEC, poisonedArrow));
         tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);

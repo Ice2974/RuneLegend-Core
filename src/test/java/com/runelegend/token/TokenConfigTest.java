@@ -12,7 +12,7 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(6, tokens.size());
+        assertEquals(7, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:sharpened_tip").size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
@@ -22,6 +22,11 @@ class TokenConfigTest {
         assertEquals(0.50F, venomous.get("chance").getAsFloat());
         assertEquals(6, venomous.get("duration_seconds").getAsInt());
         assertEquals(2, venomous.get("level").getAsInt());
+        var poisonedArrow = tokens.getAsJsonObject("runelegend:poisoned_arrow");
+        assertEquals(3, poisonedArrow.size());
+        assertEquals(0.50F, poisonedArrow.get("chance").getAsFloat());
+        assertEquals(12, poisonedArrow.get("duration_seconds").getAsInt());
+        assertEquals(2, poisonedArrow.get("level").getAsInt());
         var asura = tokens.getAsJsonObject("runelegend:asura_form");
         assertEquals(6, asura.size());
         assertEquals(3, asura.get("required_kills").getAsInt());
@@ -39,6 +44,7 @@ class TokenConfigTest {
                 new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.35F, 8, 3),
+                new TokenConfig.PoisonedArrowSettings(0.45F, 10, 4),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
@@ -48,6 +54,7 @@ class TokenConfigTest {
         tokens.add("runelegend:echo", encode(TokenConfig.EchoSettings.CODEC, config.echo()));
         tokens.add("runelegend:immediate_counter", encode(TokenConfig.ImmediateCounterSettings.CODEC, config.immediateCounter()));
         tokens.add("runelegend:venomous_tip", encode(TokenConfig.VenomousTipSettings.CODEC, config.venomousTip()));
+        tokens.add("runelegend:poisoned_arrow", encode(TokenConfig.PoisonedArrowSettings.CODEC, config.poisonedArrow()));
         tokens.add("runelegend:asura_form", config.toJson().getAsJsonObject("tokens").get("runelegend:asura_form"));
         assertEquals(config, TokenConfig.fromJson(encoded));
     }
@@ -68,6 +75,20 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 0, 2));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 0));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 257));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(-0.1F, 12, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(1.1F, 12, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(Float.NaN, 12, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 0, 2));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 12, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 12, 257));
+    }
+
+    @Test void poisonedArrowConvertsSecondsAndOneBasedLevel() {
+        var settings = new TokenConfig.PoisonedArrowSettings(0.5F, 12, 2);
+        assertEquals(240, settings.durationTicks());
+        assertEquals(1, settings.amplifier());
+        assertEquals(20, new TokenConfig.PoisonedArrowSettings(0.5F, 1, 1).durationTicks());
+        assertEquals(0, new TokenConfig.PoisonedArrowSettings(0.5F, 1, 1).amplifier());
     }
 
     @Test void venomousTipConvertsSecondsAndOneBasedLevel() {

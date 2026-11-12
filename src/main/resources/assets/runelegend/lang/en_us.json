@@ -26,7 +26,7 @@
   "token.runelegend.substitute": "Substitute",
   "token.runelegend.substitute.description": "This token's effect is not implemented yet",
   "token.runelegend.poisoned_arrow": "Poisoned Arrow",
-  "token.runelegend.poisoned_arrow.description": "This token's effect is not implemented yet",
+  "token.runelegend.poisoned_arrow.description": "Arrow hits have a %1$s chance to inflict Poison %3$s for %2$s seconds",
   "token.runelegend.fountain_of_life": "Fountain of Life",
   "token.runelegend.fountain_of_life.description": "This token's effect is not implemented yet",
   "token.runelegend.full_blessing": "Full Blessing",
