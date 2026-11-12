@@ -132,14 +132,13 @@ public record TokenConfig(
         public int durationTicks() { return durationSeconds * 20; }
     }
 
-    /** {@code level} is 1-based: 1 applies Poison I, 2 applies Poison II. */
-    public record PoisonedArrowSettings(float chance, int durationSeconds, int level) {
-        public static final PoisonedArrowSettings DEFAULT = new PoisonedArrowSettings(0.50F, 12, 2);
+    /** The applied poison level is fixed at Poison II; only the chance and duration are configurable. */
+    public record PoisonedArrowSettings(float chance, int durationSeconds) {
+        public static final PoisonedArrowSettings DEFAULT = new PoisonedArrowSettings(0.50F, 12);
         public static final Codec<PoisonedArrowSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(PoisonedArrowSettings::chance),
                 field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())
-                        .forGetter(PoisonedArrowSettings::durationSeconds),
-                field(ExtraCodecs.intRange(1, 256), "level", DEFAULT.level()).forGetter(PoisonedArrowSettings::level)
+                        .forGetter(PoisonedArrowSettings::durationSeconds)
         ).apply(instance, PoisonedArrowSettings::new));
 
         public PoisonedArrowSettings {
@@ -148,11 +147,9 @@ public record TokenConfig(
             if (durationSeconds <= 0 || durationSeconds > Integer.MAX_VALUE / 20) {
                 throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
             }
-            if (level < 1 || level > 256) throw TokenSettingValidation.invalid("level must be between 1 and 256");
         }
 
         public int durationTicks() { return durationSeconds * 20; }
-        public int amplifier() { return level - 1; }
     }
 
     public record AsuraFormSettings(int requiredKills, int durationSeconds, float bonusDamage,

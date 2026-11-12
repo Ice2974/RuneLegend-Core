@@ -114,7 +114,7 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.25F, 3),
-                new TokenConfig.PoisonedArrowSettings(0.25F, 4, 3),
+                new TokenConfig.PoisonedArrowSettings(0.25F, 4),
                 TokenConfig.AsuraFormSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
@@ -197,7 +197,7 @@ public final class TokenEffectsGameTests {
                     test.getLevel().damageSources().arrow(arrow, player), 6, 6, 0));
             var arrowPoison = venomTarget.getEffect(MobEffects.POISON);
             test.assertTrue(arrowPoison != null, "Configured Poisoned Arrow applies Poison to an arrow hit");
-            test.assertValueEqual(arrowPoison.getAmplifier(), 2, "Configured level 3 becomes amplifier 2");
+            test.assertValueEqual(arrowPoison.getAmplifier(), 1, "Poisoned Arrow always applies Poison II");
             test.assertValueEqual(arrowPoison.getDuration(), 80, "Configured four seconds become eighty ticks");
             test.succeed();
         } finally {

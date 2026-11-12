@@ -22,6 +22,6 @@ public final class VenomousTipEffect implements TokenEffectHandler {
     }
 
     @Override public Object[] descriptionArguments() {
-        return new Object[]{TokenConfig.percent(settings.chance()), settings.durationSeconds(), POISON_LEVEL};
+        return new Object[]{TokenConfig.percent(settings.chance()), settings.durationSeconds()};
     }
 }

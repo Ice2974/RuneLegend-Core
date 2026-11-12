@@ -28,8 +28,8 @@ class TokenDescriptionTest {
         assertEquals("12", arguments[2], "Default 240-tick cooldown is 12 seconds");
     }
 
-    @Test void poisonedArrowDescriptionUsesConfiguredChanceDurationAndLevel() throws IOException {
-        var args = new PoisonedArrowEffect(new TokenConfig.PoisonedArrowSettings(0.45F, 13, 6))
+    @Test void poisonedArrowDescriptionUsesConfiguredChanceDurationAndFixedLevel() throws IOException {
+        var args = new PoisonedArrowEffect(new TokenConfig.PoisonedArrowSettings(0.45F, 13))
                 .descriptionArguments();
         for (var language : new String[]{"zh_cn", "en_us"}) {
             try (var reader = new InputStreamReader(getClass().getResourceAsStream(
@@ -37,7 +37,7 @@ class TokenDescriptionTest {
                 var format = JsonParser.parseReader(reader).getAsJsonObject()
                         .get("token.runelegend.poisoned_arrow.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
-                for (String value : new String[]{"45%", "13", "6"}) {
+                for (String value : new String[]{"45%", "13", "Ⅱ"}) {
                     assertTrue(description.contains(value), description);
                 }
             }
@@ -53,7 +53,7 @@ class TokenDescriptionTest {
                 var format = JsonParser.parseReader(reader).getAsJsonObject()
                         .get("token.runelegend.venomous_tip.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
-                for (String value : new String[]{"45%", "13", "2"}) {
+                for (String value : new String[]{"45%", "13", "Ⅱ"}) {
                     assertTrue(description.contains(value), description);
                 }
             }

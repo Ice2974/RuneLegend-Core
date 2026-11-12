@@ -23,10 +23,10 @@ class TokenConfigTest {
         assertEquals(6, venomous.get("duration_seconds").getAsInt());
         assertFalse(venomous.has("level"), "Venomous Tip poison level is no longer configurable");
         var poisonedArrow = tokens.getAsJsonObject("runelegend:poisoned_arrow");
-        assertEquals(3, poisonedArrow.size());
+        assertEquals(2, poisonedArrow.size());
         assertEquals(0.50F, poisonedArrow.get("chance").getAsFloat());
         assertEquals(12, poisonedArrow.get("duration_seconds").getAsInt());
-        assertEquals(2, poisonedArrow.get("level").getAsInt());
+        assertFalse(poisonedArrow.has("level"), "Poisoned Arrow poison level is no longer configurable");
         var asura = tokens.getAsJsonObject("runelegend:asura_form");
         assertEquals(6, asura.size());
         assertEquals(3, asura.get("required_kills").getAsInt());
@@ -44,7 +44,7 @@ class TokenConfigTest {
                 new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.35F, 8),
-                new TokenConfig.PoisonedArrowSettings(0.45F, 10, 4),
+                new TokenConfig.PoisonedArrowSettings(0.45F, 10),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
@@ -74,20 +74,15 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(1.1F, 6));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(Float.NaN, 6));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(-0.1F, 12, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(1.1F, 12, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(Float.NaN, 12, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 0, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 12, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 12, 257));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(-0.1F, 12));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(1.1F, 12));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(Float.NaN, 12));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 0));
     }
 
-    @Test void poisonedArrowConvertsSecondsAndOneBasedLevel() {
-        var settings = new TokenConfig.PoisonedArrowSettings(0.5F, 12, 2);
-        assertEquals(240, settings.durationTicks());
-        assertEquals(1, settings.amplifier());
-        assertEquals(20, new TokenConfig.PoisonedArrowSettings(0.5F, 1, 1).durationTicks());
-        assertEquals(0, new TokenConfig.PoisonedArrowSettings(0.5F, 1, 1).amplifier());
+    @Test void poisonedArrowConvertsSeconds() {
+        assertEquals(240, new TokenConfig.PoisonedArrowSettings(0.5F, 12).durationTicks());
+        assertEquals(20, new TokenConfig.PoisonedArrowSettings(0.5F, 1).durationTicks());
     }
 
     @Test void venomousTipConvertsSeconds() {
@@ -100,6 +95,13 @@ class TokenConfigTest {
         root.getAsJsonObject("tokens").add("runelegend:venomous_tip",
                 JsonParser.parseString("{\"chance\":0.4,\"duration_seconds\":8,\"level\":3}"));
         assertEquals(new TokenConfig.VenomousTipSettings(0.4F, 8), TokenConfig.fromJson(root).venomousTip());
+    }
+
+    @Test void poisonedArrowIgnoresRemovedLevelSetting() {
+        var root = TokenConfig.DEFAULT.toJson();
+        root.getAsJsonObject("tokens").add("runelegend:poisoned_arrow",
+                JsonParser.parseString("{\"chance\":0.4,\"duration_seconds\":8,\"level\":3}"));
+        assertEquals(new TokenConfig.PoisonedArrowSettings(0.4F, 8), TokenConfig.fromJson(root).poisonedArrow());
     }
 
     @Test void invalidRootUsesAllDefaultsAndInvalidTokenUsesOnlyThatDefault() {
