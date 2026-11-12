@@ -18,7 +18,7 @@ public final class EchoEffect implements TokenEffectHandler {
         var level = event.level();
         long start = context.tick();
         context.replaceEffect("echo", () -> {});
-        state.flash(start);
+        if (start >= state.activeUntil) state.flash(start);
         state.activeUntil = start + settings.durationTicks();
         for (int elapsed = settings.intervalTicks(); elapsed <= settings.durationTicks(); elapsed += settings.intervalTicks()) {
             context.at("echo", start + elapsed, () -> {

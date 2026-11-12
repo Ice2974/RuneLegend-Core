@@ -65,7 +65,11 @@ public final class TokenEngine {
 
     public void confirmBoost(ServerPlayer player, List<Identifier> applied) {
         if (!game.getRules().running() || !player.isAlive()) return;
-        for (var id : applied) state(player, id).flash(clock.getAsLong());
+        long tick = clock.getAsLong();
+        for (var id : applied) {
+            var state = state(player, id);
+            if (tick >= state.activeUntil) state.flash(tick);
+        }
     }
 
     public void dispatch(TokenEvent event) {
