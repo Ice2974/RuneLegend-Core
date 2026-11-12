@@ -5,6 +5,7 @@ import com.runelegend.token.effect.AsuraFormEffect;
 import com.runelegend.token.effect.EchoEffect;
 import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
+import com.runelegend.token.effect.VenomousTipEffect;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -37,6 +38,22 @@ class TokenDescriptionTest {
                         .get("token.runelegend.poisoned_arrow.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 for (String value : new String[]{"45%", "13", "6"}) {
+                    assertTrue(description.contains(value), description);
+                }
+            }
+        }
+    }
+
+    @Test void venomousTipDescriptionUsesConfiguredChanceDurationAndFixedLevel() throws IOException {
+        var args = new VenomousTipEffect(new TokenConfig.VenomousTipSettings(0.45F, 13))
+                .descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.venomous_tip.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"45%", "13", "2"}) {
                     assertTrue(description.contains(value), description);
                 }
             }

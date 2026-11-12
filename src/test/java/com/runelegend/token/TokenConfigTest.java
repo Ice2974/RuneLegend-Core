@@ -18,10 +18,10 @@ class TokenConfigTest {
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
         var venomous = tokens.getAsJsonObject("runelegend:venomous_tip");
-        assertEquals(3, venomous.size());
+        assertEquals(2, venomous.size());
         assertEquals(0.50F, venomous.get("chance").getAsFloat());
         assertEquals(6, venomous.get("duration_seconds").getAsInt());
-        assertEquals(2, venomous.get("level").getAsInt());
+        assertFalse(venomous.has("level"), "Venomous Tip poison level is no longer configurable");
         var poisonedArrow = tokens.getAsJsonObject("runelegend:poisoned_arrow");
         assertEquals(3, poisonedArrow.size());
         assertEquals(0.50F, poisonedArrow.get("chance").getAsFloat());
@@ -43,7 +43,7 @@ class TokenConfigTest {
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
-                new TokenConfig.VenomousTipSettings(0.35F, 8, 3),
+                new TokenConfig.VenomousTipSettings(0.35F, 8),
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10, 4),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0));
         var encoded = TokenConfig.DEFAULT.toJson();
@@ -70,11 +70,10 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(-1, 20, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, -1, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, 20, -1));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(-0.1F, 6, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(1.1F, 6, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 0, 2));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 6, 257));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(-0.1F, 6));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(1.1F, 6));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(Float.NaN, 6));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(0.5F, 0));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(-0.1F, 12, 2));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(1.1F, 12, 2));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(Float.NaN, 12, 2));
@@ -91,12 +90,16 @@ class TokenConfigTest {
         assertEquals(0, new TokenConfig.PoisonedArrowSettings(0.5F, 1, 1).amplifier());
     }
 
-    @Test void venomousTipConvertsSecondsAndOneBasedLevel() {
-        var settings = new TokenConfig.VenomousTipSettings(0.5F, 6, 2);
-        assertEquals(120, settings.durationTicks());
-        assertEquals(1, settings.amplifier());
-        assertEquals(20, new TokenConfig.VenomousTipSettings(0.5F, 1, 1).durationTicks());
-        assertEquals(0, new TokenConfig.VenomousTipSettings(0.5F, 1, 1).amplifier());
+    @Test void venomousTipConvertsSeconds() {
+        assertEquals(120, new TokenConfig.VenomousTipSettings(0.5F, 6).durationTicks());
+        assertEquals(20, new TokenConfig.VenomousTipSettings(0.5F, 1).durationTicks());
+    }
+
+    @Test void venomousTipIgnoresRemovedLevelSetting() {
+        var root = TokenConfig.DEFAULT.toJson();
+        root.getAsJsonObject("tokens").add("runelegend:venomous_tip",
+                JsonParser.parseString("{\"chance\":0.4,\"duration_seconds\":8,\"level\":3}"));
+        assertEquals(new TokenConfig.VenomousTipSettings(0.4F, 8), TokenConfig.fromJson(root).venomousTip());
     }
 
     @Test void invalidRootUsesAllDefaultsAndInvalidTokenUsesOnlyThatDefault() {

@@ -113,7 +113,7 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
-                new TokenConfig.VenomousTipSettings(0.25F, 3, 3),
+                new TokenConfig.VenomousTipSettings(0.25F, 3),
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4, 3),
                 TokenConfig.AsuraFormSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
@@ -183,7 +183,7 @@ public final class TokenEffectsGameTests {
                     player.damageSources().playerAttack(player), 6, 6, 0));
             var poison = venomTarget.getEffect(MobEffects.POISON);
             test.assertTrue(poison != null, "Configured Venomous Tip applies Poison");
-            test.assertValueEqual(poison.getAmplifier(), 2, "Configured level 3 becomes amplifier 2");
+            test.assertValueEqual(poison.getAmplifier(), 1, "Venomous Tip always applies Poison II");
             test.assertValueEqual(poison.getDuration(), 60, "Configured three seconds become sixty ticks");
 
             game.stopGame();

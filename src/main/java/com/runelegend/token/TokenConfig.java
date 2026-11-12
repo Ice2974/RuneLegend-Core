@@ -112,14 +112,13 @@ public record TokenConfig(
         }
     }
 
-    /** {@code level} is 1-based: 1 applies Poison I, 2 applies Poison II. */
-    public record VenomousTipSettings(float chance, int durationSeconds, int level) {
-        public static final VenomousTipSettings DEFAULT = new VenomousTipSettings(0.50F, 6, 2);
+    /** The poison level is fixed at II; only chance and duration are configurable. */
+    public record VenomousTipSettings(float chance, int durationSeconds) {
+        public static final VenomousTipSettings DEFAULT = new VenomousTipSettings(0.50F, 6);
         public static final Codec<VenomousTipSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(VenomousTipSettings::chance),
                 field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())
-                        .forGetter(VenomousTipSettings::durationSeconds),
-                field(ExtraCodecs.intRange(1, 256), "level", DEFAULT.level()).forGetter(VenomousTipSettings::level)
+                        .forGetter(VenomousTipSettings::durationSeconds)
         ).apply(instance, VenomousTipSettings::new));
 
         public VenomousTipSettings {
@@ -128,11 +127,9 @@ public record TokenConfig(
             if (durationSeconds <= 0 || durationSeconds > Integer.MAX_VALUE / 20) {
                 throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
             }
-            if (level < 1 || level > 256) throw TokenSettingValidation.invalid("level must be between 1 and 256");
         }
 
         public int durationTicks() { return durationSeconds * 20; }
-        public int amplifier() { return level - 1; }
     }
 
     /** {@code level} is 1-based: 1 applies Poison I, 2 applies Poison II. */
