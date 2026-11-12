@@ -76,7 +76,7 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
             }
             server.waitFor(minecraft -> minecraft.getPlayerList().getPlayers().isEmpty());
             context.waitFor(client -> client.player == null && cache.view() == null);
-            try (var ignored = server.connect()) {
+            try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && client.player.getMaxHealth() == 24
                         && client.player.getHealth() == 22 && hasFlag(cache, TokenEngine.COOLDOWN));
             }
