@@ -13,8 +13,6 @@
   "runelegend.result.duplicate": "已经装备了该令牌",
   "runelegend.result.full": "三个令牌槽已满",
   "runelegend.result.not_equipped": "没有装备该令牌",
-  "token.runelegend.sharpened_tip": "强化刃尖",
-  "token.runelegend.sharpened_tip.description": "近战攻击有 %s 概率使本击伤害增加 %s HP",
   "token.runelegend.soul_siphon": "灵魂摄取",
   "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命",
   "token.runelegend.echo": "残响",

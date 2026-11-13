@@ -20,7 +20,7 @@ import java.util.stream.IntStream;
 
 public final class RuneLegendHud {
     private static final Set<String> ICONS = Set.of(
-            "sharpened_tip", "soul_siphon", "echo", "immediate_counter",
+            "soul_siphon", "echo", "immediate_counter",
             // Built-in tokens with a HUD sprite; any other ID falls back to the unknown placeholder.
             "venomous_tip", "substitute", "poisoned_arrow",
             "fountain_of_life", "full_blessing", "retribution",

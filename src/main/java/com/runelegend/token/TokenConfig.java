@@ -24,7 +24,6 @@ import java.util.Set;
 
 /** Server-wide numeric tuning for built-in tokens. Values are read once per server process. */
 public record TokenConfig(
-        SharpenedTipSettings sharpenedTip,
         SoulSiphonSettings soulSiphon,
         EchoSettings echo,
         ImmediateCounterSettings immediateCounter,
@@ -33,26 +32,11 @@ public record TokenConfig(
         AsuraFormSettings asuraForm) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
-            "runelegend:sharpened_tip", "runelegend:soul_siphon",
+            "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-
-    public record SharpenedTipSettings(float chance, float bonusDamage) {
-        public static final SharpenedTipSettings DEFAULT = new SharpenedTipSettings(0.50F, 2.0F);
-        public static final Codec<SharpenedTipSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(SharpenedTipSettings::chance),
-                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "bonus_damage", DEFAULT.bonusDamage()).forGetter(SharpenedTipSettings::bonusDamage)
-        ).apply(instance, SharpenedTipSettings::new));
-
-        public SharpenedTipSettings {
-            TokenSettingValidation.requireFinite(chance, "chance");
-            TokenSettingValidation.requireFinite(bonusDamage, "bonus_damage");
-            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
-            if (bonusDamage < 0.0F) throw TokenSettingValidation.invalid("bonus_damage must be non-negative");
-        }
-    }
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -199,7 +183,7 @@ public record TokenConfig(
         }
     }
 
-    public static final TokenConfig DEFAULT = new TokenConfig(SharpenedTipSettings.DEFAULT,
+    public static final TokenConfig DEFAULT = new TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT);
 
@@ -235,7 +219,6 @@ public record TokenConfig(
         var tokens = tokenElement.getAsJsonObject();
         warnAboutUnknownTokens(tokens);
         return new TokenConfig(
-                section(tokens, "runelegend:sharpened_tip", SharpenedTipSettings.CODEC, SharpenedTipSettings.DEFAULT),
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
                 section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
@@ -246,7 +229,6 @@ public record TokenConfig(
 
     public JsonObject toJson() {
         var tokens = new JsonObject();
-        tokens.add("runelegend:sharpened_tip", encode(SharpenedTipSettings.CODEC, sharpenedTip));
         tokens.add("runelegend:soul_siphon", encode(SoulSiphonSettings.CODEC, soulSiphon));
         tokens.add("runelegend:echo", encode(EchoSettings.CODEC, echo));
         tokens.add("runelegend:immediate_counter", encode(ImmediateCounterSettings.CODEC, immediateCounter));

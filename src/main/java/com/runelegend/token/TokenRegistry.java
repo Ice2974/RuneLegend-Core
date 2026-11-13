@@ -27,7 +27,6 @@ public final class TokenRegistry {
 
     public static TokenRegistry builtIn(TokenConfig config) {
         return new Builder()
-                .add("sharpened_tip", new SharpenedTipEffect(config.sharpenedTip()), MELEE)
                 .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
                 .add("echo", new EchoEffect(config.echo()), KILL)
                 .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)

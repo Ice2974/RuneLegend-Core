@@ -13,8 +13,6 @@
   "runelegend.result.duplicate": "That token is already equipped",
   "runelegend.result.full": "All three token slots are full",
   "runelegend.result.not_equipped": "That token is not equipped",
-  "token.runelegend.sharpened_tip": "Sharpened Tip",
-  "token.runelegend.sharpened_tip.description": "A %s chance to add %s HP to a direct melee hit",
   "token.runelegend.soul_siphon": "Soul Siphon",
   "token.runelegend.soul_siphon.description": "A %s chance on a hostile kill to add %s maximum HP without stacking",
   "token.runelegend.echo": "Echo",

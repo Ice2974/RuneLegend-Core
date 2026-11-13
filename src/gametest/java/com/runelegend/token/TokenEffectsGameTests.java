@@ -39,8 +39,6 @@ public final class TokenEffectsGameTests {
             server.game().stopGame();
             test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("immediate_counter")),
                     PlayerTokenService.Result.CHANGED, "Equip Immediate Counter");
-            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("sharpened_tip")),
-                    PlayerTokenService.Result.CHANGED, "Equip Sharpened Tip");
             float[] normal = new float[targets.size()];
             for (int i = 0; i < targets.size(); i++) {
                 var target = targets.get(i);
@@ -66,16 +64,13 @@ public final class TokenEffectsGameTests {
 
             server.game().startGame();
             server.tokens().dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS, attacker, attacker, level, null, 6, 3, 3));
-            long seed = 0;
-            while (RandomSource.create(seed).nextDouble() >= 0.50) seed++;
             for (int i = 0; i < targets.size(); i++) {
                 var target = targets.get(i);
-                attacker.getRandom().setSeed(seed);
                 float boosted = hit(target, () -> {
                     attacker.resetAttackStrengthTicker();
                     attacker.attack(target);
                 });
-                near(test, boosted, normal[i] + 4F, "Base damage is unchanged; only the combined 5 HP bonus bypasses equipment");
+                near(test, boosted, normal[i] + 2.4F, "Base damage is unchanged; only the 3 HP bonus bypasses equipment");
             }
             test.succeed();
         } finally {
@@ -109,7 +104,6 @@ public final class TokenEffectsGameTests {
         var venomTarget = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 2, 2, 5);
         var clock = new AtomicLong(100);
         var config = new TokenConfig(
-                new TokenConfig.SharpenedTipSettings(0.25F, 4.0F),
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
@@ -124,13 +118,9 @@ public final class TokenEffectsGameTests {
                 player.damageSources().playerAttack(player), 20, 20, 0);
         try {
             game.stopGame();
-            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("sharpened_tip")),
-                    PlayerTokenService.Result.CHANGED, "Equip configured Sharpened Tip");
             test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("soul_siphon")),
                     PlayerTokenService.Result.CHANGED, "Equip configured Soul Siphon");
             game.startGame();
-            test.assertValueEqual(tokens.melee(player, 6).bonusDamage(), 4.0F,
-                    "Configured probability and damage drive Sharpened Tip");
             float maximumHealth = player.getMaxHealth();
             tokens.dispatch(kill);
             test.assertValueEqual(player.getMaxHealth(), maximumHealth + 3.0F,
@@ -390,18 +380,15 @@ public final class TokenEffectsGameTests {
         try {
             server.game().stopGame();
             for (var player : List.of(first, second)) {
-                for (String id : List.of("sharpened_tip", "soul_siphon", "echo")) {
+                for (String id : List.of("soul_siphon", "echo")) {
                     test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id(id)),
-                            PlayerTokenService.Result.CHANGED, "Each player can equip the same three tokens");
+                            PlayerTokenService.Result.CHANGED, "Each player can equip the same tokens");
                 }
             }
             var kill = new TokenEvent(TokenEvent.Kind.KILL, first, corpse, level, first.damageSources().playerAttack(first), 25, 25, 0);
             tokens.dispatch(kill);
             test.assertValueEqual(first.getMaxHealth(), firstMax, "WAITING disables token effects");
             server.game().startGame();
-            var boost = tokens.melee(first, 6);
-            test.assertValueEqual(boost.bonusDamage(), 2F, "Sharpened Tip contributes only the separate bonus");
-            tokens.confirmBoost(first, boost.applied());
             tokens.dispatch(kill);
             tokens.dispatch(kill);
             test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Soul Siphon refreshes without stacking");

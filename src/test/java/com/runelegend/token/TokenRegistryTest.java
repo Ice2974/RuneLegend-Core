@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TokenRegistryTest {
     private static final List<String> IMPLEMENTED = List.of(
-            "sharpened_tip", "soul_siphon", "echo", "immediate_counter", "venomous_tip",
+            "soul_siphon", "echo", "immediate_counter", "venomous_tip",
             "poisoned_arrow", "asura_form");
     private static final List<String> REGISTERED_ONLY = List.of(
             "substitute", "fountain_of_life", "full_blessing", "retribution",
@@ -43,7 +43,6 @@ class TokenRegistryTest {
 
     @Test void implementedTokensKeepTheirEventKinds() {
         var registry = TokenRegistry.builtIn();
-        assertEquals(Set.of(TokenEvent.Kind.MELEE), registry.get(id("sharpened_tip")).events());
         assertEquals(Set.of(TokenEvent.Kind.KILL), registry.get(id("soul_siphon")).events());
         assertEquals(Set.of(TokenEvent.Kind.KILL), registry.get(id("echo")).events());
         assertEquals(Set.of(TokenEvent.Kind.GUARD_SUCCESS, TokenEvent.Kind.MELEE),

@@ -125,7 +125,7 @@ public final class AsuraFormGameTests {
         var server = RuneLegendServer.find(minecraft);
         var clock = new AtomicLong(100);
         var defaults = TokenConfig.DEFAULT;
-        var registry = TokenRegistry.builtIn(new TokenConfig(defaults.sharpenedTip(), defaults.soulSiphon(), defaults.echo(),
+        var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 new TokenConfig.AsuraFormSettings(2, 2, 5.5F, 3, 16, 1)));
         var game = new GameController(() -> {}, (previous, current) -> {});
