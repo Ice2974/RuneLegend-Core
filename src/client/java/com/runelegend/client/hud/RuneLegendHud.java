@@ -22,7 +22,7 @@ public final class RuneLegendHud {
     private static final Set<String> ICONS = Set.of(
             "soul_siphon", "echo", "immediate_counter",
             // Built-in tokens with a HUD sprite; any other ID falls back to the unknown placeholder.
-            "venomous_tip", "substitute", "poisoned_arrow",
+            "venomous_tip", "poisoned_arrow",
             "fountain_of_life", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_echo",
             "resonance_healing", "arrogance");

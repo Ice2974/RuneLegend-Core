@@ -14,7 +14,7 @@ class TokenRegistryTest {
             "soul_siphon", "echo", "immediate_counter", "venomous_tip",
             "poisoned_arrow", "asura_form");
     private static final List<String> REGISTERED_ONLY = List.of(
-            "substitute", "fountain_of_life", "full_blessing", "retribution",
+            "fountain_of_life", "full_blessing", "retribution",
             "vernal_tide", "execution_echo",
             "resonance_healing", "arrogance");
 
