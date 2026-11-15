@@ -33,6 +33,7 @@ public final class TokenRegistry {
                 .add("venomous_tip", new VenomousTipEffect(config.venomousTip()), MELEE)
                 .add("poisoned_arrow", new PoisonedArrowEffect(config.poisonedArrow()), ARROW)
                 .add("asura_form", new AsuraFormEffect(config.asuraForm()), KILL, MELEE)
+                .add("resonance_healing", new ResonanceHealingEffect(config.resonanceHealing()), GUARD_SUCCESS)
                 // Registered so the token system can recognise, equip, store and sync them.
                 // Their effects are intentionally left unimplemented for now.
                 .addNoEffect("substitute")
@@ -41,7 +42,6 @@ public final class TokenRegistry {
                 .addNoEffect("retribution")
                 .addNoEffect("vernal_tide")
                 .addNoEffect("execution_echo")
-                .addNoEffect("resonance_healing")
                 .addNoEffect("arrogance")
                 .build();
     }

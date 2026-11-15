@@ -109,7 +109,8 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.25F, 3),
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4),
-                TokenConfig.AsuraFormSettings.DEFAULT);
+                TokenConfig.AsuraFormSettings.DEFAULT,
+                TokenConfig.ResonanceHealingSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);

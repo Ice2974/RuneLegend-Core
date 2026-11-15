@@ -29,13 +29,14 @@ public record TokenConfig(
         ImmediateCounterSettings immediateCounter,
         VenomousTipSettings venomousTip,
         PoisonedArrowSettings poisonedArrow,
-        AsuraFormSettings asuraForm) {
+        AsuraFormSettings asuraForm,
+        ResonanceHealingSettings resonanceHealing) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
-            "runelegend:asura_form");
+            "runelegend:asura_form", "runelegend:resonance_healing");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
@@ -183,9 +184,54 @@ public record TokenConfig(
         }
     }
 
+    public record ResonanceHealingSettings(float healthThreshold, double radius, float healAmount, int cooldownSeconds) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final ResonanceHealingSettings DEFAULT = new ResonanceHealingSettings(0.5F, 5.0, 6.0F, 15);
+        public static final Codec<ResonanceHealingSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
+                        .forGetter(ResonanceHealingSettings::healthThreshold),
+                field(Codec.DOUBLE.validate(ResonanceHealingSettings::positiveRadius), "radius", DEFAULT.radius())
+                        .forGetter(ResonanceHealingSettings::radius),
+                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "heal_amount", DEFAULT.healAmount())
+                        .forGetter(ResonanceHealingSettings::healAmount),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(ResonanceHealingSettings::cooldownSeconds)
+        ).apply(instance, ResonanceHealingSettings::new));
+
+        public ResonanceHealingSettings {
+            TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            TokenSettingValidation.requireFinite(healAmount, "heal_amount");
+            if (healthThreshold < 0.0F || healthThreshold > 1.0F) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
+            }
+            if (!Double.isFinite(radius) || radius <= 0.0) {
+                throw TokenSettingValidation.invalid("radius must be positive");
+            }
+            if (healAmount < 0.0F) throw TokenSettingValidation.invalid("heal_amount must be non-negative");
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+        }
+
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+
+        private static DataResult<Double> positiveRadius(double value) {
+            return Double.isFinite(value) && value > 0.0
+                    ? DataResult.success(value) : DataResult.error(() -> "radius must be positive");
+        }
+
+        // JsonOps' integer codec would silently truncate fractional input.
+        private static Codec<Integer> wholeNumber(int min, int max) {
+            return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
+                    ? DataResult.success(value) : DataResult.error(() -> "Expected an integer between " + min + " and " + max))
+                    .xmap(Double::intValue, Integer::doubleValue);
+        }
+    }
+
     public static final TokenConfig DEFAULT = new TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
-            VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT);
+            VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
+            ResonanceHealingSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -224,7 +270,9 @@ public record TokenConfig(
                 section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
                 section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT),
                 section(tokens, "runelegend:poisoned_arrow", PoisonedArrowSettings.CODEC, PoisonedArrowSettings.DEFAULT),
-                section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT));
+                section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT),
+                section(tokens, "runelegend:resonance_healing", ResonanceHealingSettings.CODEC,
+                        ResonanceHealingSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -235,6 +283,7 @@ public record TokenConfig(
         tokens.add("runelegend:venomous_tip", encode(VenomousTipSettings.CODEC, venomousTip));
         tokens.add("runelegend:poisoned_arrow", encode(PoisonedArrowSettings.CODEC, poisonedArrow));
         tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));
+        tokens.add("runelegend:resonance_healing", encode(ResonanceHealingSettings.CODEC, resonanceHealing));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);
         root.add("tokens", tokens);

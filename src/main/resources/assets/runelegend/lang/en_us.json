@@ -38,7 +38,7 @@
   "token.runelegend.execution_echo": "Execution Echo",
   "token.runelegend.execution_echo.description": "This token's effect is not implemented yet",
   "token.runelegend.resonance_healing": "Resonance Healing",
-  "token.runelegend.resonance_healing.description": "This token's effect is not implemented yet",
+  "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every non-spectator player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
   "token.runelegend.arrogance": "Arrogance",
   "token.runelegend.arrogance.description": "This token's effect is not implemented yet"
 }

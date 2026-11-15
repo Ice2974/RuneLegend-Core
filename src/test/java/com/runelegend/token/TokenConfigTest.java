@@ -12,7 +12,7 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(6, tokens.size());
+        assertEquals(7, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -34,6 +34,12 @@ class TokenConfigTest {
         assertEquals(2, asura.get("speed_level").getAsInt());
         assertEquals(16F, asura.get("temporary_health").getAsFloat());
         assertEquals(9, asura.get("cooldown_seconds").getAsInt());
+        var resonance = tokens.getAsJsonObject("runelegend:resonance_healing");
+        assertEquals(4, resonance.size());
+        assertEquals(0.5F, resonance.get("health_threshold").getAsFloat());
+        assertEquals(5.0, resonance.get("radius").getAsDouble());
+        assertEquals(6.0F, resonance.get("heal_amount").getAsFloat());
+        assertEquals(15, resonance.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -43,7 +49,8 @@ class TokenConfigTest {
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.35F, 8),
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10),
-                new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0));
+                new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0),
+                new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
         var tokens = encoded.getAsJsonObject("tokens");
@@ -53,6 +60,8 @@ class TokenConfigTest {
         tokens.add("runelegend:venomous_tip", encode(TokenConfig.VenomousTipSettings.CODEC, config.venomousTip()));
         tokens.add("runelegend:poisoned_arrow", encode(TokenConfig.PoisonedArrowSettings.CODEC, config.poisonedArrow()));
         tokens.add("runelegend:asura_form", config.toJson().getAsJsonObject("tokens").get("runelegend:asura_form"));
+        tokens.add("runelegend:resonance_healing",
+                encode(TokenConfig.ResonanceHealingSettings.CODEC, config.resonanceHealing()));
         assertEquals(config, TokenConfig.fromJson(encoded));
     }
 
@@ -73,6 +82,17 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(1.1F, 12));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(Float.NaN, 12));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.PoisonedArrowSettings(0.5F, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(-0.1F, 5, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(1.1F, 5, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(Float.NaN, 5, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, 0, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, -1, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, Double.NaN, 6, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, -1, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, Float.NaN, 15));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, 6, -1));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, 6, Integer.MAX_VALUE / 20 + 1));
     }
 
     @Test void poisonedArrowConvertsSeconds() {
@@ -133,6 +153,21 @@ class TokenConfigTest {
             tokens.add("runelegend:asura_form", JsonParser.parseString("{" + invalid + "}"));
             var parsed = TokenConfig.fromJson(root);
             assertEquals(TokenConfig.AsuraFormSettings.DEFAULT, parsed.asuraForm(), invalid);
+            assertEquals(1F, parsed.soulSiphon().chance());
+        }
+    }
+
+    @Test void invalidResonanceSettingsFallBackWithoutDiscardingOtherTokens() {
+        var root = TokenConfig.DEFAULT.toJson();
+        var tokens = root.getAsJsonObject("tokens");
+        tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
+        for (String invalid : new String[]{"\"health_threshold\":1.5",
+                "\"radius\":0", "\"radius\":-1", "\"heal_amount\":-1",
+                "\"cooldown_seconds\":-1", "\"cooldown_seconds\":1.5",
+                "\"cooldown_seconds\":" + (Integer.MAX_VALUE / 20 + 1)}) {
+            tokens.add("runelegend:resonance_healing", JsonParser.parseString("{" + invalid + "}"));
+            var parsed = TokenConfig.fromJson(root);
+            assertEquals(TokenConfig.ResonanceHealingSettings.DEFAULT, parsed.resonanceHealing(), invalid);
             assertEquals(1F, parsed.soulSiphon().chance());
         }
     }

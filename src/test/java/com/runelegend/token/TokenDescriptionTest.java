@@ -5,6 +5,7 @@ import com.runelegend.token.effect.AsuraFormEffect;
 import com.runelegend.token.effect.EchoEffect;
 import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
+import com.runelegend.token.effect.ResonanceHealingEffect;
 import com.runelegend.token.effect.VenomousTipEffect;
 import org.junit.jupiter.api.Test;
 
@@ -78,6 +79,22 @@ class TokenDescriptionTest {
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 for (String value : new String[]{"7", "13", "4.25", "3", "18.5", "11"}) {
                     assertTrue(description.contains(" " + value), description);
+                }
+            }
+        }
+    }
+
+    @Test void resonanceHealingDescriptionUsesEveryConfiguredValue() throws IOException {
+        var args = new ResonanceHealingEffect(new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11))
+                .descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.resonance_healing.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"40%", "6.5", "4.5", "11"}) {
+                    assertTrue(description.contains(value), description);
                 }
             }
         }
