@@ -12,6 +12,7 @@ import com.runelegend.player.PlayerTokenService;
 import com.runelegend.token.TokenEngine;
 import com.runelegend.token.TokenConfig;
 import com.runelegend.token.TokenRegistry;
+import com.runelegend.token.effect.SoulSiphonEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -61,6 +62,7 @@ public final class RuneLegendServer {
         checkThread();
         transports.put(player.getUUID(), player.connection);
         tokens.clearEffects(player.getUUID());
+        SoulSiphonEffect.clearStaleBonus(player, game.getRules());
         stamina.join(player);
         sync.join(player);
     }
@@ -101,6 +103,7 @@ public final class RuneLegendServer {
         var online = minecraft.getPlayerList().getPlayers();
         if (before.state() != after.state()) {
             tokens.clearRound();
+            if (!after.running()) online.forEach(SoulSiphonEffect::clearBonus);
             online.forEach(stamina::resetRound);
         }
         online.forEach(sync::rules);

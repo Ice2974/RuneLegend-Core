@@ -3,6 +3,7 @@ package com.runelegend;
 import com.runelegend.command.RuneLegendCommands;
 import com.runelegend.network.RuneLegendPayloads;
 import com.runelegend.network.ServerNetworking;
+import com.runelegend.token.effect.SoulSiphonEffect;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -19,6 +20,7 @@ public final class RuneLegendMod implements ModInitializer {
     public static Identifier id(String path) { return Identifier.fromNamespaceAndPath(MOD_ID, path); }
 
     @Override public void onInitialize() {
+        SoulSiphonEffect.registerAttachment();
         RuneLegendPayloads.register();
         ServerNetworking.register();
         RuneLegendCommands.register();

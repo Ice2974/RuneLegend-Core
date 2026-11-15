@@ -183,6 +183,7 @@ public final class TokenEngine {
 
         public ServerPlayer player() { return player; }
         public long tick() { return clock.getAsLong(); }
+        public long round() { return game.getRules().round(); }
         public boolean roll(double chance) { return TokenEngine.roll(chance, () -> random.applyAsDouble(player)); }
 
         public void replaceEffect(String name, Runnable remove) {

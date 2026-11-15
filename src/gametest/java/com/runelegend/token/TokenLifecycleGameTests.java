@@ -6,11 +6,14 @@ import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.test.GuardGameTests;
+import com.runelegend.token.effect.SoulSiphonEffect;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -106,7 +109,7 @@ public final class TokenLifecycleGameTests {
     }
 
     @GameTest
-    public void soulSiphonSurvivesSavingButNotDeathRespawn(GameTestHelper test) {
+    public void soulSiphonSurvivesSavingInTheSameRoundButNotDeathRespawn(GameTestHelper test) {
         var minecraft = test.getLevel().getServer();
         var server = RuneLegendServer.find(minecraft);
         var original = GuardGameTests.fixture(test);
@@ -124,18 +127,18 @@ public final class TokenLifecycleGameTests {
             game.startGame();
             tokens.dispatch(new TokenEvent(TokenEvent.Kind.KILL, original, corpse, test.getLevel(), null, 20, 20, 0));
             test.assertValueEqual(original.getMaxHealth(), 26F, "Soul Siphon adds its configured bonus");
-            tokens.clearRound();
-            game.stopGame();
-            players.clear(original.getUUID());
-            test.assertValueEqual(original.getMaxHealth(), 26F, "Stopping and unequipping do not remove the saved modifier");
-
             var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, minecraft.registryAccess());
             original.saveWithoutId(output);
             reloaded.load(TagValueInput.create(ProblemReporter.DISCARDING, minecraft.registryAccess(), output.buildResult()));
-            test.assertValueEqual(reloaded.getMaxHealth(), 26F, "Vanilla player save/load retains the modifier");
+            SoulSiphonEffect.clearStaleBonus(reloaded, game.getRules());
+            test.assertValueEqual(reloaded.getMaxHealth(), 26F, "The modifier and its round survive a save and reload");
             aliveCopy.restoreFrom(original, true);
+            // Mock players bypass PlayerList.respawn, which fires Fabric's attachment transfer hook.
+            ServerPlayerEvents.AFTER_RESPAWN.invoker().afterRespawn(original, aliveCopy, true);
+            SoulSiphonEffect.clearStaleBonus(aliveCopy, game.getRules());
             test.assertValueEqual(aliveCopy.getMaxHealth(), 26F, "A living player transfer retains the modifier");
             respawned.restoreFrom(original, false);
+            ServerPlayerEvents.AFTER_RESPAWN.invoker().afterRespawn(original, respawned, false);
             test.assertValueEqual(respawned.getMaxHealth(), 24F, "Ordinary death respawn keeps base health but loses the bonus");
             test.succeed();
         } finally {
@@ -143,6 +146,33 @@ public final class TokenLifecycleGameTests {
             game.stopGame();
             players.clear(original.getUUID());
             for (var player : List.of(original, reloaded, aliveCopy, respawned)) server.leave(player);
+        }
+    }
+
+    @GameTest
+    public void soulSiphonLegacySaveClearsOnlyItsOwnModifierOnJoin(GameTestHelper test) {
+        var server = RuneLegendServer.find(test.getLevel().getServer());
+        var player = GuardGameTests.fixture(test);
+        try {
+            server.game().startGame();
+            var maximum = player.getAttribute(Attributes.MAX_HEALTH);
+            var other = RuneLegendMod.id("test_extra_health");
+            maximum.setBaseValue(24);
+            maximum.addPermanentModifier(new AttributeModifier(other, 3, AttributeModifier.Operation.ADD_VALUE));
+            maximum.addPermanentModifier(new AttributeModifier(RuneLegendMod.id("soul_siphon"), 2,
+                    AttributeModifier.Operation.ADD_VALUE));
+            player.getAttribute(Attributes.MAX_ABSORPTION).setBaseValue(4);
+            player.setAbsorptionAmount(4);
+            player.setHealth(19);
+            server.join(player);
+            test.assertValueEqual(maximum.getBaseValue(), 24D, "Login preserves base health");
+            test.assertValueEqual(player.getMaxHealth(), 27F, "Only the unmarked Soul Siphon bonus is removed");
+            test.assertValueEqual(player.getHealth(), 19F, "Login does not heal to the new maximum");
+            test.assertValueEqual(player.getAbsorptionAmount(), 4F, "Login preserves absorption health");
+            test.succeed();
+        } finally {
+            server.leave(player);
+            server.game().stopGame();
         }
     }
 
