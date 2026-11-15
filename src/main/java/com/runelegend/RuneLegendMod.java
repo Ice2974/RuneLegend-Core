@@ -6,6 +6,7 @@ import com.runelegend.network.ServerNetworking;
 import com.runelegend.token.effect.SoulSiphonEffect;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.resources.Identifier;
@@ -20,7 +21,6 @@ public final class RuneLegendMod implements ModInitializer {
     public static Identifier id(String path) { return Identifier.fromNamespaceAndPath(MOD_ID, path); }
 
     @Override public void onInitialize() {
-        SoulSiphonEffect.registerAttachment();
         RuneLegendPayloads.register();
         ServerNetworking.register();
         RuneLegendCommands.register();
@@ -35,6 +35,7 @@ public final class RuneLegendMod implements ModInitializer {
             var server = RuneLegendServer.find(minecraft);
             if (server != null) server.endTick();
         });
+        ServerPlayerEvents.COPY_FROM.register(SoulSiphonEffect::transferBonus);
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (entity instanceof ServerPlayer player) {
                 var server = RuneLegendServer.find(player.level().getServer());

@@ -61,8 +61,8 @@ public final class RuneLegendServer {
     public void join(ServerPlayer player) {
         checkThread();
         transports.put(player.getUUID(), player.connection);
-        tokens.clearEffects(player.getUUID());
-        SoulSiphonEffect.clearStaleBonus(player, game.getRules());
+        // Also remove the permanent modifier left by older saves.
+        clearPlayerEffects(player);
         stamina.join(player);
         sync.join(player);
     }
@@ -74,7 +74,7 @@ public final class RuneLegendServer {
         transports.remove(player.getUUID());
         sync.leave(player);
         stamina.leave(player);
-        tokens.clearEffects(player.getUUID());
+        clearPlayerEffects(player);
     }
 
     public boolean isCurrent(ServerPlayer player) {
@@ -84,7 +84,12 @@ public final class RuneLegendServer {
     public void died(ServerPlayer player) {
         checkThread();
         if (GuardItems.using(player)) player.stopUsingItem();
+        clearPlayerEffects(player);
+    }
+
+    private void clearPlayerEffects(ServerPlayer player) {
         tokens.clearEffects(player.getUUID());
+        SoulSiphonEffect.clearBonus(player);
     }
 
     void endTick() {
@@ -97,6 +102,7 @@ public final class RuneLegendServer {
 
     void close() {
         tokens.clearRound();
+        minecraft.getPlayerList().getPlayers().forEach(SoulSiphonEffect::clearBonus);
     }
 
     private void rulesChanged(RuleSnapshot before, RuleSnapshot after) {

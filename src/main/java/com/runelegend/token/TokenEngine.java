@@ -29,7 +29,6 @@ public final class TokenEngine {
     private final LongSupplier clock;
     private final ToDoubleFunction<ServerPlayer> random;
     private final Map<UUID, Map<Identifier, TokenRuntimeState>> states = new HashMap<>();
-    private final Map<UUID, Map<Identifier, Long>> retainedCooldowns = new HashMap<>();
     private final Map<UUID, Long> health = new HashMap<>();
     private final TokenScheduler scheduler = new TokenScheduler();
     private final OwnedEffects owned = new OwnedEffects();
@@ -103,11 +102,6 @@ public final class TokenEngine {
     }
 
     public void tick(Iterable<ServerPlayer> online) {
-        long now = clock.getAsLong();
-        retainedCooldowns.values().removeIf(cooldowns -> {
-            cooldowns.values().removeIf(until -> until <= now);
-            return cooldowns.isEmpty();
-        });
         var rules = game.getRules();
         if (!rules.running()) return;
         scheduler.tick(clock.getAsLong(), rules.round());
@@ -122,34 +116,18 @@ public final class TokenEngine {
         }
     }
 
-    /** Death, disconnect and reconnect discard effects and charges, retaining only unexpired cooldowns. */
+    /** Discard all player token runtime on death, disconnect and reconnect. */
     public void clearEffects(UUID uuid) {
         owned.removePlayer(uuid);
         scheduler.cancelPlayer(uuid);
         health.remove(uuid);
-        long now = clock.getAsLong();
-        var perPlayer = states.remove(uuid);
-        if (perPlayer != null) {
-            perPlayer.forEach((id, state) -> {
-                state.clearEffects();
-                if (state.cooldownUntil > now) {
-                    retainedCooldowns.computeIfAbsent(uuid, ignored -> new HashMap<>())
-                            .merge(id, state.cooldownUntil, Math::max);
-                }
-            });
-        }
-        var cooldowns = retainedCooldowns.get(uuid);
-        if (cooldowns != null) {
-            cooldowns.values().removeIf(until -> until <= now);
-            if (cooldowns.isEmpty()) retainedCooldowns.remove(uuid);
-        }
+        states.remove(uuid);
     }
 
     public void clearRound() {
         owned.clear();
         scheduler.clear();
         states.clear();
-        retainedCooldowns.clear();
         health.clear();
     }
 
@@ -159,17 +137,8 @@ public final class TokenEngine {
     }
 
     private TokenRuntimeState state(ServerPlayer player, Identifier id) {
-        var uuid = player.getUUID();
-        return states.computeIfAbsent(uuid, ignored -> new HashMap<>()).computeIfAbsent(id, ignored -> {
-            var state = new TokenRuntimeState();
-            var cooldowns = retainedCooldowns.get(uuid);
-            if (cooldowns != null) {
-                var until = cooldowns.remove(id);
-                if (until != null && until > clock.getAsLong()) state.cooldownUntil = until;
-                if (cooldowns.isEmpty()) retainedCooldowns.remove(uuid);
-            }
-            return state;
-        });
+        return states.computeIfAbsent(player.getUUID(), ignored -> new HashMap<>())
+                .computeIfAbsent(id, ignored -> new TokenRuntimeState());
     }
 
     public final class Context {
@@ -183,7 +152,6 @@ public final class TokenEngine {
 
         public ServerPlayer player() { return player; }
         public long tick() { return clock.getAsLong(); }
-        public long round() { return game.getRules().round(); }
         public boolean roll(double chance) { return TokenEngine.roll(chance, () -> random.applyAsDouble(player)); }
 
         public void replaceEffect(String name, Runnable remove) {

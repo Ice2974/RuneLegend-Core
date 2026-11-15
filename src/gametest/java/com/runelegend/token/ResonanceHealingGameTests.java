@@ -86,10 +86,6 @@ public final class ResonanceHealingGameTests {
             test.assertValueEqual(nearAlly.getHealth(), 10F,
                     "A second block during the cooldown does not heal");
 
-            tokens.clearEffects(healer.getUUID());
-            test.assertValueEqual(tokens.views(healer).getFirst().flags(), TokenEngine.COOLDOWN,
-                    "Death or disconnect cleanup keeps the unexpired cooldown");
-
             clock.set(400);
             healer.setHealth(10);
             test.assertValueEqual(tokens.views(healer).getFirst().flags(),

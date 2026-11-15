@@ -78,7 +78,7 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
             context.waitFor(client -> client.player == null && cache.view() == null);
             try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && client.player.getMaxHealth() == 24
-                        && client.player.getHealth() == 22 && hasFlag(cache, TokenEngine.COOLDOWN));
+                        && client.player.getHealth() == 22 && hasFlag(cache, TokenEngine.READY));
             }
         }
     }

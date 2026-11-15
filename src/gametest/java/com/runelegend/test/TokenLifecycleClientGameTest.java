@@ -16,7 +16,6 @@ public final class TokenLifecycleClientGameTest implements FabricClientGameTest 
         props.setProperty("white-list", "false");
         var cache = ClientStateCache.INSTANCE;
         try (var server = context.worldBuilder().createServer(props)) {
-            long expiry;
             try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
                 server.runCommand("runelegend admin @p equip runelegend:immediate_counter");
@@ -31,27 +30,29 @@ public final class TokenLifecycleClientGameTest implements FabricClientGameTest 
                 context.waitFor(client -> client.player != null && !client.player.isAlive()
                         && token(cache) != null && token(cache).flags() == 0);
                 context.runOnClient(client -> client.player.respawn());
-                context.waitFor(client -> client.player != null && client.player.isAlive()
-                        && token(cache) != null && token(cache).flags() == TokenEngine.COOLDOWN);
-                expiry = context.computeOnClient(client -> token(cache).cooldownUntil());
-                if (expiry <= context.computeOnClient(client -> cache.serverTick())) {
-                    throw new AssertionError("Death respawn lost the unexpired cooldown");
-                }
+                context.waitFor(client -> client.player != null && client.player.isAlive() && ready(cache));
+                server.runOnServer(minecraft -> {
+                    var player = minecraft.getPlayerList().getPlayers().getFirst();
+                    RuneLegendServer.find(minecraft).tokens().dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS,
+                            player, player, player.level(), null, 6, 3, 3));
+                });
+                context.waitFor(client -> token(cache) != null && token(cache).flags() == TokenEngine.COOLDOWN);
             }
             server.waitFor(minecraft -> minecraft.getPlayerList().getPlayers().isEmpty());
             context.waitFor(client -> client.player == null && cache.view() == null);
             try (var _ = server.connect()) {
-                context.waitFor(client -> client.player != null && token(cache) != null
-                        && token(cache).flags() == TokenEngine.COOLDOWN);
-                long restored = context.computeOnClient(client -> token(cache).cooldownUntil());
-                if (restored != expiry) throw new AssertionError("Reconnect changed cooldown expiry: " + expiry + " -> " + restored);
+                context.waitFor(client -> client.player != null && ready(cache));
                 server.runCommand("runelegend game stop");
                 context.waitFor(client -> cache.rules() != null && !cache.rules().running());
                 server.runCommand("runelegend game start");
-                context.waitFor(client -> cache.rules().running() && token(cache) != null
-                        && token(cache).flags() == TokenEngine.READY && token(cache).cooldownUntil() == 0);
+                context.waitFor(client -> cache.rules().running() && ready(cache));
             }
         }
+    }
+
+    private static boolean ready(ClientStateCache cache) {
+        var view = token(cache);
+        return view != null && view.flags() == TokenEngine.READY && view.cooldownUntil() == 0;
     }
 
     private static TokenEngine.View token(ClientStateCache cache) {

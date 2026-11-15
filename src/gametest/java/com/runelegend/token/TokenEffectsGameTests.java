@@ -403,8 +403,8 @@ public final class TokenEffectsGameTests {
                 tokens.tick(List.of(first, second));
                 test.assertValueEqual(spider.getHealth(), spiderHealth - 3F * (elapsed / 20), "Echo applies one pulse every twenty ticks");
             }
-            tokens.clearEffects(first.getUUID());
-            test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Runtime cleanup keeps the saved max-health modifier");
+            server.died(first);
+            test.assertValueEqual(first.getMaxHealth(), firstMax, "Death cleanup removes the temporary max-health modifier");
             test.succeed();
         } finally {
             tokens.clearRound();
