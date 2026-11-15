@@ -3,8 +3,8 @@ package com.runelegend.token;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
-import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -113,7 +113,7 @@ public final class TokenEffectsGameTests {
                 TokenConfig.ResonanceHealingSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
-        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, players, registry, clock::get, ignored -> 0.10);
         var kill = new TokenEvent(TokenEvent.Kind.KILL, player, corpse, test.getLevel(),
                 player.damageSources().playerAttack(player), 20, 20, 0);
@@ -311,7 +311,7 @@ public final class TokenEffectsGameTests {
                     }
                 })).build();
         var game = new GameController(() -> {}, (previous, current) -> {});
-        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, players, registry, () -> 100);
         try {
             test.assertValueEqual(players.equip(player.getUUID(), id), PlayerTokenService.Result.CHANGED, "Equip fixture");

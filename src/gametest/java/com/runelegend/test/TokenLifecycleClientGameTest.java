@@ -18,6 +18,7 @@ public final class TokenLifecycleClientGameTest implements FabricClientGameTest 
         try (var server = context.worldBuilder().createServer(props)) {
             try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
+                server.runCommand("runelegend admin @p clear");
                 server.runCommand("runelegend admin @p equip runelegend:immediate_counter");
                 server.runCommand("runelegend game start");
                 server.runOnServer(minecraft -> {

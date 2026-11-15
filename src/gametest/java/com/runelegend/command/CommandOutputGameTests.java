@@ -2,6 +2,7 @@ package com.runelegend.command;
 
 import com.runelegend.RuneLegendServer;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.commands.CommandSource;
@@ -47,6 +48,9 @@ public final class CommandOutputGameTests {
             server.game().stopGame();
             test.assertValueEqual(server.players().equip(player.getUUID(), ECHO), PlayerTokenService.Result.CHANGED,
                     "The test equips a token while waiting");
+            var persisted = PlayerTokenStore.load(PlayerTokenStore.defaultPath());
+            test.assertValueEqual(persisted.get(player.getUUID()).equipped(), List.of(ECHO),
+                    "The server writes equipment to the global player file before reporting success");
             run(test, player, messages, "runelegend token status");
             var name = server.registry().get(ECHO).name().getString();
             test.assertValueEqual(messages.size(), 1, "The status lists only the equipped token");

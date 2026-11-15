@@ -28,6 +28,7 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
             try (var connection = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
                 server.runCommand("gamemode survival @p");
+                server.runCommand("runelegend admin @p clear");
                 server.runCommand("runelegend admin @p equip runelegend:asura_form");
                 var second = server.computeOnServer(minecraft -> {
                     var player = new ServerPlayer(minecraft, connection.getServerPlayer().level(),

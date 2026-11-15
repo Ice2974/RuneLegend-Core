@@ -3,8 +3,8 @@ package com.runelegend.token;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
-import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -56,7 +56,7 @@ public final class TokenLifecycleGameTests {
             }
         })).build();
         var game = new GameController(() -> {}, (previous, current) -> {});
-        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, players, registry, clock::get);
         try {
             for (var player : List.of(first, second)) {
@@ -109,7 +109,7 @@ public final class TokenLifecycleGameTests {
         var respawned = GuardGameTests.fixture(test);
         var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
         var game = new GameController(() -> {}, (previous, current) -> {});
-        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), server.registry());
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), server.registry());
         var tokens = new TokenEngine(game, players, server.registry(), () -> 100, player -> 0);
         try {
             test.assertValueEqual(players.equip(original.getUUID(), RuneLegendMod.id("soul_siphon")),

@@ -35,6 +35,7 @@ public final class HudClientGameTest implements FabricClientGameTest {
             context.waitFor(client -> client.level != null && client.player != null && cache.view() != null);
             var guard = server.computeOnServer(minecraft -> RuneLegendServer.find(minecraft).stamina().config());
             context.waitFor(client -> cache.view() != null && cache.view().staminaMax() == guard.max());
+            server.runCommand("runelegend admin @p clear");
             server.runCommand("runelegend admin @p equip runelegend:echo");
             server.runCommand("item replace entity @p weapon.mainhand with " + GuardGameTests.SWORD);
             context.waitFor(client -> cache.rules() != null && !cache.rules().running() && cache.view() != null

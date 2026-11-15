@@ -8,7 +8,7 @@
   "runelegend.result.changed": "已更新 %s 的令牌",
   "runelegend.result.unchanged": "%s 的令牌未变更",
   "runelegend.result.running": "只能在等待状态修改装备",
-  "runelegend.result.read_only": "无法读取 RuneLegend 存档，装备只读",
+  "runelegend.result.read_only": "无法读取或写入 RuneLegend 玩家数据，令牌装备只读",
   "runelegend.result.unknown": "未知的令牌 ID",
   "runelegend.result.duplicate": "已经装备了该令牌",
   "runelegend.result.full": "三个令牌槽已满",

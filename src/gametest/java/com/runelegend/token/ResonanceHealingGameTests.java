@@ -3,8 +3,8 @@ package com.runelegend.token;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
-import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -31,7 +31,7 @@ public final class ResonanceHealingGameTests {
         var clock = new AtomicLong(100);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var registry = TokenRegistry.builtIn(TokenConfig.DEFAULT);
-        var service = new PlayerTokenService(game, PlayerTokenSavedData.load(level.getServer()), registry);
+        var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly, spectator);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
@@ -118,7 +118,7 @@ public final class ResonanceHealingGameTests {
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), new TokenConfig.ResonanceHealingSettings(0.6F, 3.0, 4.0F, 2)));
-        var service = new PlayerTokenService(game, PlayerTokenSavedData.load(level.getServer()), registry);
+        var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));

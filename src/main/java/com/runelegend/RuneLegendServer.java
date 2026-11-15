@@ -6,8 +6,8 @@ import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
 import com.runelegend.network.PlayerStateSync;
-import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.token.TokenEngine;
 import com.runelegend.token.TokenConfig;
 import com.runelegend.token.TokenRegistry;
@@ -38,7 +38,7 @@ public final class RuneLegendServer {
         var guard = GuardConfig.loadOrGenerate(GuardConfig.defaultPath());
         game = new GameController(this::checkThread, this::rulesChanged);
         registry = TokenRegistry.builtIn(TokenConfig.loadOrGenerate(TokenConfig.defaultPath()));
-        players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        players = new PlayerTokenService(game, PlayerTokenStore.load(PlayerTokenStore.defaultPath()), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
         stamina = new GuardStaminaService(game, this::tick, guard);

@@ -21,6 +21,7 @@ public final class SoulSiphonClientGameTest implements FabricClientGameTest {
         try (var server = context.worldBuilder().createServer(props)) {
             try (var connection = server.connect()) {
                 awaitHealth(context, false, 20, 20);
+                server.runCommand("runelegend admin @p clear");
                 server.runCommand("runelegend admin @p equip runelegend:soul_siphon");
                 server.runCommand("runelegend game start");
                 server.runOnServer(minecraft -> {

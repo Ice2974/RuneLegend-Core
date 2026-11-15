@@ -8,7 +8,7 @@
   "runelegend.result.changed": "Updated %s's tokens",
   "runelegend.result.unchanged": "%s's tokens are unchanged",
   "runelegend.result.running": "Equipment can only be changed while waiting",
-  "runelegend.result.read_only": "The RuneLegend save could not be read. Equipment is read-only",
+  "runelegend.result.read_only": "Could not read or write RuneLegend player data. Token loadouts are read-only",
   "runelegend.result.unknown": "Unknown token ID",
   "runelegend.result.duplicate": "That token is already equipped",
   "runelegend.result.full": "All three token slots are full",

@@ -3,8 +3,8 @@ package com.runelegend.token;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
-import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
+import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.registries.Registries;
@@ -129,7 +129,7 @@ public final class AsuraFormGameTests {
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 new TokenConfig.AsuraFormSettings(2, 2, 5.5F, 3, 16, 1), defaults.resonanceHealing()));
         var game = new GameController(() -> {}, (previous, current) -> {});
-        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, players, registry, clock::get);
         var kill = new TokenEvent(TokenEvent.Kind.KILL, player, zombie(test), level, null, 20, 20, 0);
         try {

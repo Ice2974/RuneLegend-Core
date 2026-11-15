@@ -4,17 +4,16 @@ import com.runelegend.game.GameController;
 import com.runelegend.token.TokenRegistry;
 import net.minecraft.resources.Identifier;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 public final class PlayerTokenService {
     public enum Result { CHANGED, UNCHANGED, RUNNING, READ_ONLY, UNKNOWN, DUPLICATE, FULL, NOT_EQUIPPED }
 
     private final GameController game;
-    private final PlayerTokenSavedData data;
+    private final PlayerTokenStore data;
     private final TokenRegistry registry;
 
-    public PlayerTokenService(GameController game, PlayerTokenSavedData data, TokenRegistry registry) {
+    public PlayerTokenService(GameController game, PlayerTokenStore data, TokenRegistry registry) {
         this.game = game;
         this.data = data;
         this.registry = registry;
@@ -31,8 +30,7 @@ public final class PlayerTokenService {
         if (slots.contains(id)) return Result.DUPLICATE;
         if (slots.size() == PlayerTokenData.MAX_SLOTS) return Result.FULL;
         slots.add(id);
-        data.set(player, new PlayerTokenData(slots, old.longTerm()));
-        return Result.CHANGED;
+        return save(player, new PlayerTokenData(slots));
     }
 
     public Result unequip(UUID player, Identifier id) {
@@ -41,8 +39,7 @@ public final class PlayerTokenService {
         var old = get(player);
         var slots = new ArrayList<>(old.equipped());
         if (!slots.remove(id)) return Result.NOT_EQUIPPED;
-        data.set(player, new PlayerTokenData(slots, old.longTerm()));
-        return Result.CHANGED;
+        return save(player, new PlayerTokenData(slots));
     }
 
     public Result clear(UUID player) {
@@ -50,8 +47,11 @@ public final class PlayerTokenService {
         if (rejection != null) return rejection;
         var old = get(player);
         if (old.equipped().isEmpty()) return Result.UNCHANGED;
-        data.set(player, new PlayerTokenData(List.of(), old.longTerm()));
-        return Result.CHANGED;
+        return save(player, PlayerTokenData.EMPTY);
+    }
+
+    private Result save(UUID player, PlayerTokenData loadout) {
+        return data.set(player, loadout) ? Result.CHANGED : Result.READ_ONLY;
     }
 
     private Result rejectWrite() {
