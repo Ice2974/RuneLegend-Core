@@ -30,13 +30,15 @@ public record TokenConfig(
         VenomousTipSettings venomousTip,
         PoisonedArrowSettings poisonedArrow,
         AsuraFormSettings asuraForm,
-        ResonanceHealingSettings resonanceHealing) {
+        ResonanceHealingSettings resonanceHealing,
+        VernalTideSettings vernalTide) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
-            "runelegend:asura_form", "runelegend:resonance_healing");
+            "runelegend:asura_form", "runelegend:resonance_healing",
+            "runelegend:vernal_tide");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
@@ -228,10 +230,34 @@ public record TokenConfig(
         }
     }
 
+    /** The struck target takes the bonus as part of its own hit; only other enemies use the radius. */
+    public record VernalTideSettings(float chance, double radius, float damage) {
+        public static final VernalTideSettings DEFAULT = new VernalTideSettings(0.50F, 5.0, 3.0F);
+        public static final Codec<VernalTideSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(VernalTideSettings::chance),
+                field(Codec.DOUBLE.validate(VernalTideSettings::positiveRadius), "radius", DEFAULT.radius())
+                        .forGetter(VernalTideSettings::radius),
+                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "damage", DEFAULT.damage()).forGetter(VernalTideSettings::damage)
+        ).apply(instance, VernalTideSettings::new));
+
+        public VernalTideSettings {
+            TokenSettingValidation.requireFinite(chance, "chance");
+            TokenSettingValidation.requireFinite(damage, "damage");
+            if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
+            if (!Double.isFinite(radius) || radius <= 0.0) throw TokenSettingValidation.invalid("radius must be positive");
+            if (damage < 0.0F) throw TokenSettingValidation.invalid("damage must be non-negative");
+        }
+
+        private static DataResult<Double> positiveRadius(double value) {
+            return Double.isFinite(value) && value > 0.0
+                    ? DataResult.success(value) : DataResult.error(() -> "radius must be positive");
+        }
+    }
+
     public static final TokenConfig DEFAULT = new TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
-            ResonanceHealingSettings.DEFAULT);
+            ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -272,7 +298,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:poisoned_arrow", PoisonedArrowSettings.CODEC, PoisonedArrowSettings.DEFAULT),
                 section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT),
                 section(tokens, "runelegend:resonance_healing", ResonanceHealingSettings.CODEC,
-                        ResonanceHealingSettings.DEFAULT));
+                        ResonanceHealingSettings.DEFAULT),
+                section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -284,6 +311,7 @@ public record TokenConfig(
         tokens.add("runelegend:poisoned_arrow", encode(PoisonedArrowSettings.CODEC, poisonedArrow));
         tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));
         tokens.add("runelegend:resonance_healing", encode(ResonanceHealingSettings.CODEC, resonanceHealing));
+        tokens.add("runelegend:vernal_tide", encode(VernalTideSettings.CODEC, vernalTide));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);
         root.add("tokens", tokens);

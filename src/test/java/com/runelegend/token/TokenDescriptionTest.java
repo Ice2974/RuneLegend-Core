@@ -7,6 +7,7 @@ import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
 import com.runelegend.token.effect.ResonanceHealingEffect;
 import com.runelegend.token.effect.VenomousTipEffect;
+import com.runelegend.token.effect.VernalTideEffect;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -94,6 +95,22 @@ class TokenDescriptionTest {
                         .get("token.runelegend.resonance_healing.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 for (String value : new String[]{"40%", "6.5", "4.5", "11"}) {
+                    assertTrue(description.contains(value), description);
+                }
+            }
+        }
+    }
+
+    @Test void vernalTideDescriptionUsesEveryConfiguredValue() throws IOException {
+        var args = new VernalTideEffect(new TokenConfig.VernalTideSettings(0.45F, 6.5, 3.5F))
+                .descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.vernal_tide.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"45%", "6.5", "3.5"}) {
                     assertTrue(description.contains(value), description);
                 }
             }

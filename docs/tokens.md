@@ -14,21 +14,22 @@
 
 ## 内置令牌
 
-以下 7 种令牌的效果已实现。表内数值均为默认值，可在 `tokens.json` 中调整。
+以下 8 种令牌的效果已实现。表内数值均为默认值，可在 `tokens.json` 中调整。
 
 | ID | 名称 | 触发 | 效果 |
 | --- | --- | --- | --- |
 | `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 | 5% 概率增加 2 点最大生命；不叠加、不治疗 |
 | `runelegend:echo` | 残响 | 击杀敌对目标 | 50% 概率在目标位置留下半径 5 格的残响，持续 8 秒，每秒对范围内的敌对目标造成 3 HP 令牌伤害 |
 | `runelegend:immediate_counter` | 即刻反击 | 成功格挡 | 随后 8 秒内每次直接近战命中额外造成 3 HP 令牌伤害；效果结束后冷却 12 秒 |
-| `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 6 秒中毒 II（受原版中毒免疫影响） |
-| `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 12 秒中毒 II（受原版中毒免疫影响） |
+| `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 6 秒中毒 II |
+| `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 12 秒中毒 II |
 | `runelegend:asura_form` | 修罗化身 | 击杀敌对目标 | 累计击杀 3 只后变身 12 秒：近战追加 4 HP 令牌伤害、移动速度 +40%、临时血条 16 HP；结束后恢复原血条并冷却 9 秒 |
-| `runelegend:resonance_healing` | 共鸣疗愈 | 成功格挡 | 自身生命不高于 50% 时，治疗自身周围 5 格内所有非旁观玩家（含自己）6 HP；冷却 15 秒 |
+| `runelegend:resonance_healing` | 共鸣疗愈 | 成功格挡 | 自身生命不高于 50% 时，治疗自身周围 5 格内所有玩家 6 HP；冷却 15 秒 |
+| `runelegend:vernal_tide` | 回春怒涛 | 近战命中 | 自身处于生命恢复状态时，50% 概率使本次命中追加 3 HP 真伤，并对以自身为中心半径 5 格内的其他敌人各造成 3 HP 令牌伤害 |
 
 表中的“成功格挡”指原版 `blocks_attacks` 格挡实际减免了伤害的受击，部分减免和完全减免都会触发；`WAITING` 状态下不会产生格挡成功事件。
 
-另有 7 种已注册但效果尚未实现的令牌。它们可以正常装备、保存与同步，`/runelegend token list` 和 tab 补全也会列出，但不会触发任何效果，游戏内描述会提示尚未实现。它们没有 `tokens.json` 配置项。
+另有 6 种已注册但效果尚未实现的令牌。它们可以正常装备、保存与同步，`/runelegend token list` 和 tab 补全也会列出，但不会触发任何效果，游戏内描述会提示尚未实现。它们没有 `tokens.json` 配置项。
 
 | ID | 名称 | 状态 |
 | --- | --- | --- |
@@ -36,13 +37,14 @@
 | `runelegend:fountain_of_life` | 生命之泉 | 效果尚未实现 |
 | `runelegend:full_blessing` | 全域祝福 | 效果尚未实现 |
 | `runelegend:retribution` | 奉还 | 效果尚未实现 |
-| `runelegend:vernal_tide` | 回春怒涛 | 效果尚未实现 |
 | `runelegend:execution_echo` | 斩杀回响 | 效果尚未实现 |
 | `runelegend:arrogance` | 狂妄 | 效果尚未实现 |
 
 ### 伤害类型
 
-残响、即刻反击和修罗化身的追加伤害使用 `runelegend:token_damage` 伤害类型。该类型被加入原版 `#minecraft:bypasses_armor` 与 `#minecraft:bypasses_enchantments`，因此无视护甲和防护附魔，但仍会经过抗性提升、伤害吸收等非装备减伤，也不会递归触发令牌事件。
+残响、即刻反击、修罗化身和回春怒涛的追加伤害使用 `runelegend:token_damage` 伤害类型。该类型被加入原版 `#minecraft:bypasses_armor` 与 `#minecraft:bypasses_enchantments`，因此无视护甲和防护附魔，但仍会经过抗性提升、伤害吸收等非装备减伤，也不会递归触发令牌事件。
+
+回春怒涛对命中目标的追加伤害并入该次近战结算（与即刻反击、修罗化身相同，不产生第二次命中），对其余敌人的范围伤害是独立的 `runelegend:token_damage` 命中，因此会遵守原版受击间隔。溅射范围不包含被近战直接命中的目标。
 
 刃尖毒发与淬毒之箭造成的中毒按原版 MobEffect 规则结算，可被原版免疫和抗性影响，不属于 `runelegend:token_damage`。
 
@@ -122,6 +124,14 @@
 | `radius` | > 0 | `5.0` | 治疗半径（格） |
 | `heal_amount` | ≥ 0 | `6.0` | 对每名受治疗玩家恢复的生命 |
 | `cooldown_seconds` | ≥ 0 的整数 | `15` | 触发后的冷却（秒） |
+
+### `runelegend:vernal_tide`
+
+| 字段 | 范围 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `chance` | 0–1 | `0.5` | 近战命中且自身处于生命恢复状态时的触发概率 |
+| `radius` | > 0 | `5.0` | 以自身为中心、对命中目标以外的敌人生效的范围半径（格） |
+| `damage` | ≥ 0 | `3.0` | 命中目标追加、以及每个范围内其他敌人受到的伤害 |
 
 整数型秒数上限为 `107374182`（`Integer.MAX_VALUE / 20`）。
 

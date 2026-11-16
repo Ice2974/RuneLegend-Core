@@ -12,7 +12,7 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(7, tokens.size());
+        assertEquals(8, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -40,6 +40,11 @@ class TokenConfigTest {
         assertEquals(5.0, resonance.get("radius").getAsDouble());
         assertEquals(6.0F, resonance.get("heal_amount").getAsFloat());
         assertEquals(15, resonance.get("cooldown_seconds").getAsInt());
+        var vernal = tokens.getAsJsonObject("runelegend:vernal_tide");
+        assertEquals(3, vernal.size());
+        assertEquals(0.5F, vernal.get("chance").getAsFloat());
+        assertEquals(5.0, vernal.get("radius").getAsDouble());
+        assertEquals(3.0F, vernal.get("damage").getAsFloat());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -50,7 +55,8 @@ class TokenConfigTest {
                 new TokenConfig.VenomousTipSettings(0.35F, 8),
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0),
-                new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11));
+                new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11),
+                new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
         var tokens = encoded.getAsJsonObject("tokens");
@@ -62,6 +68,7 @@ class TokenConfigTest {
         tokens.add("runelegend:asura_form", config.toJson().getAsJsonObject("tokens").get("runelegend:asura_form"));
         tokens.add("runelegend:resonance_healing",
                 encode(TokenConfig.ResonanceHealingSettings.CODEC, config.resonanceHealing()));
+        tokens.add("runelegend:vernal_tide", encode(TokenConfig.VernalTideSettings.CODEC, config.vernalTide()));
         assertEquals(config, TokenConfig.fromJson(encoded));
     }
 
@@ -93,6 +100,14 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, 6, -1));
         assertThrows(IllegalArgumentException.class,
                 () -> new TokenConfig.ResonanceHealingSettings(0.5F, 5, 6, Integer.MAX_VALUE / 20 + 1));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(-0.1F, 5, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(1.1F, 5, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(Float.NaN, 5, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, 0, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, -1, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, Double.NaN, 3));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, 5, -1));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, 5, Float.NaN));
     }
 
     @Test void poisonedArrowConvertsSeconds() {
@@ -168,6 +183,19 @@ class TokenConfigTest {
             tokens.add("runelegend:resonance_healing", JsonParser.parseString("{" + invalid + "}"));
             var parsed = TokenConfig.fromJson(root);
             assertEquals(TokenConfig.ResonanceHealingSettings.DEFAULT, parsed.resonanceHealing(), invalid);
+            assertEquals(1F, parsed.soulSiphon().chance());
+        }
+    }
+
+    @Test void invalidVernalTideSettingsFallBackWithoutDiscardingOtherTokens() {
+        var root = TokenConfig.DEFAULT.toJson();
+        var tokens = root.getAsJsonObject("tokens");
+        tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
+        for (String invalid : new String[]{"\"chance\":1.5", "\"chance\":-0.1",
+                "\"radius\":0", "\"radius\":-1", "\"damage\":-1"}) {
+            tokens.add("runelegend:vernal_tide", JsonParser.parseString("{" + invalid + "}"));
+            var parsed = TokenConfig.fromJson(root);
+            assertEquals(TokenConfig.VernalTideSettings.DEFAULT, parsed.vernalTide(), invalid);
             assertEquals(1F, parsed.soulSiphon().chance());
         }
     }

@@ -34,11 +34,11 @@
   "token.runelegend.asura_form": "Asura Form",
   "token.runelegend.asura_form.description": "Kill %1$s monsters to transform for %2$s seconds: melee hits add %3$s HP of true damage, you move as if you had Speed %4$s, and you use a temporary %5$s HP health bar. When the form ends, your original health returns and a %6$s-second cooldown begins.",
   "token.runelegend.vernal_tide": "Vernal Tide",
-  "token.runelegend.vernal_tide.description": "This token's effect is not implemented yet",
+  "token.runelegend.vernal_tide.description": "While you have Regeneration, melee attacks have a %1$s chance to deal %3$s HP of true damage to the target and to other enemies within %2$s blocks of you",
   "token.runelegend.execution_echo": "Execution Echo",
   "token.runelegend.execution_echo.description": "This token's effect is not implemented yet",
   "token.runelegend.resonance_healing": "Resonance Healing",
-  "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every non-spectator player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
+  "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
   "token.runelegend.arrogance": "Arrogance",
   "token.runelegend.arrogance.description": "This token's effect is not implemented yet"
 }

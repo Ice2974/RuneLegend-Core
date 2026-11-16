@@ -117,7 +117,8 @@ public final class ResonanceHealingGameTests {
         var defaults = TokenConfig.DEFAULT;
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
-                defaults.asuraForm(), new TokenConfig.ResonanceHealingSettings(0.6F, 3.0, 4.0F, 2)));
+                defaults.asuraForm(), new TokenConfig.ResonanceHealingSettings(0.6F, 3.0, 4.0F, 2),
+                defaults.vernalTide()));
         var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = new TokenEngine(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly);

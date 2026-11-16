@@ -110,7 +110,8 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.VenomousTipSettings(0.25F, 3),
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4),
                 TokenConfig.AsuraFormSettings.DEFAULT,
-                TokenConfig.ResonanceHealingSettings.DEFAULT);
+                TokenConfig.ResonanceHealingSettings.DEFAULT,
+                TokenConfig.VernalTideSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
