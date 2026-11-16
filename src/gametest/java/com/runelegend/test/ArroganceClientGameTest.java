@@ -55,7 +55,6 @@ public final class ArroganceClientGameTest implements FabricClientGameTest {
                 dedicated.runOnServer(mc -> {
                     var player = connection.getServerPlayer();
                     player.setHealth(20);
-                    killEnemies(player, 1);
                 });
                 context.waitFor(client -> flags(cache) == (TokenEngine.READY | TokenEngine.PREPARING));
                 dedicated.runOnServer(mc -> killEnemies(connection.getServerPlayer(), 1));
@@ -73,7 +72,7 @@ public final class ArroganceClientGameTest implements FabricClientGameTest {
                 context.waitFor(client -> !cache.rules().running());
                 dedicated.runCommand("runelegend game start");
                 context.waitFor(client -> flags(cache) == (TokenEngine.READY | TokenEngine.PREPARING));
-                dedicated.runOnServer(mc -> killEnemies(connection.getServerPlayer(), 2));
+                dedicated.runOnServer(mc -> killEnemies(connection.getServerPlayer(), 1));
                 context.waitFor(client -> flags(cache) == TokenEngine.ACTIVE);
                 context.runOnClient(client -> {
                     long now = Util.getMillis();
