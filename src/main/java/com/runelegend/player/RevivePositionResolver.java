@@ -1,6 +1,7 @@
 package com.runelegend.player;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Pose;
@@ -31,7 +32,8 @@ public final class RevivePositionResolver {
         var floor = BlockPos.containing(point.x, point.y - 0.01, point.z);
         for (var pos : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY - 0.1, box.minZ),
                 BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
-            if (!level.hasChunkAt(pos)) return false;
+            if (!level.getChunkSource().hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
+                    SectionPos.blockToSectionCoord(pos.getZ()))) return false;
             var state = level.getBlockState(pos);
             if (!state.getFluidState().isEmpty() || state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)
                     || state.is(Blocks.MAGMA_BLOCK) || state.is(Blocks.CACTUS) || state.is(Blocks.CAMPFIRE)

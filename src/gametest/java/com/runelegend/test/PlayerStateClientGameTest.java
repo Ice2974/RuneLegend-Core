@@ -4,7 +4,6 @@ import com.runelegend.RuneLegendServer;
 import com.runelegend.api.GameState;
 import com.runelegend.api.RuleSnapshot;
 import com.runelegend.client.network.ClientStateCache;
-import com.runelegend.network.RuneLegendPayloads;
 import com.runelegend.player.PlayerState;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -22,7 +21,7 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
         props.setProperty("white-list", "false");
         var cache = ClientStateCache.INSTANCE;
         try (var server = context.worldBuilder().createServer(props)) {
-            try (var ignored = server.connect()) {
+            try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
                 server.runCommand("execute as @p run runelegend player spectate true");
                 context.waitFor(client -> cache.view() != null && cache.view().spectateNextRound());
@@ -102,7 +101,7 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
             }
         }
         // A second save/server in the same client process starts with a fresh session.
-        try (var server = context.worldBuilder().createServer(props); var ignored = server.connect()) {
+        try (var server = context.worldBuilder().createServer(props); var _ = server.connect()) {
             context.waitFor(client -> client.player != null && cache.rules() != null && cache.rules().round() == 0
                     && !cache.rules().running() && cache.view() != null && cache.view().downed().isEmpty()
                     && cache.view().playerState() == null && !cache.view().spectateNextRound());
