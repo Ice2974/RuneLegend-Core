@@ -4,6 +4,7 @@ import com.runelegend.RuneLegendMod;
 import com.runelegend.api.GameState;
 import com.runelegend.api.RuleSnapshot;
 import com.runelegend.player.PlayerTokenData;
+import com.runelegend.player.PlayerState;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.FriendlyByteBuf;
@@ -13,10 +14,13 @@ import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.LinkedHashMap;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 4;
-    public static final int TOKENS = 1, STAMINA = 2, ALL = TOKENS | STAMINA;
+    public static final int PROTOCOL = 5;
+    public static final int TOKENS = 1, STAMINA = 2, IDENTITY = 4, DOWNED = 8, ALL = TOKENS | STAMINA | IDENTITY | DOWNED;
+    private static final int MAX_MARKERS = 4096;
 
     private RuneLegendPayloads() {}
 
@@ -68,29 +72,52 @@ public final class RuneLegendPayloads {
         @Override public Type<Rules> type() { return TYPE; }
     }
 
-    /** The current stamina cap travels with the value so the client HUD scales configurable values. */
-    public record View(List<TokenEngine.View> tokens, int stamina, int staminaMax) {
-        public View { tokens = List.copyOf(tokens); }
+    /** A server-authoritative death anchor, independent of the spectator's current position. */
+    public record DownedMarker(UUID player, long round, long sequence, Identifier dimension,
+                               double x, double y, double z, int secondsRemaining) {
+        public DownedMarker {
+            if (round < 0 || sequence < 1 || secondsRemaining < 0 || !Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z))
+                throw new IllegalArgumentException("Invalid downed marker");
+        }
     }
 
-    public record PlayerSnapshot(long revision, long tick, View state) implements CustomPacketPayload {
+    public record View(List<TokenEngine.View> tokens, int stamina, int staminaMax, PlayerState playerState,
+                       boolean spectateNextRound, List<DownedMarker> downed) {
+        public View { tokens = List.copyOf(tokens); downed = List.copyOf(downed); }
+        public View(List<TokenEngine.View> tokens, int stamina, int staminaMax) { this(tokens, stamina, staminaMax, null, false, List.of()); }
+    }
+
+    public record PlayerSnapshot(long revision, long tick, View state, long round, long rulesRevision) implements CustomPacketPayload {
+        public PlayerSnapshot(long revision, long tick, View state) { this(revision, tick, state, 0, 0); }
         public static final Type<PlayerSnapshot> TYPE = id("player_snapshot");
         static final StreamCodec<FriendlyByteBuf, PlayerSnapshot> CODEC = StreamCodec.of((buf, value) -> {
             buf.writeVarLong(value.revision); buf.writeVarLong(value.tick); writeView(buf, value.state, ALL);
-        }, buf -> new PlayerSnapshot(buf.readVarLong(), buf.readVarLong(), readView(buf, ALL)));
+            buf.writeVarLong(value.round); buf.writeVarLong(value.rulesRevision);
+        }, buf -> new PlayerSnapshot(buf.readVarLong(), buf.readVarLong(), readView(buf, ALL), buf.readVarLong(), buf.readVarLong()));
         @Override public Type<PlayerSnapshot> type() { return TYPE; }
     }
 
-    public record PlayerDelta(long base, long revision, long tick, int mask, View state) implements CustomPacketPayload {
+    public record PlayerDelta(long base, long revision, long tick, int mask, View state, List<UUID> removed,
+                              long round, long rulesRevision) implements CustomPacketPayload {
+        public PlayerDelta { removed = List.copyOf(removed); }
+        public PlayerDelta(long base, long revision, long tick, int mask, View state) { this(base, revision, tick, mask, state, List.of(), 0, 0); }
         public static final Type<PlayerDelta> TYPE = id("player_delta");
         static final StreamCodec<FriendlyByteBuf, PlayerDelta> CODEC = StreamCodec.of((buf, value) -> {
             buf.writeVarLong(value.base); buf.writeVarLong(value.revision); buf.writeVarLong(value.tick);
             buf.writeByte(value.mask); writeView(buf, value.state, value.mask);
+            buf.writeVarInt(value.removed.size());
+            value.removed.forEach(buf::writeUUID);
+            buf.writeVarLong(value.round); buf.writeVarLong(value.rulesRevision);
         }, buf -> {
             long base = buf.readVarLong(), revision = buf.readVarLong(), tick = buf.readVarLong();
             int mask = buf.readUnsignedByte();
             if (mask == 0 || (mask & ~ALL) != 0) throw new IllegalArgumentException("Invalid RuneLegend delta");
-            return new PlayerDelta(base, revision, tick, mask, readView(buf, mask));
+            var view = readView(buf, mask);
+            int size = markerCount(buf);
+            var removed = new ArrayList<UUID>(size);
+            for (int i = 0; i < size; i++) removed.add(buf.readUUID());
+            if (size > 0 && (mask & DOWNED) == 0) throw new IllegalArgumentException("Marker removal without mask");
+            return new PlayerDelta(base, revision, tick, mask, view, removed, buf.readVarLong(), buf.readVarLong());
         });
         @Override public Type<PlayerDelta> type() { return TYPE; }
     }
@@ -104,10 +131,22 @@ public final class RuneLegendPayloads {
     }
 
     public static View merge(View old, View incoming, int mask) {
+        return merge(old, incoming, mask, List.of());
+    }
+
+    public static View merge(View old, View incoming, int mask, List<UUID> removed) {
         boolean staminaChanged = (mask & STAMINA) != 0;
+        var markers = new LinkedHashMap<UUID, DownedMarker>();
+        old.downed.forEach(marker -> markers.put(marker.player(), marker));
+        if ((mask & DOWNED) != 0) {
+            removed.forEach(markers::remove);
+            incoming.downed.forEach(marker -> markers.put(marker.player(), marker));
+        }
         return new View((mask & TOKENS) != 0 ? incoming.tokens : old.tokens,
                 staminaChanged ? incoming.stamina : old.stamina,
-                staminaChanged ? incoming.staminaMax : old.staminaMax);
+                staminaChanged ? incoming.staminaMax : old.staminaMax,
+                (mask & IDENTITY) != 0 ? incoming.playerState : old.playerState,
+                (mask & IDENTITY) != 0 ? incoming.spectateNextRound : old.spectateNextRound, List.copyOf(markers.values()));
     }
 
     private static void writeView(FriendlyByteBuf buf, View view, int mask) {
@@ -125,6 +164,18 @@ public final class RuneLegendPayloads {
             buf.writeShort(view.stamina);
             buf.writeShort(view.staminaMax);
         }
+        if ((mask & IDENTITY) != 0) {
+            buf.writeByte(view.playerState == null ? 0 : view.playerState.ordinal() + 1);
+            buf.writeBoolean(view.spectateNextRound);
+        }
+        if ((mask & DOWNED) != 0) {
+            buf.writeVarInt(view.downed.size());
+            for (var marker : view.downed) {
+                buf.writeUUID(marker.player); buf.writeVarLong(marker.round); buf.writeVarLong(marker.sequence);
+                buf.writeIdentifier(marker.dimension); buf.writeDouble(marker.x); buf.writeDouble(marker.y); buf.writeDouble(marker.z);
+                buf.writeVarInt(marker.secondsRemaining);
+            }
+        }
     }
 
     private static View readView(FriendlyByteBuf buf, int mask) {
@@ -139,10 +190,37 @@ public final class RuneLegendPayloads {
             }
             tokens = list;
         }
-        if ((mask & STAMINA) == 0) return new View(tokens, 0, 0);
-        int stamina = buf.readUnsignedShort();
-        int staminaMax = buf.readUnsignedShort();
-        if (staminaMax == 0 || stamina > staminaMax) throw new IllegalArgumentException("Invalid RuneLegend stamina");
-        return new View(tokens, stamina, staminaMax);
+        int stamina = 0, staminaMax = 0;
+        if ((mask & STAMINA) != 0) {
+            stamina = buf.readUnsignedShort();
+            staminaMax = buf.readUnsignedShort();
+            if (staminaMax == 0 || stamina > staminaMax) throw new IllegalArgumentException("Invalid RuneLegend stamina");
+        }
+        PlayerState identity = null;
+        boolean spectate = false;
+        if ((mask & IDENTITY) != 0) {
+            int code = buf.readUnsignedByte();
+            if (code > PlayerState.values().length) throw new IllegalArgumentException("Invalid player state");
+            identity = code == 0 ? null : PlayerState.values()[code - 1];
+            spectate = buf.readBoolean();
+        }
+        var markers = new ArrayList<DownedMarker>();
+        if ((mask & DOWNED) != 0) {
+            int size = markerCount(buf);
+            var seen = new java.util.HashSet<UUID>();
+            for (int i = 0; i < size; i++) {
+                var marker = new DownedMarker(buf.readUUID(), buf.readVarLong(), buf.readVarLong(), buf.readIdentifier(),
+                        buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readVarInt());
+                if (!seen.add(marker.player())) throw new IllegalArgumentException("Duplicate downed player");
+                markers.add(marker);
+            }
+        }
+        return new View(tokens, stamina, staminaMax, identity, spectate, markers);
+    }
+
+    private static int markerCount(FriendlyByteBuf buf) {
+        int size = buf.readVarInt();
+        if (size < 0 || size > MAX_MARKERS) throw new IllegalArgumentException("Invalid marker count");
+        return size;
     }
 }

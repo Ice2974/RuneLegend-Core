@@ -256,6 +256,10 @@ public final class GuardGameTests {
         var other = fixture(test);
         var server = RuneLegendServer.find(test.getLevel().getServer());
         var stamina = server.stamina();
+        // This timing fixture advances stamina explicitly. Keep it outside the round/online
+        // lifecycle so other tests' stop/start calls cannot reset its recovery clock.
+        server.leave(player);
+        stamina.join(player);
         var guard = stamina.config();
         int exhaustionTicks = Math.ceilDiv(guard.max(), guard.drainPerTick());
         int staminaBeforeExhaustion = guard.max() - (exhaustionTicks - 1) * guard.drainPerTick();
@@ -351,7 +355,10 @@ public final class GuardGameTests {
         new ServerGamePacketListenerImpl(server, new Connection(PacketFlow.SERVERBOUND), player,
                 CommonListenerCookie.createInitial(player.getGameProfile(), false));
         player.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
-        RuneLegendServer.find(server).stamina().join(player);
+        RuneLegendServer.find(server).join(player);
+        // These vanilla guard fixtures always exercise survival abilities, even when
+        // another test has already started the shared round before this mock joins.
+        player.setGameMode(GameType.SURVIVAL);
         player.getInventory().setItem(0, new ItemStack(Items.IRON_SWORD));
         return player;
     }

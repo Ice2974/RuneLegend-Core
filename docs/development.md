@@ -6,12 +6,12 @@
 
 1. 服务端与所有客户端安装本模组和 Fabric API。配置阶段握手会拒绝未安装模组或协议不匹配的客户端，不存在缺模组的部分功能模式。
 2. 玩家在等待状态用 `/runelegend token equip` 配置令牌，或由管理员用 `/runelegend admin` 统一配装。
-3. 用 `/runelegend game start` 开始游戏（可直接放进命令方块）。进入 `RUNNING` 后令牌效果生效、格挡消耗体力，且不能再修改装备。
-4. 关卡结束时用 `/runelegend game stop` 停止：本局令牌运行状态与冷却重置（回合计数保留）、体力回满、灵魂摄取提供的生命上限移除，玩家可以重新配装进入下一轮。
+3. 等待时可用 `/runelegend player spectate true` 选择只观战下一局。用 `/runelegend game start` 开局（可直接放进命令方块），参与者进入冒险模式，观战者进入旁观模式；只有 `RUNNING + ALIVE` 可触发令牌，运行时禁改装备和观战选择。
+4. 关卡结束时用 `/runelegend game stop` 停止；没有 ALIVE 玩家时也会自动停止。本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家变回冒险模式，生命、饥饿和体力回满。大厅传送由地图负责，详见[玩家状态](player-states.md)。
 
 - 游戏状态不持久化：服务器重启或单人世界重新载入后回到 `WAITING`、回合 0，关卡需要重新执行 `game start`。
 - `game start` / `game stop` 只在状态确实改变时生效，重复执行不会推进回合或重复清理运行态。
-- 只有 `RUNNING` 状态会触发令牌效果和格挡成功事件；`WAITING` 下可以自由格挡和配装，适合作为准备区。
+- 只有 `RUNNING + ALIVE` 会触发令牌效果和令牌格挡成功事件；`WAITING` 下可以自由格挡和配装，适合作为准备区。
 
 ## 调整战斗参数
 
@@ -21,9 +21,10 @@
 | --- | --- | --- |
 | `config/runelegend-core/guard.json` | 格挡体力 | 可，重启生效 |
 | `config/runelegend-core/tokens.json` | 内置令牌数值 | 可，重启生效，字段见[令牌文档](tokens.md#令牌配置) |
+| `config/runelegend-core/player_states.json` | 倒地、扶起距离、时长和生命比例 | 可，重启生效，字段见[玩家状态文档](player-states.md) |
 | `config/runelegend-core/players.json` | 玩家令牌装备 | 由模组管理，不建议手工修改 |
 
-单人游戏中的 `config` 指该 Minecraft 实例的配置目录，独立服务器指服务端目录下的 `config`。`guard.json` 与 `tokens.json` 只在服务器启动时读取，修改后需要重启服务器。
+单人游戏中的 `config` 指该 Minecraft 实例的配置目录，独立服务器指服务端目录下的 `config`。`guard.json`、`tokens.json` 与 `player_states.json` 只在逻辑服务器启动时读取，修改后需要重启服务器或重新载入单人世界。配置跨存档共用，玩家状态按存档会话隔离且不写盘。
 
 `guard.json` 控制格挡体力（1 tick = 1/20 秒）：
 

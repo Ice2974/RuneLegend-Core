@@ -32,7 +32,7 @@ public final class ResonanceHealingGameTests {
         var game = new GameController(() -> {}, (previous, current) -> {});
         var registry = TokenRegistry.builtIn(TokenConfig.DEFAULT);
         var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, service, registry, clock::get);
+        var tokens = TokenTestEngine.forPlayers(healer, nearAlly, farAlly).create(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly, spectator);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
         try {
@@ -120,7 +120,7 @@ public final class ResonanceHealingGameTests {
                 defaults.asuraForm(), new TokenConfig.ResonanceHealingSettings(0.6F, 3.0, 4.0F, 2),
                 defaults.vernalTide(), defaults.arrogance()));
         var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, service, registry, clock::get);
+        var tokens = TokenTestEngine.forPlayers(healer, nearAlly, farAlly).create(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
         try {

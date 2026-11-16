@@ -10,6 +10,54 @@ import static com.runelegend.network.RuneLegendPayloads.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProtocolStateTest {
+    @Test void snapshotCarriesIdentityRoundAndDeathAnchors() {
+        var marker = marker(new java.util.UUID(0, 1), 15);
+        var snapshot = new PlayerSnapshot(7, 42, new View(List.of(TOKEN), 12345, 20000,
+                com.runelegend.player.PlayerState.DOWNED, false, List.of(marker)), 3, 5);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            PlayerSnapshot.CODEC.encode(buffer, snapshot);
+            assertEquals(snapshot, PlayerSnapshot.CODEC.decode(buffer));
+            assertEquals(0, buffer.readableBytes());
+        } finally { buffer.release(); }
+        assertEquals(5, PROTOCOL);
+    }
+
+    @Test void markerDeltaUpdatesAndRemovesOnlyNamedAnchors() {
+        var a = new java.util.UUID(0, 1); var b = new java.util.UUID(0, 2); var c = new java.util.UUID(0, 3);
+        var before = new View(List.of(TOKEN), 15000, 20000, com.runelegend.player.PlayerState.ALIVE,
+                false, List.of(marker(a, 15), marker(b, 14)));
+        var patch = new PlayerDelta(7, 8, 62, DOWNED, new View(List.of(), 0, 0, null, false,
+                List.of(marker(b, 13), marker(c, 15))), List.of(a), 3, 5);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            PlayerDelta.CODEC.encode(buffer, patch);
+            var decoded = PlayerDelta.CODEC.decode(buffer);
+            assertEquals(patch, decoded);
+            var after = merge(before, decoded.state(), decoded.mask(), decoded.removed());
+            assertEquals(List.of(marker(b, 13), marker(c, 15)), after.downed());
+            assertEquals(before.tokens(), after.tokens());
+            assertEquals(before.playerState(), after.playerState());
+            assertEquals(before.stamina(), after.stamina());
+            assertEquals(0, buffer.readableBytes());
+        } finally { buffer.release(); }
+    }
+
+    @Test void invalidOrDuplicateMarkersAreRejected() {
+        assertThrows(IllegalArgumentException.class, () -> new DownedMarker(java.util.UUID.randomUUID(), 1, 1,
+                Identifier.parse("minecraft:overworld"), Double.NaN, 0, 0, 15));
+        var same = marker(java.util.UUID.randomUUID(), 15);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            PlayerSnapshot.CODEC.encode(buffer, new PlayerSnapshot(1, 1,
+                    new View(List.of(), 20000, 20000, null, false, List.of(same, same)), 3, 5));
+            assertThrows(IllegalArgumentException.class, () -> PlayerSnapshot.CODEC.decode(buffer));
+        } finally { buffer.release(); }
+    }
+
+    private static DownedMarker marker(java.util.UUID uuid, int seconds) {
+        return new DownedMarker(uuid, 3, 10, Identifier.parse("minecraft:overworld"), 1.25, 64, -3.5, seconds);
+    }
     private static final TokenEngine.View TOKEN =
             new TokenEngine.View(Identifier.parse("runelegend:echo"), TokenEngine.ACTIVE, 0, 50, 0);
 

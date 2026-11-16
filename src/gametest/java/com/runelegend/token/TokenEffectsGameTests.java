@@ -70,7 +70,8 @@ public final class TokenEffectsGameTests {
                     attacker.resetAttackStrengthTicker();
                     attacker.attack(target);
                 });
-                near(test, boosted, normal[i] + 2.4F, "Base damage is unchanged; only the 3 HP bonus bypasses equipment");
+                near(test, boosted, normal[i] + (target instanceof net.minecraft.world.entity.player.Player ? 0 : 2.4F),
+                        "Only monsters receive the token bonus; base player damage is unchanged");
             }
             test.succeed();
         } finally {
@@ -116,7 +117,7 @@ public final class TokenEffectsGameTests {
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, clock::get, ignored -> 0.10);
+        var tokens = TokenTestEngine.forPlayers(player).create(game, players, registry, clock::get, ignored -> 0.10);
         var kill = new TokenEvent(TokenEvent.Kind.KILL, player, corpse, test.getLevel(),
                 player.damageSources().playerAttack(player), 20, 20, 0);
         try {
@@ -314,7 +315,7 @@ public final class TokenEffectsGameTests {
                 })).build();
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, () -> 100);
+        var tokens = TokenTestEngine.forPlayers(player).create(game, players, registry, () -> 100);
         try {
             test.assertValueEqual(players.equip(player.getUUID(), id), PlayerTokenService.Result.CHANGED, "Equip fixture");
             game.startGame();

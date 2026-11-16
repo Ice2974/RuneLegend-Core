@@ -1,6 +1,5 @@
 package com.runelegend.test;
 
-import com.mojang.authlib.GameProfile;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.client.network.ClientStateCache;
@@ -9,7 +8,6 @@ import com.runelegend.token.TokenEngine;
 import com.runelegend.token.TokenEvent;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
@@ -25,18 +23,19 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
         props.setProperty("white-list", "false");
         var cache = ClientStateCache.INSTANCE;
         try (var server = context.worldBuilder().createServer(props)) {
+            var helper = new java.util.concurrent.atomic.AtomicReference<ServerPlayer>();
             try (var connection = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
                 server.runCommand("gamemode survival @p");
                 server.runCommand("runelegend admin @p clear");
                 server.runCommand("runelegend admin @p equip runelegend:asura_form");
                 var second = server.computeOnServer(minecraft -> {
-                    var player = new ServerPlayer(minecraft, connection.getServerPlayer().level(),
-                            new GameProfile(UUID.randomUUID(), "AsuraFixture"), ClientInformation.createDefault());
+                    var player = PlayerStateFixtures.join(minecraft, connection.getServerPlayer().level(), UUID.randomUUID());
                     if (RuneLegendServer.find(minecraft).players().equip(player.getUUID(), RuneLegendMod.id("asura_form"))
                             != PlayerTokenService.Result.CHANGED) throw new AssertionError("Could not equip the second player");
                     return player;
                 });
+                helper.set(second);
                 server.runCommand("runelegend game start");
                 server.runOnServer(minecraft -> {
                     var player = connection.getServerPlayer();
@@ -63,7 +62,7 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
                 server.runOnServer(minecraft -> connection.getServerPlayer().heal(4));
                 server.runCommand("runelegend game stop");
                 context.waitFor(client -> client.player != null && client.player.getMaxHealth() == 24
-                        && client.player.getHealth() == 22 && cache.rules() != null && !cache.rules().running());
+                        && client.player.getHealth() == 24 && cache.rules() != null && !cache.rules().running());
 
                 server.runCommand("runelegend game start");
                 server.runOnServer(minecraft -> {
@@ -79,8 +78,14 @@ public final class AsuraFormClientGameTest implements FabricClientGameTest {
             context.waitFor(client -> client.player == null && cache.view() == null);
             try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && client.player.getMaxHealth() == 24
-                        && client.player.getHealth() == 22 && hasFlag(cache, TokenEngine.READY));
+                        && client.player.getHealth() == 22 && cache.view() != null
+                        && cache.view().playerState() == com.runelegend.player.PlayerState.ELIMINATED);
+                server.runCommand("runelegend game stop");
+                context.waitFor(client -> client.player.getHealth() == 24 && !cache.rules().running());
+                server.runCommand("runelegend game start");
+                context.waitFor(client -> hasFlag(cache, TokenEngine.READY));
             }
+            server.runOnServer(minecraft -> RuneLegendServer.find(minecraft).leave(helper.get()));
         }
     }
 

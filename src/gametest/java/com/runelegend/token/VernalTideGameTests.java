@@ -109,7 +109,7 @@ public final class VernalTideGameTests {
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         double[] roll = {0.1};
-        var tokens = new TokenEngine(game, players, registry, clock::get, player -> roll[0]);
+        var tokens = TokenTestEngine.forPlayers(attacker).create(game, players, registry, clock::get, player -> roll[0]);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
         try {
             game.stopGame();
@@ -215,7 +215,7 @@ public final class VernalTideGameTests {
                 new TokenConfig.VernalTideSettings(1.0F, 2.5, 5.0F), defaults.arrogance()));
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, clock::get, player -> 0.0);
+        var tokens = TokenTestEngine.forPlayers(attacker).create(game, players, registry, clock::get, player -> 0.0);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
         try {
             game.stopGame();
@@ -262,7 +262,7 @@ public final class VernalTideGameTests {
         var registry = TokenRegistry.builtIn(defaults);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, clock::get, player -> 0.0);
+        var tokens = TokenTestEngine.forPlayers(attacker).create(game, players, registry, clock::get, player -> 0.0);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
         try {
             game.stopGame();

@@ -7,6 +7,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
 
 public final class TokenTargeting {
     public static final TagKey<EntityType<?>> GHOST_FAMILY = TagKey.create(Registries.ENTITY_TYPE, RuneLegendMod.id("ghost_family"));
@@ -19,6 +20,7 @@ public final class TokenTargeting {
     public static boolean boss(Entity entity) { return inTag(entity, BOSSES); }
 
     public static boolean enemy(Entity entity) {
+        if (entity == null || entity instanceof Player) return false;
         var configured = BuiltInRegistries.ENTITY_TYPE.get(ENEMY_TYPES);
         if (configured.isPresent() && configured.get().size() > 0) {
             return BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(entity.getType()).is(ENEMY_TYPES);

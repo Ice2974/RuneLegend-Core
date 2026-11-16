@@ -81,6 +81,8 @@ public final class TokenEventBridge {
         var melee = MELEE.get();
         if (hit == null || hit.victim != victim || hit.source != source || hit.beforeMitigation <= 0
                 || melee == null || melee.victim != victim || melee.source != source || melee.bonus <= 0) return base;
+        var server = RuneLegendServer.find(melee.player.level().getServer());
+        if (victim instanceof net.minecraft.world.entity.player.Player || server == null || !server.tokenEligible(melee.player)) return base;
         // This portion never enters the armor calculation. The token source lets vanilla
         // apply Resistance but skip protection enchantments.
         return base + applyMagic.apply(TokenEngine.directDamageSource(melee.player.level(), melee.player), melee.bonus);
@@ -90,11 +92,11 @@ public final class TokenEventBridge {
         var tokens = server.tokens();
         var victim = hit.victim;
         var source = hit.source;
-        if (victim instanceof ServerPlayer player && player.isAlive()) {
+        if (victim instanceof ServerPlayer player && tokens.eligible(player) && player.isAlive()) {
             if (acceptedDamage) tokens.dispatch(event(TokenEvent.Kind.HURT, player, victim, level, hit));
             if (hit.blocked > 0) tokens.dispatch(event(TokenEvent.Kind.GUARD_SUCCESS, player, victim, level, hit));
         }
-        if (!acceptedDamage || !(source.getEntity() instanceof ServerPlayer player) || player == victim) return;
+        if (!acceptedDamage || !(source.getEntity() instanceof ServerPlayer player) || player == victim || !tokens.eligible(player)) return;
         var melee = MELEE.get();
         if (melee != null && melee.player == player && melee.victim == victim && melee.source == source) {
             tokens.dispatch(event(TokenEvent.Kind.MELEE, player, victim, level, hit));

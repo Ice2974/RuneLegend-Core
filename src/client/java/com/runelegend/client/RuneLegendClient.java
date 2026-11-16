@@ -16,5 +16,6 @@ public final class RuneLegendClient implements ClientModInitializer {
             GuardInputController.INSTANCE.tick(client);
         });
         RuneLegendHud.register();
+        com.runelegend.client.render.DownedMarkerRenderer.register();
     }
 }

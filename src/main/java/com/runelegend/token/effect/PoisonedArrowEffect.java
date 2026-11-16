@@ -16,7 +16,7 @@ public final class PoisonedArrowEffect implements TokenEffectHandler {
     }
 
     @Override public void onEvent(TokenEngine.Context context, TokenRuntimeState state, TokenEvent event) {
-        if (!TokenTargeting.enemy(event.target()) || !event.target().isAlive() || !context.roll(settings.chance())) return;
+        if (!TokenTargeting.enemy(event.target()) || !context.canHarm(event.target()) || !context.roll(settings.chance())) return;
         var poison = new MobEffectInstance(MobEffects.POISON, settings.durationTicks(), POISON_AMPLIFIER);
         // Vanilla immunity decides whether the debuff lands; an unapplied effect is not a trigger.
         if (event.target().addEffect(poison, context.player())) state.flash(context.tick());

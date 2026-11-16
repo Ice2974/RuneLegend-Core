@@ -44,7 +44,8 @@ public final class RuneLegendHud {
         if (view == null || client.player == null || client.gui.hud.isHidden() || client.player.isSpectator()) return;
         boolean showStamina = view.stamina() < view.staminaMax() || GuardItems.using(client.player);
         var rules = cache.rules();
-        int slots = rules != null && rules.running() && client.player.isAlive() ? view.tokens().size() : 0;
+        int slots = rules != null && rules.running() && view.playerState() == com.runelegend.player.PlayerState.ALIVE
+                && client.player.isAlive() ? view.tokens().size() : 0;
         if (slots == 0 && !showStamina) return;
         var layout = HudLayout.place(graphics.guiWidth(), graphics.guiHeight(), slots, VERTICAL_OFFSET);
         long now = Util.getMillis();

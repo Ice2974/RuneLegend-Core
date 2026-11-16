@@ -1,6 +1,7 @@
 package com.runelegend.token;
 
 import com.runelegend.RuneLegendMod;
+import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
 import net.minecraft.core.registries.Registries;
@@ -11,12 +12,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.ToDoubleFunction;
+import java.util.function.Predicate;
+import java.util.function.Function;
 
 public final class TokenEngine {
     public static final ResourceKey<DamageType> TOKEN_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, RuneLegendMod.id("token_damage"));
@@ -34,6 +38,12 @@ public final class TokenEngine {
     private final Map<UUID, Long> health = new HashMap<>();
     private final TokenScheduler scheduler = new TokenScheduler();
     private final OwnedEffects owned = new OwnedEffects();
+    private final Predicate<ServerPlayer> eligible;
+    private final Function<UUID, ServerPlayer> resolve;
+    private final Map<UUID, Object> generations = new HashMap<>();
+    private final Set<UUID> clearing = new HashSet<>();
+    private Object roundGeneration = new Object();
+    private boolean clearingRound;
 
     public TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock) {
         this(game, players, registry, clock, player -> player.getRandom().nextDouble());
@@ -51,12 +61,33 @@ public final class TokenEngine {
 
     private TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
                         ToDoubleFunction<ServerPlayer> random, BiConsumer<ServerPlayer, Identifier> flash) {
+        this(game, players, registry, clock, random, flash, player -> {
+            var server = RuneLegendServer.find(player.level().getServer());
+            return server != null && server.tokenEligible(player);
+        }, null);
+    }
+
+    public TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
+                       BiConsumer<ServerPlayer, Identifier> flash, Predicate<ServerPlayer> eligible,
+                       Function<UUID, ServerPlayer> resolve) {
+        this(game, players, registry, clock, player -> player.getRandom().nextDouble(), flash, eligible, resolve);
+    }
+
+    TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
+                ToDoubleFunction<ServerPlayer> random, BiConsumer<ServerPlayer, Identifier> flash,
+                Predicate<ServerPlayer> eligible, Function<UUID, ServerPlayer> resolve) {
         this.game = game;
         this.players = players;
         this.registry = registry;
         this.clock = clock;
         this.random = random;
         this.flash = flash;
+        this.eligible = eligible;
+        this.resolve = resolve;
+    }
+
+    public boolean eligible(ServerPlayer player) {
+        return game.getRules().running() && !clearingRound && !clearing.contains(player.getUUID()) && eligible.test(player);
     }
 
     public Boost melee(ServerPlayer player, float amount) {
@@ -64,10 +95,11 @@ public final class TokenEngine {
     }
 
     public Boost melee(ServerPlayer player, LivingEntity target, float amount) {
-        if (!game.getRules().running() || amount <= 0 || !player.isAlive()) return new Boost(0, List.of());
+        if (!eligible(player) || amount <= 0 || !player.isAlive() || target instanceof Player) return new Boost(0, List.of());
         float bonus = 0;
         var applied = new ArrayList<Identifier>();
         for (var id : players.get(player.getUUID()).equipped()) {
+            if (!eligible(player) || !player.isAlive()) break;
             var definition = registry.get(id);
             if (definition == null || !definition.events().contains(TokenEvent.Kind.MELEE)) continue;
             float extra = definition.effect().addMeleeDamage(new Context(player, id, target), state(player, id));
@@ -80,7 +112,7 @@ public final class TokenEngine {
     }
 
     public void confirmBoost(ServerPlayer player, List<Identifier> applied) {
-        if (!game.getRules().running() || !player.isAlive()) return;
+        if (!eligible(player) || !player.isAlive()) return;
         long tick = clock.getAsLong();
         for (var id : applied) {
             var definition = registry.get(id);
@@ -90,9 +122,11 @@ public final class TokenEngine {
     }
 
     public void dispatch(TokenEvent event) {
-        if (!game.getRules().running() || (event.kind() != TokenEvent.Kind.HEALTH && !event.player().isAlive())
+        if (!eligible(event.player()) || (event.kind() != TokenEvent.Kind.HEALTH && !event.player().isAlive())
                 || event.source() != null && event.source().is(TOKEN_DAMAGE)) return;
+        if (event.target() instanceof Player && event.target() != event.player()) return;
         for (var id : players.get(event.player().getUUID()).equipped()) {
+            if (!eligible(event.player())) break;
             var definition = registry.get(id);
             if (definition != null && definition.events().contains(event.kind())) {
                 definition.effect().onEvent(new Context(event.player(), id), state(event.player(), id), event);
@@ -105,7 +139,7 @@ public final class TokenEngine {
         return players.get(player.getUUID()).equipped().stream().map(id -> {
             var definition = registry.get(id);
             if (definition == null) return new View(id, UNKNOWN, 0, 0, 0);
-            if (!game.getRules().running() || !player.isAlive()) return new View(id, 0, 0, 0, 0);
+            if (!eligible(player) || !player.isAlive()) return new View(id, 0, 0, 0, 0);
             var state = state(player, id);
             int flags = (definition.effect().ready(player, state, tick) ? READY : 0)
                     | (tick < state.triggeredUntil ? TRIGGERED : 0)
@@ -129,7 +163,7 @@ public final class TokenEngine {
     }
 
     public void updateHealth(ServerPlayer player) {
-        if (!game.getRules().running() || !subscribesToHealth(player)) return;
+        if (!eligible(player) || !subscribesToHealth(player)) return;
         // A Totem can restore health in the same hit. Observe zero for existing progress
         // without creating new runtime state for a player whose death was already handled.
         if (!player.isAlive() && !states.containsKey(player.getUUID())) return;
@@ -143,17 +177,30 @@ public final class TokenEngine {
 
     /** Discard all player token runtime on death, disconnect and reconnect. */
     public void clearEffects(UUID uuid) {
-        owned.removePlayer(uuid);
-        scheduler.cancelPlayer(uuid);
-        health.remove(uuid);
-        states.remove(uuid);
+        if (!clearing.add(uuid)) return;
+        generations.put(uuid, new Object());
+        try {
+            owned.removePlayer(uuid);
+        } finally {
+            scheduler.cancelPlayer(uuid);
+            health.remove(uuid);
+            states.remove(uuid);
+            clearing.remove(uuid);
+        }
     }
 
     public void clearRound() {
-        owned.clear();
-        scheduler.clear();
-        states.clear();
-        health.clear();
+        if (clearingRound) return;
+        clearingRound = true;
+        roundGeneration = new Object();
+        try { owned.clear(); }
+        finally {
+            scheduler.clear();
+            states.clear();
+            health.clear();
+            generations.clear();
+            clearingRound = false;
+        }
     }
 
     private boolean subscribesToHealth(ServerPlayer player) {
@@ -170,6 +217,8 @@ public final class TokenEngine {
         private final ServerPlayer player;
         private final Identifier token;
         private final LivingEntity meleeTarget;
+        private final Object generation;
+        private final Object round;
 
         private Context(ServerPlayer player, Identifier token) {
             this(player, token, null);
@@ -179,17 +228,31 @@ public final class TokenEngine {
             this.player = player;
             this.token = token;
             this.meleeTarget = meleeTarget;
+            this.generation = generations.computeIfAbsent(player.getUUID(), _ -> new Object());
+            this.round = roundGeneration;
         }
 
-        public ServerPlayer player() { return player; }
+        public ServerPlayer player() {
+            var current = resolve == null ? player : resolve.apply(player.getUUID());
+            return current == null ? player : current;
+        }
+        public boolean valid() {
+            var current = player();
+            return currentGeneration() && current.connection == player.connection && eligible(current) && current.isAlive();
+        }
+        private boolean currentGeneration() { return round == roundGeneration && generations.get(player.getUUID()) == generation; }
+        public boolean canHeal(ServerPlayer target) { return valid() && eligible(target) && target.isAlive() && !target.isSpectator(); }
+        public boolean canHarm(LivingEntity target) { return valid() && target != null && !(target instanceof Player) && target.isAlive(); }
         public LivingEntity meleeTarget() { return meleeTarget; }
         public long tick() { return clock.getAsLong(); }
-        public void flash() { flash.accept(player, token); }
-        public boolean roll(double chance) { return TokenEngine.roll(chance, () -> random.applyAsDouble(player)); }
+        public void flash() { if (valid()) flash.accept(player(), token); }
+        public boolean roll(double chance) { return valid() && TokenEngine.roll(chance, () -> random.applyAsDouble(player())); }
 
         public void replaceEffect(String name, Runnable remove) {
+            if (!valid()) { remove.run(); return; }
             var key = key(name);
             owned.remove(key);
+            if (!valid()) { remove.run(); return; }
             owned.track(key, () -> {
                 scheduler.cancel(key);
                 remove.run();
@@ -197,14 +260,18 @@ public final class TokenEngine {
         }
 
         public void at(String effect, long tick, Runnable action) {
-            scheduler.schedule(tick, game.getRules().round(), key(effect), action);
+            if (valid()) scheduler.schedule(tick, game.getRules().round(), key(effect), () -> {
+                if (valid()) action.run();
+                else finish(effect);
+            });
         }
 
-        public void finish(String name) { owned.remove(key(name)); }
+        // Revocation can run after losing ALIVE, but an old generation must never revoke a new effect.
+        public void finish(String name) { if (currentGeneration()) owned.remove(key(name)); }
 
         public void damage(ServerLevel level, LivingEntity victim, float amount) {
-            if (!game.getRules().running() || !victim.isAlive() || victim.level() != level) return;
-            victim.hurtServer(level, directDamageSource(level, player), amount);
+            if (!canHarm(victim) || victim.level() != level) return;
+            victim.hurtServer(level, directDamageSource(level, player()), amount);
         }
 
         private OwnedEffects.Key key(String name) { return new OwnedEffects.Key(player.getUUID(), token, name); }

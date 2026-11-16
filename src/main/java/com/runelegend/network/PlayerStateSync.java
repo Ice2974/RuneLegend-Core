@@ -15,6 +15,7 @@ public final class PlayerStateSync {
         long staminaSent;
         long resyncAt = -20;
         View last;
+        long rulesRevision = -1;
     }
 
     private final RuneLegendServer server;
@@ -30,6 +31,7 @@ public final class PlayerStateSync {
     }
 
     public void leave(ServerPlayer player) { peers.remove(player.getUUID()); }
+    public void clear() { peers.clear(); }
 
     public void rules(ServerPlayer player) {
         if (peers.containsKey(player.getUUID())) ServerPlayNetworking.send(player, new Rules(server.game().getRules()));
@@ -37,7 +39,7 @@ public final class PlayerStateSync {
 
     public void flash(ServerPlayer player, Identifier token) {
         var rules = server.game().getRules();
-        if (rules.running() && server.isCurrent(player) && peers.containsKey(player.getUUID())) {
+        if (server.tokenEligible(player) && player.isAlive() && peers.containsKey(player.getUUID())) {
             ServerPlayNetworking.send(player, new TokenFlash(token, rules.round()));
         }
     }
@@ -55,16 +57,31 @@ public final class PlayerStateSync {
         if (peer == null) return;
         peer.last = current(player);
         peer.staminaSent = server.tick();
-        ServerPlayNetworking.send(player, new PlayerSnapshot(++peer.revision, server.tick(), peer.last));
+        var rules = server.game().getRules();
+        peer.rulesRevision = rules.revision();
+        ServerPlayNetworking.send(player, new PlayerSnapshot(++peer.revision, server.tick(), peer.last, rules.round(), rules.revision()));
     }
 
     public void update(ServerPlayer player) {
+        if (!server.isCurrent(player)) return;
         var peer = peers.get(player.getUUID());
         if (peer == null || peer.last == null) return;
+        if (peer.rulesRevision != server.game().getRules().revision()) {
+            snapshot(player);
+            return;
+        }
         var before = peer.last;
         var after = current(player);
         int mask = 0;
         if (!before.tokens().equals(after.tokens())) mask |= TOKENS;
+        if (before.playerState() != after.playerState() || before.spectateNextRound() != after.spectateNextRound()) mask |= IDENTITY;
+        var previousMarkers = new HashMap<UUID, DownedMarker>();
+        before.downed().forEach(marker -> previousMarkers.put(marker.player(), marker));
+        var currentMarkers = new HashMap<UUID, DownedMarker>();
+        after.downed().forEach(marker -> currentMarkers.put(marker.player(), marker));
+        var upserts = after.downed().stream().filter(marker -> !marker.equals(previousMarkers.get(marker.player()))).toList();
+        var removed = before.downed().stream().map(DownedMarker::player).filter(uuid -> !currentMarkers.containsKey(uuid)).toList();
+        if (!upserts.isEmpty() || !removed.isEmpty()) mask |= DOWNED;
         if (before.stamina() != after.stamina() && (server.tick() - peer.staminaSent >= 4
                 || after.stamina() == 0 || after.stamina() == after.staminaMax())) {
             mask |= STAMINA;
@@ -72,12 +89,20 @@ public final class PlayerStateSync {
         }
         if (mask == 0) return;
         long base = peer.revision;
-        peer.last = merge(before, after, mask);
-        ServerPlayNetworking.send(player, new PlayerDelta(base, ++peer.revision, server.tick(), mask, after));
+        var patch = new View(after.tokens(), after.stamina(), after.staminaMax(), after.playerState(), after.spectateNextRound(), upserts);
+        peer.last = merge(before, patch, mask, removed);
+        var rules = server.game().getRules();
+        ServerPlayNetworking.send(player, new PlayerDelta(base, ++peer.revision, server.tick(), mask, patch, removed, rules.round(), rules.revision()));
     }
 
     private View current(ServerPlayer player) {
         var stamina = server.stamina();
-        return new View(server.tokens().views(player), stamina.stamina(player), stamina.config().max());
+        var markers = server.downed().records().stream().filter(record -> record.dimension().equals(player.level().dimension()))
+                .sorted(java.util.Comparator.comparing(com.runelegend.player.DownedService.DownedRecord::playerUuid))
+                .map(record -> new DownedMarker(record.playerUuid(), record.round(), record.sequence(), record.dimension().identifier(),
+                        record.position().x, record.position().y, record.position().z,
+                        (int) Math.max(0, (record.expiresAtTick() - server.tick() + 19) / 20))).toList();
+        return new View(server.tokens().views(player), stamina.stamina(player), stamina.config().max(),
+                server.playerStates().state(player.getUUID()), server.playerStates().spectateNextRound(player.getUUID()), markers);
     }
 }

@@ -57,7 +57,7 @@ public final class TokenLifecycleGameTests {
         })).build();
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, clock::get);
+        var tokens = TokenTestEngine.forPlayers(first, second).create(game, players, registry, clock::get);
         try {
             for (var player : List.of(first, second)) {
                 test.assertValueEqual(players.equip(player.getUUID(), id), PlayerTokenService.Result.CHANGED, "Equip fixture");
@@ -110,11 +110,13 @@ public final class TokenLifecycleGameTests {
         var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), server.registry());
-        var tokens = new TokenEngine(game, players, server.registry(), () -> 100, player -> 0);
+        var tokens = TokenTestEngine.forPlayers(original).create(game, players, server.registry(), () -> 100, player -> 0);
         try {
             test.assertValueEqual(players.equip(original.getUUID(), RuneLegendMod.id("soul_siphon")),
                     PlayerTokenService.Result.CHANGED, "Equip Soul Siphon");
             original.getAttribute(Attributes.MAX_HEALTH).setBaseValue(24);
+            server.game().stopGame();
+            server.game().startGame();
             game.startGame();
             tokens.dispatch(new TokenEvent(TokenEvent.Kind.KILL, original, corpse, test.getLevel(), null, 20, 20, 0));
             test.assertValueEqual(original.getMaxHealth(), 26F, "Soul Siphon adds its configured bonus");
@@ -136,6 +138,7 @@ public final class TokenLifecycleGameTests {
             game.stopGame();
             players.clear(original.getUUID());
             for (var player : List.of(original, reloaded, aliveCopy, respawned)) server.leave(player);
+            server.game().stopGame();
         }
     }
 

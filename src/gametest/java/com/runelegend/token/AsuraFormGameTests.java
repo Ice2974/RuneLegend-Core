@@ -63,7 +63,8 @@ public final class AsuraFormGameTests {
 
             kill(attacker, test.spawnWithNoFreeWill(EntityTypes.COW, 2, 2, 2));
             kill(attacker, pvpVictim);
-            test.assertTrue(!pvpVictim.isAlive(), "The PvP kill settled");
+            test.assertValueEqual(server.playerStates().state(pvpVictim.getUUID()),
+                    com.runelegend.player.PlayerState.DOWNED, "Vanilla lethal player damage enters DOWNED");
             var tokenVictim = zombie(test);
             tokenVictim.hurtServer(level, TokenEngine.directDamageSource(level, attacker), 100);
             test.assertTrue(!tokenVictim.isAlive(), "The separate token source killed the monster");
@@ -104,9 +105,10 @@ public final class AsuraFormGameTests {
             near(test, savedHealth(attacker), 20, "The totem does not overwrite the normal bar");
             attacker.damageCooldownTime = 0;
             attacker.hurtServer(level, level.damageSources().magic(), 100);
-            test.assertTrue(!attacker.isAlive(), "A second lethal hit kills normally");
-            near(test, attacker.getHealth(), 0, "Death never restores the normal bar");
-            near(test, attacker.getMaxHealth(), 20, "Death clears the temporary maximum");
+            test.assertValueEqual(server.playerStates().state(attacker.getUUID()),
+                    com.runelegend.player.PlayerState.DOWNED, "The second lethal hit enters DOWNED");
+            near(test, attacker.getHealth(), 1, "Downing restores only the spectator proxy health");
+            near(test, attacker.getMaxHealth(), 20, "Downing clears the temporary maximum");
             test.succeed();
         } finally {
             server.game().stopGame();
@@ -131,7 +133,7 @@ public final class AsuraFormGameTests {
                 defaults.vernalTide(), defaults.arrogance()));
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var tokens = new TokenEngine(game, players, registry, clock::get);
+        var tokens = TokenTestEngine.forPlayers(player).create(game, players, registry, clock::get);
         var kill = new TokenEvent(TokenEvent.Kind.KILL, player, zombie(test), level, null, 20, 20, 0);
         try {
             players.equip(player.getUUID(), ASURA);

@@ -13,9 +13,9 @@ import java.util.List;
 public final class AsuraHealth {
     private static final net.minecraft.resources.Identifier SPEED = RuneLegendMod.id("asura_form_speed");
     private static final float SPEED_PER_LEVEL = 0.2F; // Vanilla Speed uses this amount per level.
-    private final ServerPlayer player;
-    private final AttributeInstance maximum;
-    private final AttributeAccess access;
+    private ServerPlayer player;
+    private AttributeInstance maximum;
+    private AttributeAccess access;
     private final float temporaryMaximum;
     private float normalHealth;
 
@@ -55,6 +55,23 @@ public final class AsuraHealth {
 
     public static AsuraHealth on(AttributeInstance attribute) {
         return attribute == null ? null : ((AttributeAccess) attribute).runelegend$asuraHealth();
+    }
+
+    /** Vanilla living respawn replaces attributes; preserve this owned effect without restarting it. */
+    public static void transfer(ServerPlayer oldPlayer, ServerPlayer newPlayer) {
+        var form = on(oldPlayer.getAttribute(Attributes.MAX_HEALTH));
+        if (form == null) return;
+        float health = oldPlayer.getHealth();
+        var speed = oldPlayer.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(SPEED);
+        form.access.runelegend$setAsuraHealth(null);
+        oldPlayer.getAttribute(Attributes.MOVEMENT_SPEED).removeModifier(SPEED);
+        form.player = newPlayer;
+        form.maximum = newPlayer.getAttribute(Attributes.MAX_HEALTH);
+        form.access = (AttributeAccess) form.maximum;
+        form.access.runelegend$setAsuraHealth(form);
+        if (speed != null) newPlayer.getAttribute(Attributes.MOVEMENT_SPEED).addOrUpdateTransientModifier(speed);
+        newPlayer.setHealth(health);
+        form.syncHealthBar();
     }
 
     public float temporaryMaximum() { return temporaryMaximum; }

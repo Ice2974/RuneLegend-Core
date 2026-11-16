@@ -4,6 +4,7 @@ import net.minecraft.commands.arguments.IdentifierArgument;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.player.PlayerTokenService;
@@ -38,6 +39,18 @@ public final class RuneLegendCommands {
             addStatus(token, ctx -> ctx.getSource().getPlayerOrException());
             addEquipmentChanges(token, ctx -> ctx.getSource().getPlayerOrException());
             root.then(token);
+            root.then(literal("player")
+                    .then(literal("status").executes(RuneLegendCommands::playerStatus))
+                    .then(literal("spectate").then(argument("enabled", BoolArgumentType.bool()).executes(ctx -> {
+                        var player = ctx.getSource().getPlayerOrException();
+                        var server = instance(ctx);
+                        if (!server.playerStates().selectSpectator(player.getUUID(), BoolArgumentType.getBool(ctx, "enabled"))) {
+                            ctx.getSource().sendFailure(RuneLegendText.message("runelegend.player.spectate_running"));
+                            return 0;
+                        }
+                        server.sync().update(player);
+                        return playerStatus(ctx);
+                    }))));
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
             root.then(literal("admin").requires(PermissionPredicates.require(RuneLegendMod.id("admin"), PermissionLevel.ADMINS)).then(admin));
@@ -46,6 +59,17 @@ public final class RuneLegendCommands {
     }
 
     private interface Target { ServerPlayer get(CommandContext<CommandSourceStack> context) throws CommandSyntaxException; }
+
+    private static int playerStatus(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = ctx.getSource().getPlayerOrException();
+        var service = instance(ctx).playerStates();
+        var state = service.state(player.getUUID());
+        var message = state == null ? RuneLegendText.message(service.spectateNextRound(player.getUUID())
+                ? "runelegend.player.waiting_spectate" : "runelegend.player.waiting_play")
+                : RuneLegendText.message("runelegend.player.state", RuneLegendText.message("runelegend.player." + state.name().toLowerCase(java.util.Locale.ROOT)));
+        ctx.getSource().sendSuccess(() -> message, false);
+        return 1;
+    }
 
     private static void addEquipment(ArgumentBuilder<CommandSourceStack, ?> parent, Target target) {
         addStatus(parent, target);

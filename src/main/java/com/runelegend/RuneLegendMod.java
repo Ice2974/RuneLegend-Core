@@ -3,10 +3,10 @@ package com.runelegend;
 import com.runelegend.command.RuneLegendCommands;
 import com.runelegend.network.RuneLegendPayloads;
 import com.runelegend.network.ServerNetworking;
-import com.runelegend.token.effect.SoulSiphonEffect;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.resources.Identifier;
@@ -35,7 +35,18 @@ public final class RuneLegendMod implements ModInitializer {
             var server = RuneLegendServer.find(minecraft);
             if (server != null) server.endTick();
         });
-        ServerPlayerEvents.COPY_FROM.register(SoulSiphonEffect::transferBonus);
+        ServerPlayerEvents.COPY_FROM.register((oldPlayer, player, alive) -> {
+            var server = RuneLegendServer.find(player.level().getServer());
+            if (server != null) server.copyPlayer(oldPlayer, player, alive);
+        });
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, player, alive) -> {
+            var server = RuneLegendServer.find(player.level().getServer());
+            if (server != null) server.respawned(oldPlayer, player, alive);
+        });
+        ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register((player, origin, destination) -> {
+            var server = RuneLegendServer.find(destination.getServer());
+            if (server != null) server.changedLevel(player);
+        });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (entity instanceof ServerPlayer player) {
                 var server = RuneLegendServer.find(player.level().getServer());

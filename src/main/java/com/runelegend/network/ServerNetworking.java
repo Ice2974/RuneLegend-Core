@@ -22,8 +22,12 @@ public final class ServerNetworking {
             if (server != null) server.join(player);
         });
         ServerPlayConnectionEvents.DISCONNECT.register((listener, minecraft) -> {
-            var server = RuneLegendServer.find(minecraft);
-            if (server != null) server.leave(listener.player);
+            // Fabric can deliver channel-inactive notifications from the Netty thread.
+            // Resolve the current save and connection again on the authoritative thread.
+            minecraft.execute(() -> {
+                var server = RuneLegendServer.find(minecraft);
+                if (server != null) server.leave(listener.player);
+            });
         });
         ServerPlayNetworking.registerGlobalReceiver(StateResync.TYPE, (request, context) -> {
             var server = RuneLegendServer.find(context.server());

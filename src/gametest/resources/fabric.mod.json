@@ -6,8 +6,8 @@
   "environment": "*",
   "mixins": [{"config": "runelegend.item-lock.client-test.mixins.json", "environment": "client"}],
   "entrypoints": {
-    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests", "com.runelegend.token.TokenLifecycleGameTests", "com.runelegend.token.AsuraFormGameTests", "com.runelegend.token.ResonanceHealingGameTests", "com.runelegend.token.VernalTideGameTests", "com.runelegend.token.ArroganceGameTests", "com.runelegend.test.ItemLockGameTests", "com.runelegend.test.ItemLockTransferGameTests", "com.runelegend.command.CommandOutputGameTests"],
-    "fabric-client-gametest": ["com.runelegend.test.HudClientGameTest", "com.runelegend.test.TokenLifecycleClientGameTest", "com.runelegend.test.AsuraFormClientGameTest", "com.runelegend.test.ArroganceClientGameTest", "com.runelegend.test.ItemLockClientGameTest", "com.runelegend.token.SoulSiphonClientGameTest"]
+    "fabric-gametest": ["com.runelegend.test.PlayerStateGameTests", "com.runelegend.token.PlayerStateTokenGameTests", "com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests", "com.runelegend.token.TokenLifecycleGameTests", "com.runelegend.token.AsuraFormGameTests", "com.runelegend.token.ResonanceHealingGameTests", "com.runelegend.token.VernalTideGameTests", "com.runelegend.token.ArroganceGameTests", "com.runelegend.test.ItemLockGameTests", "com.runelegend.test.ItemLockTransferGameTests", "com.runelegend.command.CommandOutputGameTests"],
+    "fabric-client-gametest": ["com.runelegend.test.PlayerStateClientGameTest", "com.runelegend.test.HudClientGameTest", "com.runelegend.test.TokenLifecycleClientGameTest", "com.runelegend.test.AsuraFormClientGameTest", "com.runelegend.test.ArroganceClientGameTest", "com.runelegend.test.ItemLockClientGameTest", "com.runelegend.token.SoulSiphonClientGameTest"]
   },
   "depends": {"runelegend": "*"}
 }

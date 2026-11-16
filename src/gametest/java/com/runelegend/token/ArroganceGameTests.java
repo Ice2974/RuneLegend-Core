@@ -41,6 +41,7 @@ public final class ArroganceGameTests {
         attacker.setPos(cow.position().add(0, 0, 1));
         playerTarget.setPos(attacker.position().add(1, 0, 0));
         try {
+            server.game().stopGame();
             for (var player : List.of(attacker, other)) {
                 test.assertValueEqual(server.players().equip(player.getUUID(), ARROGANCE),
                         PlayerTokenService.Result.CHANGED, "Equip Arrogance");
@@ -130,12 +131,13 @@ public final class ArroganceGameTests {
             bonus(test, engine, attacker, 1);
             attacker.damageCooldownTime = 0;
             attacker.hurtServer(level, level.damageSources().magic(), 100);
-            test.assertTrue(!attacker.isAlive(), "The attacker died");
+            test.assertValueEqual(server.playerStates().state(attacker.getUUID()),
+                    com.runelegend.player.PlayerState.DOWNED, "The attacker is downed");
             flags(test, engine, attacker, 0);
 
             kill(other, zombie(test));
             kill(other, zombie(test));
-            bonus(test, engine, other, 1);
+            bonus(test, engine, other, 0);
             server.game().stopGame();
             flags(test, engine, other, 0);
             server.game().startGame();
@@ -161,7 +163,7 @@ public final class ArroganceGameTests {
         var game = new GameController(() -> {}, (before, after) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var flashes = new ArrayList<net.minecraft.resources.Identifier>();
-        var engine = new TokenEngine(game, players, registry, () -> 100, (recipient, id) -> flashes.add(id));
+        var engine = TokenTestEngine.forPlayers(player).create(game, players, registry, () -> 100, (recipient, id) -> flashes.add(id));
         var enemy = zombie(test);
         var kill = new TokenEvent(TokenEvent.Kind.KILL, player, enemy, player.level(), null, 1, 1, 0);
         try {
@@ -192,7 +194,7 @@ public final class ArroganceGameTests {
                 new ArroganceEffect(new TokenConfig.ArroganceSettings(0, 1, 1, 5)))).build();
         var game = new GameController(() -> {}, (before, after) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
-        var engine = new TokenEngine(game, players, registry, () -> 100);
+        var engine = TokenTestEngine.forPlayers(player).create(game, players, registry, () -> 100);
         try {
             players.equip(player.getUUID(), ARROGANCE);
             game.startGame();

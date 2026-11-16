@@ -186,7 +186,8 @@ public final class HudClientGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             cache.apply(new PlayerSnapshot(Long.MAX_VALUE, cache.serverTick(), new View(
                     ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.COOLDOWN, 0, 0, cooldownUntil)).toList(),
-                    guard.max(), guard.max())));
+                    guard.max(), guard.max(), com.runelegend.player.PlayerState.ALIVE, false, List.of()),
+                    cache.rules().round(), cache.rules().revision()));
             HudElementRegistry.attachElementBefore(RuneLegendMod.id("hud"), fixture, (graphics, delta) -> {
                 // Pin a visual frame with synthetic triggers so screenshot timing does not depend on FPS.
                 long stamp = trigger.incrementAndGet();

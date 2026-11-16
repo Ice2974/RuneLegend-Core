@@ -28,7 +28,7 @@ public final class ResonanceHealingEffect implements TokenEffectHandler {
         var level = event.level();
         double radiusSquared = settings.radius() * settings.radius();
         for (var recipient : level.players()) {
-            if (!recipient.isAlive() || recipient.isSpectator()) continue;
+            if (!context.canHeal(recipient)) continue;
             if (recipient.distanceToSqr(player) > radiusSquared) continue;
             recipient.heal(settings.healAmount());
         }
