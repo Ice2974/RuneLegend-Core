@@ -12,14 +12,14 @@ class PlayerStateConfigTest {
 
     @Test void defaultsAndFractionalTicks() {
         assertEquals(PlayerStateConfig.DEFAULT, PlayerStateConfig.fromJson(PlayerStateConfig.DEFAULT.toJson()));
-        assertEquals(60, PlayerStateConfig.DEFAULT.reviveTicks());
+        assertEquals(40, PlayerStateConfig.DEFAULT.reviveTicks());
         assertEquals(300, PlayerStateConfig.DEFAULT.downedTicks());
         assertEquals(4, PlayerStateConfig.DEFAULT.distanceSquared());
         assertEquals(2, new PlayerStateConfig(2, 0.051, 1, 25).reviveTicks());
         var missing = new JsonObject();
         missing.addProperty("schemaVersion", 1);
         missing.addProperty("revive_distance", 4);
-        assertEquals(new PlayerStateConfig(4, 3, 15, 50), PlayerStateConfig.fromJson(missing));
+        assertEquals(new PlayerStateConfig(4, 2, 15, 50), PlayerStateConfig.fromJson(missing));
     }
 
     @Test void rejectsInvalidAndNonNumericValuesWithoutTruncation() {

@@ -37,7 +37,7 @@
 {
   "schemaVersion": 1,
   "revive_distance": 2.0,
-  "revive_duration_seconds": 3.0,
+  "revive_duration_seconds": 2.0,
   "downed_duration_seconds": 15,
   "revive_health_percent": 50
 }

@@ -15,7 +15,7 @@ import java.nio.file.Path;
 public record PlayerStateConfig(double reviveDistance, double reviveDurationSeconds,
                                 double downedDurationSeconds, double reviveHealthPercent) {
     private static final com.google.gson.Gson GSON = new GsonBuilder().setStrictness(Strictness.STRICT).setPrettyPrinting().create();
-    public static final PlayerStateConfig DEFAULT = new PlayerStateConfig(2, 3, 15, 50);
+    public static final PlayerStateConfig DEFAULT = new PlayerStateConfig(2, 2, 15, 50);
 
     public PlayerStateConfig {
         if (!Double.isFinite(reviveDistance) || reviveDistance <= 0 || !Double.isFinite(reviveDistance * reviveDistance))

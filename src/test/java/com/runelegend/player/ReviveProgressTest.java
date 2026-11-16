@@ -33,9 +33,9 @@ class ReviveProgressTest {
         tick(1, helper(helper, new Vec3(0, 2.01, 0), true));
         assertNull(downed.rescue(target));
         tick(2, helper(helper, new Vec3(0, 2, 0), true));
-        tick(61, helper(helper, new Vec3(0, 2, 0), true));
+        tick(41, helper(helper, new Vec3(0, 2, 0), true));
         assertTrue(revived.isEmpty());
-        tick(62, helper(helper, new Vec3(0, 2, 0), true));
+        tick(42, helper(helper, new Vec3(0, 2, 0), true));
         assertEquals(List.of(target), revived);
         assertNull(downed.get(target));
     }
