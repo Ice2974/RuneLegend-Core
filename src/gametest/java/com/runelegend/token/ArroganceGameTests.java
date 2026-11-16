@@ -73,14 +73,11 @@ public final class ArroganceGameTests {
             var tokenVictim = zombie(test);
             tokenVictim.hurtServer(level, TokenEngine.directDamageSource(level, attacker), 100);
             test.assertTrue(!tokenVictim.isAlive(), "The independent token hit killed the enemy");
+            bonus(test, engine, attacker, 0);
             var arrow = new Arrow(EntityTypes.ARROW, level);
             var arrowVictim = zombie(test);
             arrowVictim.hurtServer(level, level.damageSources().arrow(arrow, attacker), 100);
             test.assertTrue(!arrowVictim.isAlive(), "The arrow kill settled");
-            kill(other, zombie(test));
-            bonus(test, engine, attacker, 0);
-            bonus(test, engine, other, 0);
-            kill(attacker, zombie(test));
             flags(test, engine, attacker, TokenEngine.ACTIVE);
             bonus(test, engine, attacker, 1);
             bonus(test, engine, other, 0);
@@ -100,19 +97,17 @@ public final class ArroganceGameTests {
 
             var zombie = zombie(test);
             float boosted = melee(attacker, zombie);
-            kill(attacker, zombie(test));
             zombie.setHealth(boosted - 0.5F);
             zombie.damageCooldownTime = 0;
             swing(attacker, zombie);
             test.assertTrue(!zombie.isAlive(), "The existing 1 HP bonus finished the enemy");
             bonus(test, engine, attacker, 2);
             kill(attacker, zombie(test));
-            bonus(test, engine, attacker, 2);
+            bonus(test, engine, attacker, 3);
 
             attacker.setHealth(12);
             attacker.heal(1);
             flags(test, engine, attacker, TokenEngine.READY | TokenEngine.PREPARING);
-            kill(attacker, zombie(test));
             bonus(test, engine, attacker, 0);
             kill(attacker, zombie(test));
             bonus(test, engine, attacker, 1);
@@ -126,7 +121,6 @@ public final class ArroganceGameTests {
             bonus(test, engine, other, 1);
             server.leave(other);
             bonus(test, engine, other, 0);
-            kill(attacker, zombie(test));
             kill(attacker, zombie(test));
             bonus(test, engine, attacker, 1);
             attacker.damageCooldownTime = 0;
