@@ -13,6 +13,7 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.ToDoubleFunction;
@@ -28,6 +29,7 @@ public final class TokenEngine {
     private final TokenRegistry registry;
     private final LongSupplier clock;
     private final ToDoubleFunction<ServerPlayer> random;
+    private final BiConsumer<ServerPlayer, Identifier> flash;
     private final Map<UUID, Map<Identifier, TokenRuntimeState>> states = new HashMap<>();
     private final Map<UUID, Long> health = new HashMap<>();
     private final TokenScheduler scheduler = new TokenScheduler();
@@ -37,23 +39,38 @@ public final class TokenEngine {
         this(game, players, registry, clock, player -> player.getRandom().nextDouble());
     }
 
+    public TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
+                       BiConsumer<ServerPlayer, Identifier> flash) {
+        this(game, players, registry, clock, player -> player.getRandom().nextDouble(), flash);
+    }
+
     TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
                 ToDoubleFunction<ServerPlayer> random) {
+        this(game, players, registry, clock, random, (player, token) -> {});
+    }
+
+    private TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock,
+                        ToDoubleFunction<ServerPlayer> random, BiConsumer<ServerPlayer, Identifier> flash) {
         this.game = game;
         this.players = players;
         this.registry = registry;
         this.clock = clock;
         this.random = random;
+        this.flash = flash;
     }
 
     public Boost melee(ServerPlayer player, float amount) {
+        return melee(player, null, amount);
+    }
+
+    public Boost melee(ServerPlayer player, LivingEntity target, float amount) {
         if (!game.getRules().running() || amount <= 0 || !player.isAlive()) return new Boost(0, List.of());
         float bonus = 0;
         var applied = new ArrayList<Identifier>();
         for (var id : players.get(player.getUUID()).equipped()) {
             var definition = registry.get(id);
             if (definition == null || !definition.events().contains(TokenEvent.Kind.MELEE)) continue;
-            float extra = definition.effect().addMeleeDamage(new Context(player, id), state(player, id));
+            float extra = definition.effect().addMeleeDamage(new Context(player, id, target), state(player, id));
             if (extra > 0) {
                 bonus += extra;
                 applied.add(id);
@@ -66,13 +83,14 @@ public final class TokenEngine {
         if (!game.getRules().running() || !player.isAlive()) return;
         long tick = clock.getAsLong();
         for (var id : applied) {
+            var definition = registry.get(id);
             var state = state(player, id);
-            if (tick >= state.activeUntil) state.flash(tick);
+            if (tick >= state.activeUntil && definition != null && definition.effect().flashOnMeleeBoost()) state.flash(tick);
         }
     }
 
     public void dispatch(TokenEvent event) {
-        if (!game.getRules().running() || !event.player().isAlive()
+        if (!game.getRules().running() || (event.kind() != TokenEvent.Kind.HEALTH && !event.player().isAlive())
                 || event.source() != null && event.source().is(TOKEN_DAMAGE)) return;
         for (var id : players.get(event.player().getUUID()).equipped()) {
             var definition = registry.get(id);
@@ -106,13 +124,20 @@ public final class TokenEngine {
         if (!rules.running()) return;
         scheduler.tick(clock.getAsLong(), rules.round());
         for (var player : online) {
-            if (!player.isAlive() || !subscribesToHealth(player)) continue;
-            long value = ((long) Float.floatToIntBits(player.getHealth()) << 32)
-                    | Integer.toUnsignedLong(Float.floatToIntBits(player.getMaxHealth()));
-            var previous = health.put(player.getUUID(), value);
-            if (previous == null || previous != value) {
-                dispatch(new TokenEvent(TokenEvent.Kind.HEALTH, player, player, player.level(), null, 0, 0, 0));
-            }
+            if (player.isAlive()) updateHealth(player);
+        }
+    }
+
+    public void updateHealth(ServerPlayer player) {
+        if (!game.getRules().running() || !subscribesToHealth(player)) return;
+        // A Totem can restore health in the same hit. Observe zero for existing progress
+        // without creating new runtime state for a player whose death was already handled.
+        if (!player.isAlive() && !states.containsKey(player.getUUID())) return;
+        long value = ((long) Float.floatToIntBits(player.getHealth()) << 32)
+                | Integer.toUnsignedLong(Float.floatToIntBits(player.getMaxHealth()));
+        var previous = health.put(player.getUUID(), value);
+        if (previous == null || previous != value) {
+            dispatch(new TokenEvent(TokenEvent.Kind.HEALTH, player, player, player.level(), null, 0, 0, 0));
         }
     }
 
@@ -144,14 +169,22 @@ public final class TokenEngine {
     public final class Context {
         private final ServerPlayer player;
         private final Identifier token;
+        private final LivingEntity meleeTarget;
 
         private Context(ServerPlayer player, Identifier token) {
+            this(player, token, null);
+        }
+
+        private Context(ServerPlayer player, Identifier token, LivingEntity meleeTarget) {
             this.player = player;
             this.token = token;
+            this.meleeTarget = meleeTarget;
         }
 
         public ServerPlayer player() { return player; }
+        public LivingEntity meleeTarget() { return meleeTarget; }
         public long tick() { return clock.getAsLong(); }
+        public void flash() { flash.accept(player, token); }
         public boolean roll(double chance) { return TokenEngine.roll(chance, () -> random.applyAsDouble(player)); }
 
         public void replaceEffect(String name, Runnable remove) {

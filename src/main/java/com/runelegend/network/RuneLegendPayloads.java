@@ -9,12 +9,13 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 3;
+    public static final int PROTOCOL = 4;
     public static final int TOKENS = 1, STAMINA = 2, ALL = TOKENS | STAMINA;
 
     private RuneLegendPayloads() {}
@@ -30,6 +31,7 @@ public final class RuneLegendPayloads {
         PayloadTypeRegistry.clientboundPlay().register(Rules.TYPE, Rules.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerSnapshot.TYPE, PlayerSnapshot.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerDelta.TYPE, PlayerDelta.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(TokenFlash.TYPE, TokenFlash.CODEC);
     }
 
     public record Hello(int version, long nonce) implements CustomPacketPayload {
@@ -91,6 +93,14 @@ public final class RuneLegendPayloads {
             return new PlayerDelta(base, revision, tick, mask, readView(buf, mask));
         });
         @Override public Type<PlayerDelta> type() { return TYPE; }
+    }
+
+    public record TokenFlash(Identifier tokenId, long round) implements CustomPacketPayload {
+        public static final Type<TokenFlash> TYPE = id("token_flash");
+        static final StreamCodec<FriendlyByteBuf, TokenFlash> CODEC = StreamCodec.of(
+                (buf, value) -> { buf.writeIdentifier(value.tokenId); buf.writeVarLong(value.round); },
+                buf -> new TokenFlash(buf.readIdentifier(), buf.readVarLong()));
+        @Override public Type<TokenFlash> type() { return TYPE; }
     }
 
     public static View merge(View old, View incoming, int mask) {

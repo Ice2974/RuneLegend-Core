@@ -27,6 +27,9 @@ public final class ClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(Rules.TYPE, (packet, context) -> cache.apply(packet));
         ClientPlayNetworking.registerGlobalReceiver(PlayerSnapshot.TYPE, (packet, context) -> cache.apply(packet));
         ClientPlayNetworking.registerGlobalReceiver(PlayerDelta.TYPE, (packet, context) -> cache.apply(packet));
+        ClientPlayNetworking.registerGlobalReceiver(TokenFlash.TYPE, (packet, context) -> {
+            if (context.player().isAlive()) cache.apply(packet);
+        });
     }
 
     public static boolean active() { return ClientStateCache.INSTANCE.rules() != null; }

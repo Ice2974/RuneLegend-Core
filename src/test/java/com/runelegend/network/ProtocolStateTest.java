@@ -13,6 +13,18 @@ class ProtocolStateTest {
     private static final TokenEngine.View TOKEN =
             new TokenEngine.View(Identifier.parse("runelegend:echo"), TokenEngine.ACTIVE, 0, 50, 0);
 
+    @Test void tokenFlashCarriesOnlyTheTokenAndRound() {
+        var flash = new TokenFlash(Identifier.parse("runelegend:arrogance"), 256);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            TokenFlash.CODEC.encode(buffer, flash);
+            assertEquals(flash, TokenFlash.CODEC.decode(buffer));
+            assertEquals(0, buffer.readableBytes());
+        } finally {
+            buffer.release();
+        }
+    }
+
     @Test void staminaDeltaDoesNotReplaceEquipment() {
         var previous = new View(List.of(TOKEN), 20000, 20000);
         var buffer = new FriendlyByteBuf(Unpooled.buffer());

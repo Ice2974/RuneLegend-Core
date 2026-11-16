@@ -54,6 +54,12 @@ public final class ClientStateCache {
         if ((packet.mask() & TOKENS) != 0 && !desynced) updateTokenAnimation();
     }
 
+    public void apply(TokenFlash packet) {
+        if (rules == null || !rules.running() || rules.round() != packet.round() || view == null
+                || view.tokens().stream().noneMatch(token -> token.id().equals(packet.tokenId()))) return;
+        tokenAnimation.enqueueFlash(packet.tokenId());
+    }
+
     private void updateTokenAnimation() {
         if (rules != null && rules.running()) tokenAnimation.update(view.tokens(), Util.getMillis());
     }

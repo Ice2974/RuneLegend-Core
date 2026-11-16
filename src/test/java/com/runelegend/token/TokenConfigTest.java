@@ -12,7 +12,7 @@ class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var root = TokenConfig.DEFAULT.toJson();
         var tokens = root.getAsJsonObject("tokens");
-        assertEquals(8, tokens.size());
+        assertEquals(9, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -45,6 +45,12 @@ class TokenConfigTest {
         assertEquals(0.5F, vernal.get("chance").getAsFloat());
         assertEquals(5.0, vernal.get("radius").getAsDouble());
         assertEquals(3.0F, vernal.get("damage").getAsFloat());
+        var arrogance = tokens.getAsJsonObject("runelegend:arrogance");
+        assertEquals(4, arrogance.size());
+        assertEquals(0.6F, arrogance.get("health_threshold").getAsFloat());
+        assertEquals(2, arrogance.get("kills_per_increase").getAsInt());
+        assertEquals(1.0F, arrogance.get("damage_per_increase").getAsFloat());
+        assertEquals(5.0F, arrogance.get("max_bonus_damage").getAsFloat());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -56,7 +62,8 @@ class TokenConfigTest {
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0),
                 new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11),
-                new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F));
+                new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F),
+                new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F));
         var encoded = TokenConfig.DEFAULT.toJson();
         // Encode each section through its typed codec to prove all fields survive a round trip.
         var tokens = encoded.getAsJsonObject("tokens");
@@ -69,7 +76,26 @@ class TokenConfigTest {
         tokens.add("runelegend:resonance_healing",
                 encode(TokenConfig.ResonanceHealingSettings.CODEC, config.resonanceHealing()));
         tokens.add("runelegend:vernal_tide", encode(TokenConfig.VernalTideSettings.CODEC, config.vernalTide()));
+        tokens.add("runelegend:arrogance", config.toJson().getAsJsonObject("tokens").get("runelegend:arrogance"));
         assertEquals(config, TokenConfig.fromJson(encoded));
+    }
+
+    @Test void missingOrInvalidArroganceSettingsPreserveOtherTokens() {
+        var root = JsonParser.parseString("""
+                {"schemaVersion":1,"tokens":{"runelegend:soul_siphon":{"chance":0.2}}}
+                """).getAsJsonObject();
+        var oldConfig = TokenConfig.fromJson(root);
+        assertEquals(TokenConfig.ArroganceSettings.DEFAULT, oldConfig.arrogance());
+        var tokens = root.getAsJsonObject("tokens");
+        for (var invalid : new String[]{
+                "\"health_threshold\":1.1", "\"kills_per_increase\":0", "\"kills_per_increase\":2.5",
+                "\"kills_per_increase\":2147483648", "\"damage_per_increase\":0",
+                "\"damage_per_increase\":\"garbage\"", "\"max_bonus_damage\":-1", "\"max_bonus_damage\":1e50"}) {
+            tokens.add("runelegend:arrogance", JsonParser.parseString("{\"health_threshold\":0.8," + invalid + "}"));
+            assertEquals(oldConfig, TokenConfig.fromJson(root), invalid);
+        }
+        tokens.add("runelegend:arrogance", JsonParser.parseString("{\"damage_per_increase\":0.5}"));
+        assertEquals(new TokenConfig.ArroganceSettings(0.6F, 2, 0.5F, 5.0F), TokenConfig.fromJson(root).arrogance());
     }
 
     @Test void boundedSettingsRejectInvalidValues() {

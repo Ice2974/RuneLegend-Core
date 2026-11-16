@@ -2,6 +2,7 @@ package com.runelegend.token;
 
 public final class TokenRuntimeState {
     public int charge;
+    public long damageSteps;
     public long cooldownUntil;
     public long triggeredUntil;
     public long activeUntil;

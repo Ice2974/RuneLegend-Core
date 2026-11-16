@@ -40,5 +40,5 @@
   "token.runelegend.resonance_healing": "Resonance Healing",
   "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
   "token.runelegend.arrogance": "Arrogance",
-  "token.runelegend.arrogance.description": "This token's effect is not implemented yet"
+  "token.runelegend.arrogance.description": "While above %1$s health, every %2$s enemy kills increase the true damage added to direct melee hits by %3$s HP, up to %4$s HP. Progress resets at or below the threshold. No cooldown."
 }

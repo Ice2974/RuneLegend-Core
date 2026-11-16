@@ -14,7 +14,7 @@ public final class ServerNetworking {
         ServerPlayConnectionEvents.JOIN.register((listener, sender, minecraft) -> {
             var player = listener.player;
             if (!ServerPlayNetworking.canSend(player, PlayerSnapshot.TYPE) || !ServerPlayNetworking.canSend(player, PlayerDelta.TYPE)
-                    || !ServerPlayNetworking.canSend(player, Rules.TYPE)) {
+                    || !ServerPlayNetworking.canSend(player, Rules.TYPE) || !ServerPlayNetworking.canSend(player, TokenFlash.TYPE)) {
                 listener.disconnect(Component.translatableWithFallback("runelegend.network.required", "This server requires the RuneLegend mod."));
                 return;
             }

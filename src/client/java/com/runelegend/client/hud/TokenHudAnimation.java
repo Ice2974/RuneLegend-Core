@@ -12,6 +12,7 @@ public final class TokenHudAnimation {
     private static final long PHASE_MS = 1_000;
     private static final long FRAME_MS = 50;
     static final int FRAME_COUNT = 8;
+    private static final long GLOW_MS = FRAME_COUNT * FRAME_MS;
 
     public record Display(float opacity, int glowFrame) {}
     private static final Display DIM = new Display(0.5F, -1);
@@ -23,6 +24,9 @@ public final class TokenHudAnimation {
         long preparingAt;
         boolean active;
         boolean preparing;
+        long queuedFlashes;
+        long flashStarted;
+        boolean playingFlash;
 
         void update(TokenEngine.View view, long now) {
             int flags = view.flags();
@@ -41,6 +45,13 @@ public final class TokenHudAnimation {
         }
 
         Display display(long now) {
+            if (playingFlash && now - flashStarted >= GLOW_MS) playingFlash = false;
+            if (!playingFlash && queuedFlashes > 0) {
+                queuedFlashes--;
+                playingFlash = true;
+                flashStarted = now;
+            }
+            if (playingFlash) return bright(now - flashStarted);
             if (lastTrigger != 0 && now - triggeredAt < PHASE_MS) return bright(now - triggeredAt);
             if (active) return BRIGHT;
             if (!preparing || now < preparingAt) return DIM;
@@ -61,9 +72,13 @@ public final class TokenHudAnimation {
         return slot == null ? DIM : slot.display(now);
     }
 
+    public void enqueueFlash(Identifier id) {
+        slots.computeIfAbsent(id, ignored -> new Slot()).queuedFlashes++;
+    }
+
     public void clear() { slots.clear(); }
 
     private static Display bright(long elapsed) {
-        return elapsed >= 0 && elapsed < FRAME_COUNT * FRAME_MS ? new Display(1F, (int) (elapsed / FRAME_MS)) : BRIGHT;
+        return elapsed >= 0 && elapsed < GLOW_MS ? new Display(1F, (int) (elapsed / FRAME_MS)) : BRIGHT;
     }
 }

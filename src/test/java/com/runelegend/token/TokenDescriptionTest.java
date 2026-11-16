@@ -7,6 +7,7 @@ import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
 import com.runelegend.token.effect.ResonanceHealingEffect;
 import com.runelegend.token.effect.VenomousTipEffect;
+import com.runelegend.token.effect.ArroganceEffect;
 import com.runelegend.token.effect.VernalTideEffect;
 import org.junit.jupiter.api.Test;
 
@@ -111,6 +112,22 @@ class TokenDescriptionTest {
                         .get("token.runelegend.vernal_tide.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 for (String value : new String[]{"45%", "6.5", "3.5"}) {
+                    assertTrue(description.contains(value), description);
+                }
+            }
+        }
+    }
+
+    @Test void arroganceDescriptionUsesEveryConfiguredValue() throws IOException {
+        var settings = new TokenConfig.ArroganceSettings(0.73F, 8, 1.25F, 6.5F);
+        var args = new ArroganceEffect(settings).descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.arrogance.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"73%", "8", "1.25", "6.5"}) {
                     assertTrue(description.contains(value), description);
                 }
             }

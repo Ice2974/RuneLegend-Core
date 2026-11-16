@@ -39,8 +39,8 @@ public final class RuneLegendServer {
         game = new GameController(this::checkThread, this::rulesChanged);
         registry = TokenRegistry.builtIn(TokenConfig.loadOrGenerate(TokenConfig.defaultPath()));
         players = new PlayerTokenService(game, PlayerTokenStore.load(PlayerTokenStore.defaultPath()), registry);
-        tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
+        tokens = new TokenEngine(game, players, registry, this::tick, sync::flash);
         stamina = new GuardStaminaService(game, this::tick, guard);
     }
 

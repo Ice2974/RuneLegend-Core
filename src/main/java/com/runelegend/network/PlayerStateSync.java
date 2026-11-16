@@ -2,6 +2,7 @@ package com.runelegend.network;
 
 import com.runelegend.RuneLegendServer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +33,13 @@ public final class PlayerStateSync {
 
     public void rules(ServerPlayer player) {
         if (peers.containsKey(player.getUUID())) ServerPlayNetworking.send(player, new Rules(server.game().getRules()));
+    }
+
+    public void flash(ServerPlayer player, Identifier token) {
+        var rules = server.game().getRules();
+        if (rules.running() && server.isCurrent(player) && peers.containsKey(player.getUUID())) {
+            ServerPlayNetworking.send(player, new TokenFlash(token, rules.round()));
+        }
     }
 
     public void resync(ServerPlayer player) {

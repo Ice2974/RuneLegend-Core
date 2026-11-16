@@ -111,7 +111,8 @@ public final class TokenEffectsGameTests {
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4),
                 TokenConfig.AsuraFormSettings.DEFAULT,
                 TokenConfig.ResonanceHealingSettings.DEFAULT,
-                TokenConfig.VernalTideSettings.DEFAULT);
+                TokenConfig.VernalTideSettings.DEFAULT,
+                TokenConfig.ArroganceSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
@@ -325,8 +326,9 @@ public final class TokenEffectsGameTests {
             tokens.dispatch(kill);
             test.assertValueEqual(tokens.views(player).getFirst().flags(), TokenEngine.READY, "Preparation ends independently");
             for (var definition : server.registry().all()) {
+                if (definition.id().equals(RuneLegendMod.id("arrogance"))) continue;
                 test.assertTrue(!definition.effect().preparing(player, new TokenRuntimeState(), 100),
-                        definition.id() + " does not opt into preparation");
+                        definition.id() + " does not start in preparation without a trigger condition");
             }
             test.succeed();
         } finally {

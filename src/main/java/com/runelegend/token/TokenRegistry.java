@@ -35,14 +35,12 @@ public final class TokenRegistry {
                 .add("asura_form", new AsuraFormEffect(config.asuraForm()), KILL, MELEE)
                 .add("resonance_healing", new ResonanceHealingEffect(config.resonanceHealing()), GUARD_SUCCESS)
                 .add("vernal_tide", new VernalTideEffect(config.vernalTide()), MELEE)
-                // Registered so the token system can recognise, equip, store and sync them.
-                // Their effects are intentionally left unimplemented for now.
                 .addNoEffect("substitute")
                 .addNoEffect("fountain_of_life")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")
                 .addNoEffect("execution_echo")
-                .addNoEffect("arrogance")
+                .add("arrogance", new ArroganceEffect(config.arrogance()), HEALTH, KILL, MELEE)
                 .build();
     }
 

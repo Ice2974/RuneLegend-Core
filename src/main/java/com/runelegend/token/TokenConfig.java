@@ -31,14 +31,15 @@ public record TokenConfig(
         PoisonedArrowSettings poisonedArrow,
         AsuraFormSettings asuraForm,
         ResonanceHealingSettings resonanceHealing,
-        VernalTideSettings vernalTide) {
+        VernalTideSettings vernalTide,
+        ArroganceSettings arrogance) {
     private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
-            "runelegend:vernal_tide");
+            "runelegend:vernal_tide", "runelegend:arrogance");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
@@ -177,13 +178,6 @@ public record TokenConfig(
 
         public int durationTicks() { return durationSeconds * 20; }
         public int cooldownTicks() { return cooldownSeconds * 20; }
-
-        // JsonOps' integer codec would silently truncate fractional input.
-        private static Codec<Integer> wholeNumber(int min, int max) {
-            return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
-                    ? DataResult.success(value) : DataResult.error(() -> "Expected an integer between " + min + " and " + max))
-                    .xmap(Double::intValue, Integer::doubleValue);
-        }
     }
 
     public record ResonanceHealingSettings(float healthThreshold, double radius, float healAmount, int cooldownSeconds) {
@@ -221,13 +215,6 @@ public record TokenConfig(
             return Double.isFinite(value) && value > 0.0
                     ? DataResult.success(value) : DataResult.error(() -> "radius must be positive");
         }
-
-        // JsonOps' integer codec would silently truncate fractional input.
-        private static Codec<Integer> wholeNumber(int min, int max) {
-            return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
-                    ? DataResult.success(value) : DataResult.error(() -> "Expected an integer between " + min + " and " + max))
-                    .xmap(Double::intValue, Integer::doubleValue);
-        }
     }
 
     /** The struck target takes the bonus as part of its own hit; only other enemies use the radius. */
@@ -254,10 +241,44 @@ public record TokenConfig(
         }
     }
 
+    public record ArroganceSettings(float healthThreshold, int killsPerIncrease, float damagePerIncrease,
+                                    float maxBonusDamage) {
+        public static final ArroganceSettings DEFAULT = new ArroganceSettings(0.6F, 2, 1.0F, 5.0F);
+        public static final Codec<ArroganceSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
+                        .forGetter(ArroganceSettings::healthThreshold),
+                field(wholeNumber(1, Integer.MAX_VALUE), "kills_per_increase", DEFAULT.killsPerIncrease())
+                        .forGetter(ArroganceSettings::killsPerIncrease),
+                field(ExtraCodecs.floatRange(Float.MIN_VALUE, Float.MAX_VALUE), "damage_per_increase",
+                        DEFAULT.damagePerIncrease()).forGetter(ArroganceSettings::damagePerIncrease),
+                field(ExtraCodecs.floatRange(Float.MIN_VALUE, Float.MAX_VALUE), "max_bonus_damage",
+                        DEFAULT.maxBonusDamage()).forGetter(ArroganceSettings::maxBonusDamage)
+        ).apply(instance, ArroganceSettings::new));
+
+        public ArroganceSettings {
+            TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            TokenSettingValidation.requireFinite(damagePerIncrease, "damage_per_increase");
+            TokenSettingValidation.requireFinite(maxBonusDamage, "max_bonus_damage");
+            if (healthThreshold < 0 || healthThreshold > 1) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
+            }
+            if (killsPerIncrease < 1) throw TokenSettingValidation.invalid("kills_per_increase must be positive");
+            if (damagePerIncrease <= 0) throw TokenSettingValidation.invalid("damage_per_increase must be positive");
+            if (maxBonusDamage <= 0) throw TokenSettingValidation.invalid("max_bonus_damage must be positive");
+        }
+    }
+
+    // JsonOps' integer codec would silently truncate fractional input.
+    private static Codec<Integer> wholeNumber(int min, int max) {
+        return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
+                ? DataResult.success(value) : DataResult.error(() -> "Expected an integer between " + min + " and " + max))
+                .xmap(Double::intValue, Integer::doubleValue);
+    }
+
     public static final TokenConfig DEFAULT = new TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
-            ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT);
+            ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT);
 
     public static Path defaultPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
@@ -299,7 +320,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT),
                 section(tokens, "runelegend:resonance_healing", ResonanceHealingSettings.CODEC,
                         ResonanceHealingSettings.DEFAULT),
-                section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT));
+                section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT),
+                section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -312,6 +334,7 @@ public record TokenConfig(
         tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));
         tokens.add("runelegend:resonance_healing", encode(ResonanceHealingSettings.CODEC, resonanceHealing));
         tokens.add("runelegend:vernal_tide", encode(VernalTideSettings.CODEC, vernalTide));
+        tokens.add("runelegend:arrogance", encode(ArroganceSettings.CODEC, arrogance));
         var root = new JsonObject();
         root.addProperty("schemaVersion", VERSION);
         root.add("tokens", tokens);
