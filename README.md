@@ -36,7 +36,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 
 ## 令牌
 
-每名玩家最多装备 3 个令牌，装备仅在 `WAITING` 状态可修改，并保存在配置目录的 `runelegend-core/players.json` 中。内置令牌的效果、触发条件、配置项与扩展方式见 **[docs/tokens.md](docs/tokens.md)**。
+每名玩家最多装备 3 个令牌，装备仅在 `WAITING` 状态可修改，并保存在配置目录的 `runelegend-core/players.json` 中。内置令牌的效果、触发条件、配置项与扩展方式见 **[令牌文档](docs/tokens.md)**。
 
 令牌运行态不跨对局保留：死亡、断线以及每次状态切换都会清空充能、生效中的效果、冷却与调度任务。`/runelegend game stop` 会立即移除在线玩家由灵魂摄取获得的额外生命上限；离线玩家在下次登录时移除，旧版存档遗留的生命上限修饰符同样会在登录时清理。
 
@@ -54,10 +54,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 ```
 /give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0.0f,damage_reductions:[{type:"#runelegend:sword_guardable",base:0.0f,factor:0.7f}],bypassed_by:"#runelegend:sword_guard_bypasses"}]
 ```
-- 如果需要还原基岩版战斗机制，可以将玩家的 `attack_speed` 调高：
-```
-/attribute @s attack_speed base set 23
-```
+- 如果需要还原基岩版战斗机制，可以安装 [Carpet-RuneLegend-Addition](https://github.com/Ice2974/Carpet-RuneLegend-Addition) 并开启 disableAttackCooldown 规则
 
 ## HUD 说明
 
@@ -76,7 +73,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 
 ## 关卡开发
 
-命令与流程参数、数据包标签、物品锁定与 Java API 见 **[docs/level-development.md](docs/level-development.md)**；令牌列表、数值配置与扩展方式见 **[docs/tokens.md](docs/tokens.md)**。
+命令与流程参数、数据包标签、物品锁定与 Java API 见 **[关卡开发指南](docs/level-development.md)**；令牌列表、数值配置与扩展方式见 **[令牌文档](docs/tokens.md)**。
 
 ## 从源码构建
 
