@@ -14,12 +14,14 @@ import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 5;
-    public static final int TOKENS = 1, STAMINA = 2, IDENTITY = 4, DOWNED = 8, ALL = TOKENS | STAMINA | IDENTITY | DOWNED;
+    public static final int PROTOCOL = 6;
+    public static final int TOKENS = 1, STAMINA = 2, IDENTITY = 4, DOWNED = 8, TAB = 16, ALL = TOKENS | STAMINA | IDENTITY | DOWNED | TAB;
     private static final int MAX_MARKERS = 4096;
 
     private RuneLegendPayloads() {}
@@ -82,9 +84,15 @@ public final class RuneLegendPayloads {
     }
 
     public record View(List<TokenEngine.View> tokens, int stamina, int staminaMax, PlayerState playerState,
-                       boolean spectateNextRound, List<DownedMarker> downed) {
-        public View { tokens = List.copyOf(tokens); downed = List.copyOf(downed); }
+                       boolean spectateNextRound, List<DownedMarker> downed, Map<UUID, TabStatus> tab) {
+        public View { tokens = List.copyOf(tokens); downed = List.copyOf(downed); tab = Map.copyOf(tab); }
+        public View(List<TokenEngine.View> tokens, int stamina, int staminaMax, PlayerState playerState,
+                    boolean spectateNextRound, List<DownedMarker> downed) {
+            this(tokens, stamina, staminaMax, playerState, spectateNextRound, downed, Map.of());
+        }
         public View(List<TokenEngine.View> tokens, int stamina, int staminaMax) { this(tokens, stamina, staminaMax, null, false, List.of()); }
+
+        View withTab(Map<UUID, TabStatus> tab) { return new View(tokens, stamina, staminaMax, playerState, spectateNextRound, downed, tab); }
     }
 
     public record PlayerSnapshot(long revision, long tick, View state, long round, long rulesRevision) implements CustomPacketPayload {
@@ -97,9 +105,12 @@ public final class RuneLegendPayloads {
         @Override public Type<PlayerSnapshot> type() { return TYPE; }
     }
 
-    public record PlayerDelta(long base, long revision, long tick, int mask, View state, List<UUID> removed,
+    public record PlayerDelta(long base, long revision, long tick, int mask, View state, List<UUID> removed, List<UUID> tabRemoved,
                               long round, long rulesRevision) implements CustomPacketPayload {
-        public PlayerDelta { removed = List.copyOf(removed); }
+        public PlayerDelta { removed = List.copyOf(removed); tabRemoved = List.copyOf(tabRemoved); }
+        public PlayerDelta(long base, long revision, long tick, int mask, View state, List<UUID> removed, long round, long rulesRevision) {
+            this(base, revision, tick, mask, state, removed, List.of(), round, rulesRevision);
+        }
         public PlayerDelta(long base, long revision, long tick, int mask, View state) { this(base, revision, tick, mask, state, List.of(), 0, 0); }
         public static final Type<PlayerDelta> TYPE = id("player_delta");
         static final StreamCodec<FriendlyByteBuf, PlayerDelta> CODEC = StreamCodec.of((buf, value) -> {
@@ -107,6 +118,10 @@ public final class RuneLegendPayloads {
             buf.writeByte(value.mask); writeView(buf, value.state, value.mask);
             buf.writeVarInt(value.removed.size());
             value.removed.forEach(buf::writeUUID);
+            if ((value.mask & TAB) != 0) {
+                buf.writeVarInt(value.tabRemoved.size());
+                value.tabRemoved.forEach(buf::writeUUID);
+            }
             buf.writeVarLong(value.round); buf.writeVarLong(value.rulesRevision);
         }, buf -> {
             long base = buf.readVarLong(), revision = buf.readVarLong(), tick = buf.readVarLong();
@@ -117,7 +132,17 @@ public final class RuneLegendPayloads {
             var removed = new ArrayList<UUID>(size);
             for (int i = 0; i < size; i++) removed.add(buf.readUUID());
             if (size > 0 && (mask & DOWNED) == 0) throw new IllegalArgumentException("Marker removal without mask");
-            return new PlayerDelta(base, revision, tick, mask, view, removed, buf.readVarLong(), buf.readVarLong());
+            var tabRemoved = new ArrayList<UUID>();
+            if ((mask & TAB) != 0) {
+                int tabSize = tabCount(buf, 16); // UUID
+                var seen = new HashSet<UUID>();
+                for (int i = 0; i < tabSize; i++) {
+                    var uuid = buf.readUUID();
+                    if (!seen.add(uuid) || view.tab.containsKey(uuid)) throw new IllegalArgumentException("Invalid Tab removal");
+                    tabRemoved.add(uuid);
+                }
+            }
+            return new PlayerDelta(base, revision, tick, mask, view, removed, tabRemoved, buf.readVarLong(), buf.readVarLong());
         });
         @Override public Type<PlayerDelta> type() { return TYPE; }
     }
@@ -135,6 +160,14 @@ public final class RuneLegendPayloads {
     }
 
     public static View merge(View old, View incoming, int mask, List<UUID> removed) {
+        return merge(old, incoming, mask, removed, List.of());
+    }
+
+    public static View merge(View old, PlayerDelta delta) {
+        return merge(old, delta.state, delta.mask, delta.removed, delta.tabRemoved);
+    }
+
+    private static View merge(View old, View incoming, int mask, List<UUID> removed, List<UUID> tabRemoved) {
         boolean staminaChanged = (mask & STAMINA) != 0;
         var markers = new LinkedHashMap<UUID, DownedMarker>();
         old.downed.forEach(marker -> markers.put(marker.player(), marker));
@@ -142,11 +175,17 @@ public final class RuneLegendPayloads {
             removed.forEach(markers::remove);
             incoming.downed.forEach(marker -> markers.put(marker.player(), marker));
         }
+        Map<UUID, TabStatus> tab = old.tab;
+        if ((mask & TAB) != 0) {
+            tab = new LinkedHashMap<>(old.tab);
+            tabRemoved.forEach(tab::remove);
+            tab.putAll(incoming.tab);
+        }
         return new View((mask & TOKENS) != 0 ? incoming.tokens : old.tokens,
                 staminaChanged ? incoming.stamina : old.stamina,
                 staminaChanged ? incoming.staminaMax : old.staminaMax,
                 (mask & IDENTITY) != 0 ? incoming.playerState : old.playerState,
-                (mask & IDENTITY) != 0 ? incoming.spectateNextRound : old.spectateNextRound, List.copyOf(markers.values()));
+                (mask & IDENTITY) != 0 ? incoming.spectateNextRound : old.spectateNextRound, List.copyOf(markers.values()), tab);
     }
 
     private static void writeView(FriendlyByteBuf buf, View view, int mask) {
@@ -175,6 +214,14 @@ public final class RuneLegendPayloads {
                 buf.writeIdentifier(marker.dimension); buf.writeDouble(marker.x); buf.writeDouble(marker.y); buf.writeDouble(marker.z);
                 buf.writeVarInt(marker.secondsRemaining);
             }
+        }
+        if ((mask & TAB) != 0) {
+            buf.writeVarInt(view.tab.size());
+            view.tab.forEach((uuid, status) -> {
+                buf.writeUUID(uuid);
+                buf.writeByte(status.kind().ordinal());
+                if (status.kind() != TabStatus.Kind.ELIMINATED) buf.writeVarInt(status.value());
+            });
         }
     }
 
@@ -207,7 +254,7 @@ public final class RuneLegendPayloads {
         var markers = new ArrayList<DownedMarker>();
         if ((mask & DOWNED) != 0) {
             int size = markerCount(buf);
-            var seen = new java.util.HashSet<UUID>();
+            var seen = new HashSet<UUID>();
             for (int i = 0; i < size; i++) {
                 var marker = new DownedMarker(buf.readUUID(), buf.readVarLong(), buf.readVarLong(), buf.readIdentifier(),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readVarInt());
@@ -215,12 +262,31 @@ public final class RuneLegendPayloads {
                 markers.add(marker);
             }
         }
-        return new View(tokens, stamina, staminaMax, identity, spectate, markers);
+        var tab = new LinkedHashMap<UUID, TabStatus>();
+        if ((mask & TAB) != 0) {
+            int size = tabCount(buf, 17); // UUID and kind, with an extra VarInt for some kinds
+            var kinds = TabStatus.Kind.values();
+            for (int i = 0; i < size; i++) {
+                var uuid = buf.readUUID();
+                int code = buf.readUnsignedByte();
+                if (code >= kinds.length) throw new IllegalArgumentException("Invalid Tab status");
+                var kind = kinds[code];
+                var status = kind == TabStatus.Kind.ELIMINATED ? TabStatus.ELIMINATED : new TabStatus(kind, buf.readVarInt());
+                if (tab.putIfAbsent(uuid, status) != null) throw new IllegalArgumentException("Duplicate Tab player");
+            }
+        }
+        return new View(tokens, stamina, staminaMax, identity, spectate, markers, tab);
     }
 
     private static int markerCount(FriendlyByteBuf buf) {
         int size = buf.readVarInt();
         if (size < 0 || size > MAX_MARKERS) throw new IllegalArgumentException("Invalid marker count");
+        return size;
+    }
+
+    private static int tabCount(FriendlyByteBuf buf, int minimumEntryBytes) {
+        int size = buf.readVarInt();
+        if (size < 0 || size > buf.readableBytes() / minimumEntryBytes) throw new IllegalArgumentException("Invalid Tab entry count");
         return size;
     }
 }

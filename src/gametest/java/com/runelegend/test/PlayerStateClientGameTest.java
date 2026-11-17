@@ -4,11 +4,13 @@ import com.runelegend.RuneLegendServer;
 import com.runelegend.api.GameState;
 import com.runelegend.api.RuleSnapshot;
 import com.runelegend.client.network.ClientStateCache;
+import com.runelegend.network.TabStatus;
 import com.runelegend.player.PlayerState;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.resources.Identifier;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import static com.runelegend.network.RuneLegendPayloads.*;
@@ -89,7 +91,7 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
                 context.takeScreenshot("runelegend-downed-marker-zh");
                 server.runCommand("kill @p");
                 context.waitFor(client -> cache.rules() != null && !cache.rules().running() && cache.view() != null
-                        && cache.view().downed().isEmpty() && cache.view().playerState() == null && client.player != null
+                        && cache.view().downed().isEmpty() && cache.view().tab().isEmpty() && cache.view().playerState() == null && client.player != null
                         && client.player.isAlive() && !client.player.isSpectator() && client.player.getHealth() == client.player.getMaxHealth());
                 context.takeScreenshot("runelegend-auto-stop-clears-markers");
                 var restore = context.computeOnClient(client -> {
@@ -111,7 +113,8 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
     private static void checkStalePackets() {
         var cache = ClientStateCache.INSTANCE;
         var marker = new DownedMarker(UUID.randomUUID(), 1, 1, Identifier.parse("minecraft:overworld"), 0, 64, 0, 15);
-        var state = new View(List.of(), 20000, 20000, PlayerState.ALIVE, false, List.of(marker));
+        var tab = Map.of(marker.player(), new TabStatus(TabStatus.Kind.DOWNED, 15));
+        var state = new View(List.of(), 20000, 20000, PlayerState.ALIVE, false, List.of(marker), tab);
         try {
             cache.clear();
             cache.apply(new Rules(new RuleSnapshot(GameState.RUNNING, 1, 1)));
@@ -119,7 +122,8 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
             cache.apply(new PlayerDelta(2, 3, 40, DOWNED, state, List.of(), 1, 1));
             if (!cache.desynced() || cache.view() != null) throw new AssertionError("Missing delta did not hide untrusted markers");
             cache.apply(new PlayerSnapshot(4, 40, state, 1, 1));
-            if (cache.view() == null || cache.desynced()) throw new AssertionError("Snapshot did not recover the cache");
+            if (cache.view() == null || cache.desynced() || !cache.view().tab().equals(tab))
+                throw new AssertionError("Snapshot did not recover the cache with the Tab data");
             cache.apply(new Rules(new RuleSnapshot(GameState.WAITING, 1, 2)));
             cache.apply(new PlayerSnapshot(999, 40, state, 1, 1));
             if (cache.view() != null) throw new AssertionError("Old round data restored a stopped marker");

@@ -5,6 +5,8 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.Identifier;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import static com.runelegend.network.RuneLegendPayloads.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +22,7 @@ class ProtocolStateTest {
             assertEquals(snapshot, PlayerSnapshot.CODEC.decode(buffer));
             assertEquals(0, buffer.readableBytes());
         } finally { buffer.release(); }
-        assertEquals(5, PROTOCOL);
+        assertEquals(6, PROTOCOL);
     }
 
     @Test void markerDeltaUpdatesAndRemovesOnlyNamedAnchors() {
@@ -41,6 +43,42 @@ class ProtocolStateTest {
             assertEquals(before.stamina(), after.stamina());
             assertEquals(0, buffer.readableBytes());
         } finally { buffer.release(); }
+    }
+
+    @Test void tabSnapshotAndDeltaPreservePersonalStateAndApplyIndependentRemovals() {
+        var alive = UUID.randomUUID();
+        var downed = UUID.randomUUID();
+        var departing = UUID.randomUUID();
+        var before = new View(List.of(TOKEN), 15000, 20000, com.runelegend.player.PlayerState.ALIVE, false,
+                List.of(marker(downed, 15)), Map.of(alive, TabStatus.health(20, 20),
+                downed, new TabStatus(TabStatus.Kind.DOWNED, 15), departing, TabStatus.ELIMINATED));
+        var snapshot = new PlayerSnapshot(7, 42, before, 3, 5);
+        var changed = Map.of(alive, TabStatus.health(15.5F, 20), downed, TabStatus.ELIMINATED);
+        var delta = new PlayerDelta(7, 8, 62, TAB, new View(List.of(), 0, 0).withTab(changed),
+                List.of(), List.of(departing), 3, 5);
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            PlayerSnapshot.CODEC.encode(buffer, snapshot);
+            assertEquals(snapshot, PlayerSnapshot.CODEC.decode(buffer));
+            PlayerDelta.CODEC.encode(buffer, delta);
+            var decoded = PlayerDelta.CODEC.decode(buffer);
+            assertEquals(delta, decoded);
+            assertEquals(0, buffer.readableBytes());
+            assertEquals(before.withTab(changed), merge(before, decoded));
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test void tabColorsUseUnroundedHealthAndTheCurrentMaximum() {
+        assertEquals(new TabStatus(TabStatus.Kind.HIGH_HEALTH, 16), TabStatus.health(16, 20));
+        assertEquals(new TabStatus(TabStatus.Kind.HIGH_HEALTH, 17), TabStatus.health(Math.nextUp(16F), 20));
+        assertEquals(new TabStatus(TabStatus.Kind.MEDIUM_HEALTH, 16), TabStatus.health(Math.nextDown(16F), 20));
+        assertEquals(new TabStatus(TabStatus.Kind.MEDIUM_HEALTH, 16), TabStatus.health(15.5F, 20));
+        assertEquals(new TabStatus(TabStatus.Kind.MEDIUM_HEALTH, 7), TabStatus.health(Math.nextUp(6F), 20));
+        assertEquals(new TabStatus(TabStatus.Kind.LOW_HEALTH, 6), TabStatus.health(6, 20));
+        assertEquals(new TabStatus(TabStatus.Kind.LOW_HEALTH, 6), TabStatus.health(Math.nextDown(6F), 20));
+        assertEquals(new TabStatus(TabStatus.Kind.LOW_HEALTH, 16), TabStatus.health(16, 60));
     }
 
     @Test void invalidOrDuplicateMarkersAreRejected() {

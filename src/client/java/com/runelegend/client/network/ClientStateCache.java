@@ -55,7 +55,7 @@ public final class ClientStateCache {
             desynced = true;
             return;
         }
-        view = RuneLegendPayloads.merge(view, packet.state(), packet.mask(), packet.removed());
+        view = RuneLegendPayloads.merge(view, packet);
         updateClock(packet.revision(), packet.tick());
         if ((packet.mask() & (TOKENS | IDENTITY)) != 0 && !desynced) updateTokenAnimation();
     }

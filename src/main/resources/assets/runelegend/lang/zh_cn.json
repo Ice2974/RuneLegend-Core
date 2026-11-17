@@ -9,6 +9,7 @@
   "runelegend.player.spectate_running": "只能在等待阶段调整观战选择",
   "runelegend.player.revive_hint": "潜行以扶起队友",
   "runelegend.player.countdown": "阵亡倒计时：%s 秒",
+  "runelegend.player.tab.countdown": "%ss",
   "runelegend.network.required": "此服务器需要安装 RuneLegend 模组",
   "runelegend.network.protocol": "RuneLegend 协议不兼容。请安装与服务器相同的版本",
   "runelegend.hud.stamina": "体力：%s%%",

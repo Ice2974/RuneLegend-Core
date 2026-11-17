@@ -95,6 +95,7 @@ public final class RuneLegendServer {
         stamina.join(player);
         applyIdentity(player);
         if (!game.getRules().running()) teleportToWorldSpawn(currentPlayer(player.getUUID()));
+        sync.refreshTab(online());
         sync.join(currentPlayer(player.getUUID()));
     }
 
@@ -262,7 +263,9 @@ public final class RuneLegendServer {
         online.forEach(stamina::tick);
         tokens.tick(online);
         if (game.getRules().running() && !playerStates.hasAlive()) game.stopGame();
-        online.forEach(sync::update);
+        var current = online();
+        sync.refreshTab(current);
+        current.forEach(sync::update);
     }
 
     void close() {
@@ -285,8 +288,10 @@ public final class RuneLegendServer {
             online.forEach(this::applyIdentity);
             online.forEach(stamina::resetRound);
         }
-        online().forEach(sync::rules);
-        online().forEach(sync::update);
+        var current = online();
+        sync.refreshTab(current);
+        current.forEach(sync::rules);
+        current.forEach(sync::update);
         // Run after the rules/state sync so a cross-dimension spawn check does not
         // make the client reject a delta that arrives before the new rules packet.
         if (!after.running()) online().forEach(this::teleportToWorldSpawn);

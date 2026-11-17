@@ -24,7 +24,10 @@ public final class PlayerStateFixtures {
         return join(minecraft, level, uuid, null);
     }
     public static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid, Vec3 savedPosition) {
-        var player = new ServerPlayer(minecraft, level, new GameProfile(uuid, "state-fixture"), ClientInformation.createDefault()) {
+        return join(minecraft, level, uuid, "state-fixture", savedPosition);
+    }
+    static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid, String name, Vec3 savedPosition) {
+        var player = new ServerPlayer(minecraft, level, new GameProfile(uuid, name), ClientInformation.createDefault()) {
             @Override public boolean isClientAuthoritative() { return false; }
         };
         if (savedPosition != null) player.setPos(savedPosition);
