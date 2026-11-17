@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.Vec3;
 
 public final class RuneLegendServer {
@@ -93,6 +94,7 @@ public final class RuneLegendServer {
         clearPlayerEffects(player);
         stamina.join(player);
         applyIdentity(player);
+        if (!game.getRules().running()) teleportToWorldSpawn(currentPlayer(player.getUUID()));
         sync.join(currentPlayer(player.getUUID()));
     }
 
@@ -223,6 +225,17 @@ public final class RuneLegendServer {
         }
     }
 
+    /**
+     * Uses vanilla's shared-spawn placement, so WAITING always starts and resumes at the
+     * world spawn instead of the position saved when the player last disconnected.
+     */
+    private void teleportToWorldSpawn(ServerPlayer player) {
+        if (player == null) return;
+        if (player.teleport(TeleportTransition.createDefault(player, TeleportTransition.DO_NOTHING)) == null) {
+            RuneLegendMod.LOGGER.warn("Cannot teleport {} to the world spawn", player.getUUID());
+        }
+    }
+
     public void died(ServerPlayer player) {
         checkThread();
         if (!isCurrent(player)) return;
@@ -274,6 +287,9 @@ public final class RuneLegendServer {
         }
         online().forEach(sync::rules);
         online().forEach(sync::update);
+        // Run after the rules/state sync so a cross-dimension spawn check does not
+        // make the client reject a delta that arrives before the new rules packet.
+        if (!after.running()) online().forEach(this::teleportToWorldSpawn);
     }
 
     private void checkThread() {

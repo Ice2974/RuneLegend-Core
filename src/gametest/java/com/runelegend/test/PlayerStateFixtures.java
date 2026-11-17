@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 public final class PlayerStateFixtures {
@@ -20,9 +21,13 @@ public final class PlayerStateFixtures {
     }
     private PlayerStateFixtures() {}
     public static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid) {
+        return join(minecraft, level, uuid, null);
+    }
+    public static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid, Vec3 savedPosition) {
         var player = new ServerPlayer(minecraft, level, new GameProfile(uuid, "state-fixture"), ClientInformation.createDefault()) {
             @Override public boolean isClientAuthoritative() { return false; }
         };
+        if (savedPosition != null) player.setPos(savedPosition);
         new ServerGamePacketListenerImpl(minecraft, new Connection(PacketFlow.SERVERBOUND), player,
                 CommonListenerCookie.createInitial(player.getGameProfile(), false));
         player.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());

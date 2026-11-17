@@ -5,6 +5,7 @@ import com.runelegend.player.PlayerState;
 import com.runelegend.player.RevivePositionResolver;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -13,10 +14,79 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 public final class PlayerStateGameTests {
+    @GameTest
+    public void waitingJoinUsesWorldSpawnInsteadOfSavedPosition(GameTestHelper test) {
+        var level = test.getLevel();
+        var minecraft = level.getServer();
+        var server = RuneLegendServer.find(minecraft);
+        server.game().stopGame();
+        var spawn = minecraft.getRespawnData();
+        var saved = Vec3.atBottomCenterOf(spawn.pos()).add(500.5, 0, 0);
+        var player = PlayerStateFixtures.join(minecraft, level, UUID.randomUUID(), saved);
+        ServerPlayer spectator = null;
+        try {
+            test.assertTrue(player.position().distanceTo(saved) > 100.0, "Waiting join ignores the saved logout position");
+            assertAtWorldSpawn(test, player, spawn, "Waiting join");
+
+            server.game().startGame();
+            var spectatorSaved = Vec3.atBottomCenterOf(spawn.pos()).add(-300.5, 0, 0);
+            spectator = PlayerStateFixtures.join(minecraft, level, UUID.randomUUID(), spectatorSaved);
+            test.assertValueEqual(spectator.gameMode(), GameType.SPECTATOR, "A running join is still a spectator");
+            test.assertTrue(spectator.position().distanceToSqr(spectatorSaved) < 1.0E-4,
+                    "A running join keeps its saved position");
+            test.succeed();
+        } finally {
+            if (spectator != null) server.leave(spectator);
+            server.game().stopGame();
+            server.leave(player);
+        }
+    }
+
+    @GameTest
+    public void stopGameTeleportsEveryOnlinePlayerToWorldSpawn(GameTestHelper test) {
+        var level = test.getLevel();
+        var minecraft = level.getServer();
+        var server = RuneLegendServer.find(minecraft);
+        server.game().stopGame();
+        var spawn = minecraft.getRespawnData();
+        var first = PlayerStateFixtures.join(minecraft, level, UUID.randomUUID());
+        var second = PlayerStateFixtures.join(minecraft, level, UUID.randomUUID());
+        try {
+            server.game().startGame();
+            var firstSaved = Vec3.atBottomCenterOf(spawn.pos()).add(500.5, 0, 0);
+            first.setPos(firstSaved);
+            var nether = minecraft.getLevel(net.minecraft.world.level.Level.NETHER);
+            test.assertTrue(nether != null, "The test server exposes the nether for the cross-dimension check");
+            test.assertTrue(second.teleportTo(nether, 0.5, 64, 0.5, java.util.Set.of(), 0, 0, false),
+                    "The second player can leave the world spawn dimension");
+            server.game().stopGame();
+            assertAtWorldSpawn(test, first, spawn, "First stopped player");
+            assertAtWorldSpawn(test, second, spawn, "Second stopped player");
+            test.assertTrue(first.position().distanceTo(firstSaved) > 100.0, "Stop ignores the round position");
+            test.assertTrue(second.position().distanceTo(firstSaved) > 100.0, "Stop returns other dimensions to spawn");
+            test.assertTrue(server.playerStates().state(first.getUUID()) == null, "Stop clears round identities");
+            test.assertValueEqual(first.gameMode(), GameType.ADVENTURE, "Stop restores every player to adventure");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.leave(first);
+            server.leave(second);
+        }
+    }
+
+    private static void assertAtWorldSpawn(GameTestHelper test, ServerPlayer player, LevelData.RespawnData spawn,
+                                           String description) {
+        var expected = Vec3.atBottomCenterOf(spawn.pos());
+        test.assertValueEqual(player.level().dimension(), spawn.dimension(), description + " uses the world spawn dimension");
+        double horizontal = Math.hypot(player.getX() - expected.x, player.getZ() - expected.z);
+        test.assertTrue(horizontal <= 16.0, description + " is placed within the shared spawn radius");
+    }
+
     @GameTest
     public void bothTotemHandsPrecedeDowningAndInventoryIsPreserved(GameTestHelper test) {
         var level = test.getLevel();
