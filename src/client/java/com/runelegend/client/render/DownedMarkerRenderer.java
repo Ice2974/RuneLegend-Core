@@ -16,6 +16,7 @@ import java.util.List;
 /** Immutable extraction data only; no player state decisions occur in the renderer. */
 public final class DownedMarkerRenderer {
     private record Label(Vec3 position, FormattedCharSequence hint, int hintWidth, FormattedCharSequence countdown, int countdownWidth) {}
+    private static final int TEXT_BACKGROUND = 0x80000000;
     private static final RenderStateDataKey<List<Label>> LABELS = RenderStateDataKey.create(() -> "runelegend:downed_markers");
     private DownedMarkerRenderer() {}
 
@@ -47,9 +48,13 @@ public final class DownedMarkerRenderer {
                 poses.rotate(camera.orientation);
                 poses.scale(0.025F, -0.025F, 0.025F);
                 var collector = context.submitNodeCollector();
-                collector.submitText(poses, -label.hintWidth / 2F, -10, label.hint, false, Font.DisplayMode.NORMAL,
+                // SEE_THROUGH selects the depth-test-free text pipeline, so the marker stays visible behind blocks.
+                float halfWidth = Math.max(label.hintWidth, label.countdownWidth) / 2F;
+                collector.submitTextBackground(poses, -halfWidth - 1, -11, halfWidth + 1, 9, TEXT_BACKGROUND,
+                        Font.DisplayMode.SEE_THROUGH, LightCoordsUtil.FULL_BRIGHT);
+                collector.submitText(poses, -label.hintWidth / 2F, -10, label.hint, true, Font.DisplayMode.SEE_THROUGH,
                         LightCoordsUtil.FULL_BRIGHT, 0xFFFFFFFF, 0, 0);
-                collector.submitText(poses, -label.countdownWidth / 2F, 0, label.countdown, false, Font.DisplayMode.NORMAL,
+                collector.submitText(poses, -label.countdownWidth / 2F, 0, label.countdown, true, Font.DisplayMode.SEE_THROUGH,
                         LightCoordsUtil.FULL_BRIGHT, 0xFFFFFFFF, 0, 0);
                 poses.popPose();
             }

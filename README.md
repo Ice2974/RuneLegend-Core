@@ -12,7 +12,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 - **玩家状态**：`ALIVE` / `DOWNED` / `ELIMINATED` / `SPECTATOR`。倒地保留背包和经验，队友可在死亡坐标持续潜行扶起；不死图腾优先生效。没有 ALIVE 玩家后自动回到等待状态。规则和配置见[玩家状态文档](docs/player-states.md)。
 - **令牌系统**：每名玩家 3 个令牌槽，同一 Minecraft 安装实例下的单人世界共用令牌装备，独立服务端使用自己的配置目录。所有效果由服务器权威判定，且只在 `RUNNING + ALIVE` 状态触发或接受治疗。倒地、阵亡、断线或停局会清除该玩家的充能、活动效果、冷却和调度任务；令牌装备本身保留。
 - **体力系统**：`RUNNING` 下格挡持续消耗体力，体力耗尽自动收剑，低于起手阈值时无法起手（默认 10%）；`WAITING` 下格挡不消耗也不检查体力。体力数值由服务端结算；客户端只负责显示与输入时序协调，不决定格挡结果。
-- **物品锁定**：带有 `custom_data` 标记 `runelegend:item_lock` 的物品在非创造模式玩家的物品栏和容器中受保护，无法被移动、丢弃、交换或用于装备、合成、交易；死亡掉落等原版行为不受限制。详见[关卡开发指南](docs/development.md#物品锁定)。
+- **物品锁定**：带有 `custom_data` 标记 `runelegend:item_lock` 的物品在非创造模式玩家的物品栏和容器中受保护，无法被移动、丢弃、交换或用于装备、合成、交易；死亡掉落等原版行为不受限制。详见[关卡开发指南](docs/level-development.md#物品锁定)。
 - **客户端 HUD**：准星下方展示令牌槽位图标（就绪 / 触发 / 生效 / 冷却倒计时）与体力百分比，无需资源包即可使用。
 
 ## 命令
@@ -54,7 +54,6 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 ```
 /give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0.0f,damage_reductions:[{type:"#runelegend:sword_guardable",base:0.0f,factor:0.7f}],bypassed_by:"#runelegend:sword_guard_bypasses"}]
 ```
-- 示例通过物品组件显式引用两个格挡标签；未引用这些标签的物品不会受其修改影响。模组不自动给剑添加或修改组件。
 - 如果需要还原基岩版战斗机制，可以将玩家的 `attack_speed` 调高：
 ```
 /attribute @s attack_speed base set 23
@@ -77,12 +76,12 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 
 ## 关卡开发
 
-命令与流程参数、数据包标签、物品锁定与 Java API 见 **[docs/level-development.md](docs/development.md)**；令牌列表、数值配置与扩展方式见 **[docs/tokens.md](docs/tokens.md)**。
+命令与流程参数、数据包标签、物品锁定与 Java API 见 **[docs/level-development.md](docs/level-development.md)**；令牌列表、数值配置与扩展方式见 **[docs/tokens.md](docs/tokens.md)**。
 
 ## 从源码构建
 
 ```bash
-git clone https://github.com/Ice2974/RuneLegend.git
+git clone https://github.com/Ice2974/RuneLegend-Core.git
 cd RuneLegend
 ./gradlew build
 ```
