@@ -50,7 +50,7 @@ final class SubstituteMannequin extends Mannequin {
     }
 
     @Override protected void onAttributeUpdated(Holder<Attribute> attribute) {
-        if (attribute.is(Attributes.MAX_HEALTH)) {
+        if (attribute.is(Attributes.MAX_HEALTH.unwrapKey().orElseThrow())) {
             // The copied maximum already includes any max-health modifiers from the owner's armor.
             var maximum = getAttribute(Attributes.MAX_HEALTH);
             maximum.removeModifiers();
