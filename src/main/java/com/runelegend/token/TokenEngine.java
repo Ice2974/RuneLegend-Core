@@ -41,10 +41,13 @@ public final class TokenEngine {
     private final SubstituteTargets substitutes = new SubstituteTargets();
     private final Predicate<ServerPlayer> eligible;
     private final Function<UUID, ServerPlayer> resolve;
+    private final FullBlessingEffect fullBlessing;
+    private final SequencedMap<UUID, Context> blessingChecks = new LinkedHashMap<>();
     private final Map<UUID, Object> generations = new HashMap<>();
     private final Set<UUID> clearing = new HashSet<>();
     private Object roundGeneration = new Object();
     private boolean clearingRound;
+    private boolean settlingBlessings;
 
     public TokenEngine(GameController game, PlayerTokenService players, TokenRegistry registry, LongSupplier clock) {
         this(game, players, registry, clock, player -> player.getRandom().nextDouble());
@@ -85,6 +88,8 @@ public final class TokenEngine {
         this.flash = flash;
         this.eligible = eligible;
         this.resolve = resolve;
+        var blessing = registry.get(FullBlessingEffect.ID);
+        fullBlessing = blessing != null && blessing.effect() instanceof FullBlessingEffect effect ? effect : null;
     }
 
     public boolean eligible(ServerPlayer player) {
@@ -134,9 +139,11 @@ public final class TokenEngine {
             if (!eligible(event.player())) break;
             var definition = registry.get(id);
             if (definition != null && definition.events().contains(event.kind())) {
+                if (definition.effect() == fullBlessing) continue;
                 definition.effect().onEvent(new Context(event.player(), id), state(event.player(), id), event);
             }
         }
+        if (event.kind() == TokenEvent.Kind.HEALTH) checkBlessings(event.player());
     }
 
     public List<View> views(ServerPlayer player) {
@@ -202,6 +209,7 @@ public final class TokenEngine {
         } finally {
             scheduler.cancelPlayer(uuid);
             health.remove(uuid);
+            blessingChecks.remove(uuid);
             try { cleanup(states.remove(uuid)); }
             finally { clearing.remove(uuid); }
         }
@@ -231,6 +239,7 @@ public final class TokenEngine {
             } finally {
                 states.clear();
                 health.clear();
+                blessingChecks.clear();
                 generations.clear();
                 clearingRound = false;
             }
@@ -248,8 +257,40 @@ public final class TokenEngine {
     }
 
     private boolean subscribesToHealth(ServerPlayer player) {
+        var blessing = blessingState(player);
+        if (blessing != null && blessing.storedBlessings > 0) return true;
         return players.get(player.getUUID()).equipped().stream().map(registry::get)
                 .anyMatch(definition -> definition != null && definition.events().contains(TokenEvent.Kind.HEALTH));
+    }
+
+    private TokenRuntimeState blessingState(ServerPlayer player) {
+        var runtime = states.get(player.getUUID());
+        return runtime == null ? null : runtime.get(FullBlessingEffect.ID);
+    }
+
+    private void checkBlessings(ServerPlayer player) {
+        if (fullBlessing == null || !eligible(player) || !player.isAlive()) return;
+        var blessing = blessingState(player);
+        if ((blessing == null || blessing.storedBlessings == 0)
+                && !players.get(player.getUUID()).equipped().contains(FullBlessingEffect.ID)) return;
+
+        // Healing writes health synchronously. Finish the current blessing settlement before
+        // handling the resulting checks, while still delivering the normal HEALTH events.
+        blessingChecks.put(player.getUUID(), new Context(player, FullBlessingEffect.ID));
+        if (settlingBlessings) return;
+        settlingBlessings = true;
+        try {
+            while (!blessingChecks.isEmpty()) {
+                var context = blessingChecks.pollFirstEntry().getValue();
+                if (!context.valid()) continue;
+                var current = context.player();
+                boolean equipped = players.get(current.getUUID()).equipped().contains(FullBlessingEffect.ID);
+                fullBlessing.settle(context, state(current, FullBlessingEffect.ID), equipped);
+            }
+        } finally {
+            blessingChecks.clear();
+            settlingBlessings = false;
+        }
     }
 
     private TokenRuntimeState state(ServerPlayer player, Identifier id) {
@@ -294,6 +335,21 @@ public final class TokenEngine {
         public long tick() { return clock.getAsLong(); }
         public void flash() { if (valid()) flash.accept(player(), token); }
         public boolean roll(double chance) { return valid() && TokenEngine.roll(chance, () -> random.applyAsDouble(player())); }
+
+        List<ServerPlayer> onlinePlayers() {
+            var server = RuneLegendServer.find(player().level().getServer());
+            return server == null ? List.of() : server.online();
+        }
+
+        void storeBlessings(ServerPlayer target, int count, int limit) {
+            if (limit == 0) return;
+            // A player regains health observation when a previously empty stock is refilled.
+            if (!subscribesToHealth(target)) health.remove(target.getUUID());
+            var blessing = state(target, FullBlessingEffect.ID);
+            blessing.storedBlessings = Math.min(limit, blessing.storedBlessings + count);
+        }
+
+        void recheckBlessings() { checkBlessings(player()); }
 
         public void replaceEffect(String name, Runnable remove) {
             if (!valid()) { remove.run(); return; }

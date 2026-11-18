@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(12, tokens.size());
+        assertEquals(13, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -63,6 +63,13 @@ class TokenConfigTest {
         assertEquals(0.5F, substitute.get("health_threshold").getAsFloat());
         assertEquals(20, substitute.get("duration_seconds").getAsInt());
         assertEquals(40, substitute.get("cooldown_seconds").getAsInt());
+        var fullBlessing = tokens.getAsJsonObject("runelegend:full_blessing");
+        assertEquals(5, fullBlessing.size());
+        assertEquals(3, fullBlessing.get("blessings_per_trigger").getAsInt());
+        assertEquals(0.5F, fullBlessing.get("health_threshold").getAsFloat());
+        assertEquals(4.0F, fullBlessing.get("heal_amount").getAsFloat());
+        assertEquals(6, fullBlessing.get("max_stored_blessings").getAsInt());
+        assertEquals(20, fullBlessing.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -78,8 +85,27 @@ class TokenConfigTest {
                 new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F),
                 new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13),
                 new TokenConfig.RetributionSettings(7, 0),
-                new TokenConfig.SubstituteSettings(0.4F, 12, 7));
+                new TokenConfig.SubstituteSettings(0.4F, 12, 7),
+                new TokenConfig.FullBlessingSettings(5, 0.6F, 2.5F, 0, 11));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
+    }
+
+    @Test void fullBlessingUsesDefaultFieldsAndRejectsInvalidSections() {
+        var tokens = new JsonObject();
+        var defaults = TokenConfig.FullBlessingSettings.DEFAULT;
+        assertEquals(defaults, TokenConfig.fromJson(tokens).fullBlessing());
+
+        tokens.add("runelegend:full_blessing", JsonParser.parseString("{\"blessings_per_trigger\":5,\"cooldown_seconds\":0}"));
+        assertEquals(new TokenConfig.FullBlessingSettings(5, 0.5F, 4F, 6, 0), TokenConfig.fromJson(tokens).fullBlessing());
+        for (var invalid : new String[]{"\"blessings_per_trigger\":0", "\"blessings_per_trigger\":2.5",
+                "\"blessings_per_trigger\":1025", "\"health_threshold\":1.01", "\"health_threshold\":-0.1",
+                "\"heal_amount\":0", "\"heal_amount\":1e100", "\"max_stored_blessings\":-1", "\"max_stored_blessings\":1.5",
+                "\"max_stored_blessings\":1025", "\"cooldown_seconds\":1.5", "\"cooldown_seconds\":107374183"}) {
+            tokens.add("runelegend:full_blessing", JsonParser.parseString("{\"unused\":true," + invalid + "}"));
+            assertEquals(defaults, TokenConfig.fromJson(tokens).fullBlessing(), invalid);
+        }
+        tokens.add("runelegend:full_blessing", JsonParser.parseString("{\"blessings_per_trigger\":7,\"heal_amount\":0}"));
+        assertEquals(defaults, TokenConfig.fromJson(tokens).fullBlessing(), "One invalid field resets all five fields");
     }
 
     @Test void substituteUsesDefaultFieldsAndRejectsInvalidSections() {

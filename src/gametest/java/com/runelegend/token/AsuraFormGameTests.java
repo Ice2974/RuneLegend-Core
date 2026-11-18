@@ -144,7 +144,8 @@ public final class AsuraFormGameTests {
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 new TokenConfig.AsuraFormSettings(2, 2, 5.5F, 3, 16, 1), defaults.resonanceHealing(),
-                defaults.vernalTide(), defaults.arrogance(), defaults.executionEcho(), defaults.retribution(), defaults.substitute()));
+                defaults.vernalTide(), defaults.arrogance(), defaults.executionEcho(), defaults.retribution(),
+                defaults.substitute(), defaults.fullBlessing()));
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = TokenTestEngine.forPlayers(player).create(game, players, registry, clock::get);

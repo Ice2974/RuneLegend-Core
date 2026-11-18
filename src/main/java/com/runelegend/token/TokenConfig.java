@@ -27,14 +27,15 @@ public record TokenConfig(
         ArroganceSettings arrogance,
         ExecutionEchoSettings executionEcho,
         RetributionSettings retribution,
-        SubstituteSettings substitute) {
+        SubstituteSettings substitute,
+        FullBlessingSettings fullBlessing) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
             "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution",
-            "runelegend:substitute");
+            "runelegend:substitute", "runelegend:full_blessing");
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -353,6 +354,45 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
+    public record FullBlessingSettings(int blessingsPerTrigger, float healthThreshold, float healAmount,
+                                       int maxStoredBlessings, int cooldownSeconds) {
+        private static final int MAX_BLESSINGS = 1024;
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final FullBlessingSettings DEFAULT = new FullBlessingSettings(3, 0.5F, 4.0F, 6, 20);
+        public static final Codec<FullBlessingSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(wholeNumber(1, MAX_BLESSINGS), "blessings_per_trigger", DEFAULT.blessingsPerTrigger())
+                        .forGetter(FullBlessingSettings::blessingsPerTrigger),
+                field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
+                        .forGetter(FullBlessingSettings::healthThreshold),
+                field(ExtraCodecs.floatRange(Float.MIN_VALUE, Float.MAX_VALUE), "heal_amount", DEFAULT.healAmount())
+                        .forGetter(FullBlessingSettings::healAmount),
+                field(wholeNumber(0, MAX_BLESSINGS), "max_stored_blessings", DEFAULT.maxStoredBlessings())
+                        .forGetter(FullBlessingSettings::maxStoredBlessings),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(FullBlessingSettings::cooldownSeconds)
+        ).apply(instance, FullBlessingSettings::new));
+
+        public FullBlessingSettings {
+            TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            TokenSettingValidation.requireFinite(healAmount, "heal_amount");
+            if (blessingsPerTrigger < 1 || blessingsPerTrigger > MAX_BLESSINGS) {
+                throw TokenSettingValidation.invalid("blessings_per_trigger must be between 1 and " + MAX_BLESSINGS);
+            }
+            if (healthThreshold < 0 || healthThreshold > 1) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
+            }
+            if (healAmount <= 0) throw TokenSettingValidation.invalid("heal_amount must be positive");
+            if (maxStoredBlessings < 0 || maxStoredBlessings > MAX_BLESSINGS) {
+                throw TokenSettingValidation.invalid("max_stored_blessings must be between 0 and " + MAX_BLESSINGS);
+            }
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+        }
+
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+    }
+
     // JsonOps' integer codec would silently truncate fractional input.
     private static Codec<Integer> wholeNumber(int min, int max) {
         return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
@@ -364,7 +404,7 @@ public record TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
-            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT);
+            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT, FullBlessingSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
         return fromJson(tokens, TokenExtensions.EMPTY);
@@ -385,7 +425,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT),
                 section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT),
                 section(tokens, "runelegend:retribution", RetributionSettings.CODEC, RetributionSettings.DEFAULT),
-                section(tokens, "runelegend:substitute", SubstituteSettings.CODEC, SubstituteSettings.DEFAULT));
+                section(tokens, "runelegend:substitute", SubstituteSettings.CODEC, SubstituteSettings.DEFAULT),
+                section(tokens, "runelegend:full_blessing", FullBlessingSettings.CODEC, FullBlessingSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -402,6 +443,7 @@ public record TokenConfig(
         tokens.add("runelegend:execution_echo", encode(ExecutionEchoSettings.CODEC, executionEcho));
         tokens.add("runelegend:retribution", encode(RetributionSettings.CODEC, retribution));
         tokens.add("runelegend:substitute", encode(SubstituteSettings.CODEC, substitute));
+        tokens.add("runelegend:full_blessing", encode(FullBlessingSettings.CODEC, fullBlessing));
         return tokens;
     }
 

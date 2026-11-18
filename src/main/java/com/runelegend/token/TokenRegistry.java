@@ -48,7 +48,7 @@ public final class TokenRegistry {
                 .add("vernal_tide", new VernalTideEffect(config.vernalTide()), MELEE)
                 .add("substitute", new SubstituteEffect(config.substitute()), HEALTH)
                 .addNoEffect("fountain_of_life")
-                .addNoEffect("full_blessing")
+                .add("full_blessing", new FullBlessingEffect(config.fullBlessing()), HEALTH)
                 .add("retribution", new RetributionEffect(config.retribution()), HURT, MELEE)
                 .add("execution_echo", new ExecutionEchoEffect(config.executionEcho()), MELEE)
                 .add("arrogance", new ArroganceEffect(config.arrogance()), HEALTH, KILL, MELEE);

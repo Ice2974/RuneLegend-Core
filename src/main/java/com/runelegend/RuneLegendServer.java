@@ -90,7 +90,7 @@ public final class RuneLegendServer {
     public DownedService downed() { return downed; }
     public PlayerStateConfig playerStateConfig() { return playerStateConfig; }
 
-    private List<ServerPlayer> online() {
+    public List<ServerPlayer> online() {
         return transports.values().stream().map(connection -> connection.player).toList();
     }
 

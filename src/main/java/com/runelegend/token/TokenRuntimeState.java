@@ -15,6 +15,7 @@ public final class TokenRuntimeState {
     public int recordedDamage;
     public long decayStartedAt;
     public float retributionDamage;
+    int storedBlessings;
 
     public void flash(long tick) { triggeredUntil = tick + 12; }
 }

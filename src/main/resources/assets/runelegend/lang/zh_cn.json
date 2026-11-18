@@ -45,7 +45,7 @@
   "token.runelegend.fountain_of_life": "生命之泉",
   "token.runelegend.fountain_of_life.description": "该令牌的效果尚未实现",
   "token.runelegend.full_blessing": "全域祝福",
-  "token.runelegend.full_blessing.description": "该令牌的效果尚未实现",
+  "token.runelegend.full_blessing.description": "自身生命不高于 %1$s 时，立即祝福所有存活玩家 %2$s 次。受祝福者生命不高于该阈值时，每次恢复 %3$s HP。生命高于阈值时，每人最多储存 %4$s 次，生命达到阈值或以下时自动消耗。冷却 %5$s 秒。",
   "token.runelegend.retribution": "奉还",
   "token.runelegend.retribution.description": "受到有伤害的主动攻击时触发，持续 %1$s 秒。累计从该次命中起每次受伤的数值，每次直接近战命中时追加等量真伤。效果结束时清零累计伤害并冷却 %2$s 秒。",
   "token.runelegend.asura_form": "修罗化身",
