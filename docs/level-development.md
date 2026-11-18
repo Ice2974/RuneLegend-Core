@@ -102,6 +102,59 @@ $data modify storage mymap:round last set value {round:$(round)L,reason:"$(reaso
 
 Java 通知先于对应函数标签同步执行。回调可以查询状态。回调直接或通过嵌套函数调用 `start`、`stop` 或 `finish` 时返回 `0`，Java 返回 `false`。若要在结算后重新开局，可将开局命令放入之后执行的函数。
 
+### 让关卡可以重开
+
+下面的片段使用地图自己的阶段分数（`0` 等待、`1` 等待波次、`2` 波次已刷出）、实体标签和任务参数。将 `mymap:round/load` 加入 `#minecraft:load`，将 `mymap:round/start` 加入 `#runelegend:round_started`，将 `mymap:round/reset` 加入 `#runelegend:round_ended`。下例以主世界 `100 64 100` 附近的已加载区域为场地，并用红石块控制地图上的门。
+
+```mcfunction
+# mymap:round/load
+scoreboard objectives add mymap.phase dummy
+function mymap:round/reset
+```
+
+```mcfunction
+# mymap:round/reset
+schedule clear mymap:round/wave_due
+data remove storage mymap:round pending
+data remove storage mymap:round active
+scoreboard players set #phase mymap.phase 0
+execute in minecraft:overworld positioned 100 64 100 run kill @e[type=!minecraft:player,tag=mymap.round_mob,distance=..32]
+execute in minecraft:overworld run setblock 100 64 100 minecraft:air
+```
+
+```mcfunction
+# mymap:round/start
+function mymap:round/reset
+$data modify storage mymap:round active set value {round:$(round)L}
+data modify storage mymap:round pending set from storage mymap:round active
+scoreboard players set #phase mymap.phase 1
+schedule function mymap:round/wave_due 100t replace
+```
+
+```mcfunction
+# mymap:round/wave_due
+execute if data storage mymap:round pending run function mymap:round/check_wave with storage mymap:round pending
+data remove storage mymap:round pending
+```
+
+```mcfunction
+# mymap:round/check_wave
+$execute if score #phase mymap.phase matches 1 if data storage mymap:round active{round:$(round)L} run function mymap:round/spawn_wave
+```
+
+```mcfunction
+# mymap:round/spawn_wave
+scoreboard players set #phase mymap.phase 2
+execute in minecraft:overworld run summon minecraft:husk 102 64 100 {Tags:["mymap.round_mob","mymap.enemy"],DeathLootTable:"minecraft:empty"}
+execute in minecraft:overworld run setblock 100 64 100 minecraft:redstone_block
+```
+
+原版 `schedule` 调用的是无宏参数的入口。入口从 `pending` 取出预约时保存的回合号，再核对当前阶段与 `active`。这个写法为每个调度入口保留一个待执行任务。新增其他调度入口时，也在重置函数中清除对应的任务和参数。
+
+原版调度队列、计分板和命令存储可随存档保留，Core 的回合号在重启后会从 0 重新计数。因此加载时应先清队列和存储，再接受开局，单独比较回合号会让旧任务与新局撞号。`#minecraft:load` 在 `/reload` 后也执行，这个示例会重置地图阶段。如在对局中重载，请在重载完成后停局再开局。重复创建计分板目标、清除空调度或清理空场地时，个别命令可能报告无变化，后续重置命令仍会继续执行。
+
+只给本地图临时召唤的实体加 `mymap.round_mob`，为其他地图使用各自的前缀。将清理范围覆盖所有刷怪区并在清理时保持这些区块加载。若场地按需加载，应在允许玩家进入前对新加载区域补做同样的清理。
+
 ## 订阅倒地、扶起和淘汰
 
 在服务端模组初始化时注册 `PlayerStateEvents`，或在数据包的 `data/runelegend/tags/function/` 下添加下表对应的标签文件。标签的写法和重载行为与回合通知相同。
@@ -218,6 +271,24 @@ execute store result score @s mymap_damage run runelegend stats get @s damage_de
 
 - `bosses` 与 `ghost_family` 是预定义的分类标签，当前没有内置令牌引用它们，可用于命令选择器（如 `@e[type=#runelegend:bosses]`）或扩展代码读取。
 - `sword_guardable` 与 `sword_guard_bypasses` 只作为物品组件的引用目标；模组不会自动给物品添加或修改 `blocks_attacks` 组件。格挡示例见 [README](../README.md#格挡与战斗机制)。
+
+### 按实例筛选令牌敌人
+
+可选的原版数据包谓词 `runelegend:token_enemies` 位于 `data/runelegend/predicate/token_enemies.json`。判定先排除玩家与替身，然后按实体类型标签（非空时）或原版 `Enemy`（标签为空时）选出候选。当服务器加载了同名谓词时，候选还须通过谓词。没有加载该谓词时，候选直接通过。数据包重载成功后，下一次判定即使用当前的标签与谓词。
+
+谓词在候选实体所在维度求值，`this` 为候选实体，原点是它的当前位置。下面只接纳带 `mymap.enemy` 的候选。对同类型的首领和剧情 NPC，只给首领加这个实体标签即可，例如 `tag <首领选择器> add mymap.enemy`。
+
+```json
+{
+  "type": "minecraft:entity_properties",
+  "entity": "this",
+  "predicate": {
+    "minecraft:entity_tags": { "all_of": ["mymap.enemy"] }
+  }
+}
+```
+
+这个筛选作用于灵魂摄取、残响、修罗化身、狂妄、斩杀回响的击杀判定，刃尖毒发与淬毒之箭的目标判定，残响与回春怒涛的范围目标，以及替身可吸引的生物。普通攻击和未使用敌对目标判定的令牌通道仍按原有规则结算，例如回春怒涛对直接命中目标的追加伤害。
 
 ## 物品锁定
 

@@ -1,4 +1,4 @@
 {
   "replace": false,
-  "values": ["runelegend_test:round/ended", "runelegend_test:player/round_ended"]
+  "values": ["runelegend_test:round/ended", "runelegend_test:player/round_ended", "runelegend_test:restart/on_ended"]
 }

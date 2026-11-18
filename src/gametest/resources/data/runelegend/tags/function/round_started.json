@@ -1,4 +1,4 @@
 {
   "replace": false,
-  "values": ["runelegend_test:round/started"]
+  "values": ["runelegend_test:round/started", "runelegend_test:restart/on_started"]
 }
