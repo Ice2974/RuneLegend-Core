@@ -55,7 +55,7 @@
   "token.runelegend.execution_echo": "Execution Echo",
   "token.runelegend.execution_echo.description": "After a melee kill of a hostile target, record that attack's damage after all token bonuses are added (rounded up, capped at %4$s HP). Each melee hit then adds the recorded amount as true damage. It decreases by %1$s HP every %2$s seconds and ends at 0, then cools down for %3$s seconds.",
   "token.runelegend.resonance_healing": "Resonance Healing",
-  "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
+  "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals each eligible player within %2$s blocks of you for %3$s HP per living enemy within the same radius. Cooldown: %4$s seconds",
   "token.runelegend.arrogance": "Arrogance",
   "token.runelegend.arrogance.description": "While above %1$s health, the first enemy kill adds %3$s HP of true damage to direct melee hits. Every %2$s enemy kills thereafter increases the bonus by %3$s HP, up to %4$s HP. Progress resets at or below the threshold. No cooldown."
 }

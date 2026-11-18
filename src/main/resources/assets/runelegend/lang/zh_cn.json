@@ -55,7 +55,7 @@
   "token.runelegend.execution_echo": "斩杀回响",
   "token.runelegend.execution_echo.description": "近战击杀敌对目标后，记录该次攻击结算全部令牌追加伤害后的伤害（向上取整，最多 %4$s HP）。之后每次近战攻击追加该记录值的真伤，每 %2$s 秒衰减 %1$s HP，衰减到 0 时结束，结束后冷却 %3$s 秒。",
   "token.runelegend.resonance_healing": "共鸣疗愈",
-  "token.runelegend.resonance_healing.description": "生命值不高于 %1$s 时，成功格挡会治疗以自身为中心 %2$s 格内的所有玩家 %3$s HP；冷却 %4$s 秒",
+  "token.runelegend.resonance_healing.description": "生命值不高于 %1$s 时，成功格挡会治疗自身周围 %2$s 格内符合条件的玩家。该范围内每有一只存活的敌人，每名受治疗玩家恢复 %3$s HP。冷却 %4$s 秒",
   "token.runelegend.arrogance": "狂妄",
   "token.runelegend.arrogance.description": "生命值高于 %1$s 时，首杀敌对目标后，直接近战命中追加 %3$s HP 真伤。此后每击杀 %2$s 个敌对目标，追加真伤再提高 %3$s HP，最多追加 %4$s HP。生命值降到阈值或以下时清空进度，无冷却。"
 }

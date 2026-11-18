@@ -177,30 +177,30 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
-    public record ResonanceHealingSettings(float healthThreshold, double radius, float healAmount, int cooldownSeconds) {
+    public record ResonanceHealingSettings(float healthThreshold, double radius, float healPerEnemy, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
-        public static final ResonanceHealingSettings DEFAULT = new ResonanceHealingSettings(0.5F, 5.0, 6.0F, 10);
+        public static final ResonanceHealingSettings DEFAULT = new ResonanceHealingSettings(0.5F, 5.0, 2.0F, 10);
         public static final Codec<ResonanceHealingSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(ResonanceHealingSettings::healthThreshold),
                 field(Codec.DOUBLE.validate(ResonanceHealingSettings::positiveRadius), "radius", DEFAULT.radius())
                         .forGetter(ResonanceHealingSettings::radius),
-                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "heal_amount", DEFAULT.healAmount())
-                        .forGetter(ResonanceHealingSettings::healAmount),
+                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "heal_per_enemy", DEFAULT.healPerEnemy())
+                        .forGetter(ResonanceHealingSettings::healPerEnemy),
                 field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
                         .forGetter(ResonanceHealingSettings::cooldownSeconds)
         ).apply(instance, ResonanceHealingSettings::new));
 
         public ResonanceHealingSettings {
             TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
-            TokenSettingValidation.requireFinite(healAmount, "heal_amount");
+            TokenSettingValidation.requireFinite(healPerEnemy, "heal_per_enemy");
             if (healthThreshold < 0.0F || healthThreshold > 1.0F) {
                 throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
             }
             if (!Double.isFinite(radius) || radius <= 0.0) {
                 throw TokenSettingValidation.invalid("radius must be positive");
             }
-            if (healAmount < 0.0F) throw TokenSettingValidation.invalid("heal_amount must be non-negative");
+            if (healPerEnemy < 0.0F) throw TokenSettingValidation.invalid("heal_per_enemy must be non-negative");
             if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
                 throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
             }

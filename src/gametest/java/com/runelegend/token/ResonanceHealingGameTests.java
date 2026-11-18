@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
@@ -35,7 +36,15 @@ public final class ResonanceHealingGameTests {
         var tokens = TokenTestEngine.forPlayers(healer, nearAlly, farAlly).create(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly, spectator);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
+        var nearbyEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 1);
+        var boundaryEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 3);
+        var distantEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 3, 2, 2);
+        var deadEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 3, 2, 3);
+        var passiveMob = test.spawnWithNoFreeWill(EntityTypes.PIG, 1, 2, 2);
         try {
+            boundaryEnemy.setPos(origin.add(5.0, 0, 0));
+            distantEnemy.setPos(origin.add(4.0, 0, 4.0));
+            deadEnemy.setHealth(0);
             // Mock players are not ticked through the normal player list, so place them directly.
             players.forEach(level.players()::add);
             healer.setPos(origin);
@@ -66,7 +75,8 @@ public final class ResonanceHealingGameTests {
                     TokenEngine.READY | TokenEngine.PREPARING,
                     "At exactly 50% health the token enters preparation");
             tokens.dispatch(guard(healer, level));
-            test.assertValueEqual(healer.getHealth(), 16F, "The healer heals itself");
+            test.assertValueEqual(healer.getHealth(), 14F,
+                    "The healer gains two HP per living enemy within five blocks, including the boundary");
             test.assertValueEqual(nearAlly.getHealth(), 20F,
                     "An ally inside the default five-block radius is healed and capped at max health");
             test.assertValueEqual(farAlly.getHealth(), 10F,
@@ -92,8 +102,17 @@ public final class ResonanceHealingGameTests {
                     TokenEngine.READY | TokenEngine.PREPARING,
                     "The cooldown expires after 200 ticks");
             tokens.dispatch(guard(healer, level));
-            test.assertValueEqual(healer.getHealth(), 16F,
+            test.assertValueEqual(healer.getHealth(), 14F,
                     "The token triggers again after the cooldown expires");
+
+            nearbyEnemy.discard();
+            boundaryEnemy.discard();
+            clock.set(500);
+            healer.setHealth(10);
+            tokens.dispatch(guard(healer, level));
+            test.assertValueEqual(healer.getHealth(), 10F, "No eligible enemies means zero healing");
+            test.assertValueEqual(tokens.views(healer).getFirst().cooldownUntil(), 700L,
+                    "A successful trigger starts the cooldown even with zero healing");
 
             game.stopGame();
             healer.setHealth(10);
@@ -101,6 +120,11 @@ public final class ResonanceHealingGameTests {
             test.assertValueEqual(healer.getHealth(), 10F, "WAITING disables the token");
             test.succeed();
         } finally {
+            nearbyEnemy.discard();
+            boundaryEnemy.discard();
+            distantEnemy.discard();
+            deadEnemy.discard();
+            passiveMob.discard();
             cleanup(level, server, tokens, game, service, players);
         }
     }
@@ -124,7 +148,10 @@ public final class ResonanceHealingGameTests {
         var tokens = TokenTestEngine.forPlayers(healer, nearAlly, farAlly).create(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly);
         var origin = test.absoluteVec(new Vec3(2.5, 2, 2.5));
+        var nearbyEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 1);
+        var distantEnemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 3);
         try {
+            distantEnemy.setPos(origin.add(3.1, 0, 0));
             players.forEach(level.players()::add);
             healer.setPos(origin);
             nearAlly.setPos(origin.add(3.0, 0, 0));
@@ -149,7 +176,7 @@ public final class ResonanceHealingGameTests {
                     "The configured 60% threshold prepares at exactly 60%");
             tokens.dispatch(guard(healer, level));
             test.assertValueEqual(healer.getHealth(), 16F,
-                    "The configured four-HP heal is applied to the healer");
+                    "One enemy within the configured radius heals the healer by the configured four HP");
             test.assertValueEqual(nearAlly.getHealth(), 14F,
                     "The configured three-block radius includes an ally at exactly 3.0 blocks");
             test.assertValueEqual(farAlly.getHealth(), 10F,
@@ -161,6 +188,8 @@ public final class ResonanceHealingGameTests {
                     "The configured two-second cooldown is 40 ticks");
             test.succeed();
         } finally {
+            nearbyEnemy.discard();
+            distantEnemy.discard();
             cleanup(level, server, tokens, game, service, players);
         }
     }

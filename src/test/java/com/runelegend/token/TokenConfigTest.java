@@ -35,7 +35,7 @@ class TokenConfigTest {
         assertEquals(4, resonance.size());
         assertEquals(0.5F, resonance.get("health_threshold").getAsFloat());
         assertEquals(5.0, resonance.get("radius").getAsDouble());
-        assertEquals(6.0F, resonance.get("heal_amount").getAsFloat());
+        assertEquals(2.0F, resonance.get("heal_per_enemy").getAsFloat());
         assertEquals(10, resonance.get("cooldown_seconds").getAsInt());
         var vernal = tokens.getAsJsonObject("runelegend:vernal_tide");
         assertEquals(3, vernal.size());
@@ -314,11 +314,19 @@ class TokenConfigTest {
         }
     }
 
+    @Test void legacyResonanceHealAmountFallsBackToDefaultCoefficient() {
+        var tokens = new JsonObject();
+        tokens.add("runelegend:resonance_healing",
+                JsonParser.parseString("{\"radius\":4,\"heal_amount\":6}"));
+        assertEquals(new TokenConfig.ResonanceHealingSettings(0.5F, 4, 2, 10),
+                TokenConfig.fromJson(tokens).resonanceHealing());
+    }
+
     @Test void invalidResonanceSettingsFallBackWithoutDiscardingOtherTokens() {
         var tokens = TokenConfig.DEFAULT.toJson();
         tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
         for (String invalid : new String[]{"\"health_threshold\":1.5",
-                "\"radius\":0", "\"radius\":-1", "\"heal_amount\":-1",
+                "\"radius\":0", "\"radius\":-1", "\"heal_per_enemy\":-1", "\"heal_per_enemy\":1e100",
                 "\"cooldown_seconds\":-1", "\"cooldown_seconds\":1.5",
                 "\"cooldown_seconds\":" + (Integer.MAX_VALUE / 20 + 1)}) {
             tokens.add("runelegend:resonance_healing", JsonParser.parseString("{" + invalid + "}"));
