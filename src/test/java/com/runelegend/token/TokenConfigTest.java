@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(9, tokens.size());
+        assertEquals(10, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -48,6 +48,12 @@ class TokenConfigTest {
         assertEquals(1, arrogance.get("kills_per_increase").getAsInt());
         assertEquals(1.0F, arrogance.get("damage_per_increase").getAsFloat());
         assertEquals(5.0F, arrogance.get("max_bonus_damage").getAsFloat());
+        var executionEcho = tokens.getAsJsonObject("runelegend:execution_echo");
+        assertEquals(4, executionEcho.size());
+        assertEquals(2.0F, executionEcho.get("decay_per_interval").getAsFloat());
+        assertEquals(1, executionEcho.get("decay_interval_seconds").getAsInt());
+        assertEquals(10, executionEcho.get("cooldown_seconds").getAsInt());
+        assertEquals(20, executionEcho.get("max_recorded_damage").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -60,7 +66,8 @@ class TokenConfigTest {
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0),
                 new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11),
                 new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F),
-                new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F));
+                new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F),
+                new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
     }
 
@@ -117,6 +124,41 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, Double.NaN, 3));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, 5, -1));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VernalTideSettings(0.5F, 5, Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(0, 1, 10, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(0.001F, 1, 10, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(Float.NaN, 1, 10, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(2, 0, 10, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(2, 1, -1, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(2, 1, 10, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ExecutionEchoSettings(2, 1, 10, 1025));
+    }
+
+    @Test void executionEchoDefaultsConvertSecondsToTicks() {
+        var settings = TokenConfig.ExecutionEchoSettings.DEFAULT;
+        assertEquals(2.0F, settings.decayPerInterval());
+        assertEquals(20, settings.decayIntervalTicks());
+        assertEquals(200, settings.cooldownTicks());
+        assertEquals(20, settings.maxRecordedDamage());
+    }
+
+    @Test void invalidExecutionEchoSettingsFallBackWithoutDiscardingOtherTokens() {
+        var tokens = TokenConfig.DEFAULT.toJson();
+        tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
+        for (String invalid : new String[]{"\"decay_per_interval\":0", "\"decay_per_interval\":0.001",
+                "\"decay_per_interval\":2000", "\"decay_interval_seconds\":0", "\"decay_interval_seconds\":1.5",
+                "\"cooldown_seconds\":-1", "\"cooldown_seconds\":" + (Integer.MAX_VALUE / 20 + 1),
+                "\"max_recorded_damage\":0", "\"max_recorded_damage\":1025", "\"max_recorded_damage\":1.5"}) {
+            tokens.add("runelegend:execution_echo", JsonParser.parseString("{" + invalid + "}"));
+            var parsed = TokenConfig.fromJson(tokens);
+            assertEquals(TokenConfig.ExecutionEchoSettings.DEFAULT, parsed.executionEcho(), invalid);
+            assertEquals(1F, parsed.soulSiphon().chance());
+        }
+    }
+
+    @Test void executionEchoMissingFieldsUseTheirOwnDefaults() {
+        var tokens = JsonParser.parseString("{\"runelegend:execution_echo\":{\"max_recorded_damage\":12}}")
+                .getAsJsonObject();
+        assertEquals(new TokenConfig.ExecutionEchoSettings(2.0F, 1, 10, 12), TokenConfig.fromJson(tokens).executionEcho());
     }
 
     @Test void poisonedArrowConvertsSeconds() {

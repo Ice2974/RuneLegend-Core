@@ -39,7 +39,7 @@ public final class TokenRegistry {
                 .addNoEffect("fountain_of_life")
                 .addNoEffect("full_blessing")
                 .addNoEffect("retribution")
-                .addNoEffect("execution_echo")
+                .add("execution_echo", new ExecutionEchoEffect(config.executionEcho()), MELEE)
                 .add("arrogance", new ArroganceEffect(config.arrogance()), HEALTH, KILL, MELEE)
                 .build();
     }

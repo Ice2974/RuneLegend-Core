@@ -3,6 +3,7 @@ package com.runelegend.token;
 import com.google.gson.JsonParser;
 import com.runelegend.token.effect.AsuraFormEffect;
 import com.runelegend.token.effect.EchoEffect;
+import com.runelegend.token.effect.ExecutionEchoEffect;
 import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
 import com.runelegend.token.effect.ResonanceHealingEffect;
@@ -128,6 +129,22 @@ class TokenDescriptionTest {
                         .get("token.runelegend.arrogance.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 for (String value : new String[]{"73%", "8", "1.25", "6.5"}) {
+                    assertTrue(description.contains(value), description);
+                }
+            }
+        }
+    }
+
+    @Test void executionEchoDescriptionUsesEveryConfiguredValue() throws IOException {
+        var args = new ExecutionEchoEffect(new TokenConfig.ExecutionEchoSettings(0.75F, 3, 7, 13))
+                .descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.execution_echo.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (String value : new String[]{"0.75", "3", "7", "13"}) {
                     assertTrue(description.contains(value), description);
                 }
             }

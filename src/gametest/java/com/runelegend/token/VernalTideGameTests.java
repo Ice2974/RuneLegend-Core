@@ -105,7 +105,7 @@ public final class VernalTideGameTests {
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(),
-                new TokenConfig.VernalTideSettings(0.5F, 5.0, 3.0F), defaults.arrogance()));
+                new TokenConfig.VernalTideSettings(0.5F, 5.0, 3.0F), defaults.arrogance(), defaults.executionEcho()));
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         double[] roll = {0.1};
@@ -212,7 +212,7 @@ public final class VernalTideGameTests {
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(),
-                new TokenConfig.VernalTideSettings(1.0F, 2.5, 5.0F), defaults.arrogance()));
+                new TokenConfig.VernalTideSettings(1.0F, 2.5, 5.0F), defaults.arrogance(), defaults.executionEcho()));
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = TokenTestEngine.forPlayers(attacker).create(game, players, registry, clock::get, player -> 0.0);

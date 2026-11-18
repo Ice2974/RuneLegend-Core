@@ -8,6 +8,9 @@ public final class TokenRuntimeState {
     public long activeUntil;
     /** Set by addMeleeDamage for the swing in progress; consumed by that swing's MELEE event. */
     public boolean meleeProcPending;
+    /** Execution Echo: the damage recorded by the last killing blow, and the tick its decay started. */
+    public int recordedDamage;
+    public long decayStartedAt;
 
     public void flash(long tick) { triggeredUntil = tick + 12; }
 }

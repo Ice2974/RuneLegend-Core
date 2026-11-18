@@ -19,6 +19,7 @@ public final class TokenEventBridge {
         private final boolean aliveBefore;
         private float beforeMitigation;
         private float blocked;
+        private float beforeAbsorption;
         private boolean settled;
 
         private Hit(LivingEntity victim, DamageSource source, float incoming) {
@@ -75,8 +76,8 @@ public final class TokenEventBridge {
     }
 
     /** Joins the two damage portions before absorption without sending a second hit. */
-    public static float afterMagic(LivingEntity victim, DamageSource source, float base,
-                                   BiFunction<DamageSource, Float, Float> applyMagic) {
+    private static float joinTokenBonus(LivingEntity victim, DamageSource source, float base,
+                                        BiFunction<DamageSource, Float, Float> applyMagic) {
         var hit = HITS.get();
         var melee = MELEE.get();
         if (hit == null || hit.victim != victim || hit.source != source || hit.beforeMitigation <= 0
@@ -86,6 +87,17 @@ public final class TokenEventBridge {
         // This portion never enters the armor calculation. The token source lets vanilla
         // apply Resistance but skip protection enchantments.
         return base + applyMagic.apply(TokenEngine.directDamageSource(melee.player.level(), melee.player), melee.bonus);
+    }
+
+    /**
+     * Keeps the joined value on the hit, so a kill can report what the swing dealt after every token addition.
+     */
+    public static float afterMagic(LivingEntity victim, DamageSource source, float base,
+                                   BiFunction<DamageSource, Float, Float> applyMagic) {
+        float joined = joinTokenBonus(victim, source, base, applyMagic);
+        var hit = HITS.get();
+        if (hit != null && hit.victim == victim && hit.source == source) hit.beforeAbsorption = joined;
+        return joined;
     }
 
     private static void dispatch(RuneLegendServer server, Hit hit, ServerLevel level, boolean acceptedDamage) {
@@ -107,7 +119,8 @@ public final class TokenEventBridge {
     }
 
     private static TokenEvent event(TokenEvent.Kind kind, ServerPlayer player, LivingEntity victim, ServerLevel level, Hit hit) {
-        return new TokenEvent(kind, player, victim, level, hit.source, hit.incoming, hit.beforeMitigation, hit.blocked);
+        return new TokenEvent(kind, player, victim, level, hit.source, hit.incoming, hit.beforeMitigation, hit.blocked,
+                hit.beforeAbsorption);
     }
 
     private static <T> void restore(ThreadLocal<T> local, T previous) {

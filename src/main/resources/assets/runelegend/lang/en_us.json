@@ -47,7 +47,7 @@
   "token.runelegend.vernal_tide": "Vernal Tide",
   "token.runelegend.vernal_tide.description": "While you have Regeneration, melee attacks have a %1$s chance to deal %3$s HP of true damage to the target and to other enemies within %2$s blocks of you",
   "token.runelegend.execution_echo": "Execution Echo",
-  "token.runelegend.execution_echo.description": "This token's effect is not implemented yet",
+  "token.runelegend.execution_echo.description": "After a melee kill of a hostile target, record that attack's damage after all token bonuses are added (rounded up, capped at %4$s HP). Each melee hit then adds the recorded amount as true damage. It decreases by %1$s HP every %2$s seconds and ends at 0, then cools down for %3$s seconds.",
   "token.runelegend.resonance_healing": "Resonance Healing",
   "token.runelegend.resonance_healing.description": "When at or below %1$s health, a successful block heals every player within %2$s blocks of you for %3$s HP, then cools down for %4$s seconds",
   "token.runelegend.arrogance": "Arrogance",

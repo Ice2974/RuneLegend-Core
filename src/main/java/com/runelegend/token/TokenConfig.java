@@ -24,13 +24,14 @@ public record TokenConfig(
         AsuraFormSettings asuraForm,
         ResonanceHealingSettings resonanceHealing,
         VernalTideSettings vernalTide,
-        ArroganceSettings arrogance) {
+        ArroganceSettings arrogance,
+        ExecutionEchoSettings executionEcho) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
-            "runelegend:vernal_tide", "runelegend:arrogance");
+            "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo");
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -258,6 +259,45 @@ public record TokenConfig(
         }
     }
 
+    /**
+     * The echo records the kill swing's damage after token additions and before absorption, then adds it back
+     * as true damage that decays to zero; the decay and cooldown are configurable, the cap bounds the record.
+     */
+    public record ExecutionEchoSettings(float decayPerInterval, int decayIntervalSeconds, int cooldownSeconds,
+                                        int maxRecordedDamage) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final ExecutionEchoSettings DEFAULT = new ExecutionEchoSettings(2.0F, 1, 10, 20);
+        public static final Codec<ExecutionEchoSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.01F, 1024.0F), "decay_per_interval", DEFAULT.decayPerInterval())
+                        .forGetter(ExecutionEchoSettings::decayPerInterval),
+                field(wholeNumber(1, MAX_SECONDS), "decay_interval_seconds", DEFAULT.decayIntervalSeconds())
+                        .forGetter(ExecutionEchoSettings::decayIntervalSeconds),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(ExecutionEchoSettings::cooldownSeconds),
+                field(wholeNumber(1, 1024), "max_recorded_damage", DEFAULT.maxRecordedDamage())
+                        .forGetter(ExecutionEchoSettings::maxRecordedDamage)
+        ).apply(instance, ExecutionEchoSettings::new));
+
+        public ExecutionEchoSettings {
+            TokenSettingValidation.requireFinite(decayPerInterval, "decay_per_interval");
+            if (decayPerInterval < 0.01F || decayPerInterval > 1024.0F) {
+                throw TokenSettingValidation.invalid("decay_per_interval must be between 0.01 and 1024");
+            }
+            if (decayIntervalSeconds < 1 || decayIntervalSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("decay_interval_seconds must be positive and fit in ticks");
+            }
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+            if (maxRecordedDamage < 1 || maxRecordedDamage > 1024) {
+                throw TokenSettingValidation.invalid("max_recorded_damage must be between 1 and 1024");
+            }
+        }
+
+        public int decayIntervalTicks() { return decayIntervalSeconds * 20; }
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+    }
+
     // JsonOps' integer codec would silently truncate fractional input.
     private static Codec<Integer> wholeNumber(int min, int max) {
         return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
@@ -268,7 +308,8 @@ public record TokenConfig(
     public static final TokenConfig DEFAULT = new TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
-            ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT);
+            ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
+            ExecutionEchoSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
         warnAboutUnknownTokens(tokens);
@@ -282,7 +323,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:resonance_healing", ResonanceHealingSettings.CODEC,
                         ResonanceHealingSettings.DEFAULT),
                 section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT),
-                section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT));
+                section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT),
+                section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -296,6 +338,7 @@ public record TokenConfig(
         tokens.add("runelegend:resonance_healing", encode(ResonanceHealingSettings.CODEC, resonanceHealing));
         tokens.add("runelegend:vernal_tide", encode(VernalTideSettings.CODEC, vernalTide));
         tokens.add("runelegend:arrogance", encode(ArroganceSettings.CODEC, arrogance));
+        tokens.add("runelegend:execution_echo", encode(ExecutionEchoSettings.CODEC, executionEcho));
         return tokens;
     }
 
