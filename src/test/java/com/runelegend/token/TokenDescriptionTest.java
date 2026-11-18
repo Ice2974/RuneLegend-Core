@@ -22,15 +22,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Player-visible token descriptions report durations in seconds, never raw server ticks. */
 class TokenDescriptionTest {
-    @Test void substituteDescriptionsUseConfiguredThresholdAndCooldown() throws IOException {
-        var args = new SubstituteEffect(new TokenConfig.SubstituteSettings(0.35F, 27)).descriptionArguments();
+    @Test void substituteDescriptionsUseConfiguredThresholdDurationAndCooldown() throws IOException {
+        var args = new SubstituteEffect(new TokenConfig.SubstituteSettings(0.35F, 14, 27)).descriptionArguments();
         for (var language : new String[]{"zh_cn", "en_us"}) {
             try (var reader = new InputStreamReader(getClass().getResourceAsStream(
                     "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
                 var format = JsonParser.parseReader(reader).getAsJsonObject()
                         .get("token.runelegend.substitute.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
-                assertTrue(description.contains("35%") && description.contains("27"), description);
+                assertTrue(description.contains("35%") && description.contains("14") && description.contains("27"), description);
             }
         }
     }

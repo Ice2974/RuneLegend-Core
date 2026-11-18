@@ -43,6 +43,12 @@ final class SubstituteMannequin extends Mannequin {
         onEnd = action;
     }
 
+    void expire() {
+        if (!isAlive()) return;
+        setHealth(0);
+        die(damageSources().genericKill());
+    }
+
     private void end() {
         var action = onEnd;
         onEnd = null;

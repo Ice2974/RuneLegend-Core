@@ -1,5 +1,6 @@
 package com.runelegend.token;
 
+import com.google.gson.JsonParser;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
@@ -73,6 +74,7 @@ public final class SubstituteGameTests {
             test.assertTrue(!model.hurtServer(level, level.damageSources().playerAttack(other), 4),
                     "Players cannot damage the substitute");
             test.assertValueEqual(view(engine, owner).flags(), TokenEngine.ACTIVE | TokenEngine.TRIGGERED, "Active HUD");
+            test.assertValueEqual(view(engine, owner).activeUntil(), 500L, "Default lifetime is 20 seconds");
 
             owner.setHealth(15);
             engine.updateHealth(owner);
@@ -103,6 +105,55 @@ public final class SubstituteGameTests {
             engine.clearRound();
             server.leave(owner);
             server.leave(other);
+        }
+    }
+
+    @GameTest
+    public void substituteDiesAtConfiguredDeadlineEvenAfterAnEarlyKill(GameTestHelper test) {
+        var owner = GuardGameTests.fixture(test);
+        place(test, owner, 3.5, 4.5);
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var game = new GameController(() -> {}, (before, after) -> {});
+        var config = TokenConfig.fromJson(JsonParser.parseString("""
+                {"runelegend:substitute":{"duration_seconds":3,"cooldown_seconds":1}}
+                """).getAsJsonObject());
+        var registry = TokenRegistry.builtIn(config);
+        var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
+        var clock = new AtomicLong(100);
+        var online = List.of(owner);
+        var engine = TokenTestEngine.forPlayers(owner).create(game, players, registry, clock::get);
+        try {
+            equip(test, players, owner);
+            game.startGame();
+            owner.setHealth(owner.getMaxHealth() / 2);
+            engine.tick(online);
+            var original = liveModels(owner).getFirst();
+            clock.set(110);
+            original.kill(level);
+            test.assertValueEqual(view(engine, owner).cooldownUntil(), 130L, "Early death starts cooldown immediately");
+
+            clock.set(130);
+            engine.tick(online);
+            var replacement = liveModels(owner).getFirst();
+            test.assertTrue(replacement != original, "Cooldown summons a new substitute");
+            clock.set(160);
+            engine.tick(online);
+            test.assertTrue(replacement.isAlive(), "The first deadline does not affect the replacement");
+            clock.set(189);
+            engine.tick(online);
+            test.assertTrue(replacement.isAlive(), "Still alive one tick before its deadline");
+            test.assertValueEqual(replacement.getHealth(), replacement.getMaxHealth(), "No monsters have damaged it");
+
+            clock.set(190);
+            engine.tick(online);
+            test.assertTrue(replacement.isDeadOrDying() && !replacement.isRemoved(), "Expiry runs normal death");
+            test.assertValueEqual(view(engine, owner).flags(), TokenEngine.COOLDOWN, "Expiry ends the active state");
+            test.assertValueEqual(view(engine, owner).cooldownUntil(), 210L, "Cooldown starts at expiry");
+            test.succeed();
+        } finally {
+            engine.clearRound();
+            server.leave(owner);
         }
     }
 

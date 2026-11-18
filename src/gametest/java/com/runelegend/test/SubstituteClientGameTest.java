@@ -14,6 +14,7 @@ import net.minecraft.world.item.Items;
 
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class SubstituteClientGameTest implements FabricClientGameTest {
@@ -25,11 +26,12 @@ public final class SubstituteClientGameTest implements FabricClientGameTest {
         properties.setProperty("level-type", "minecraft:flat");
         var modelId = new AtomicInteger();
         var profile = new AtomicReference<GameProfile>();
+        var expiry = new AtomicLong();
         try (var dedicated = context.worldBuilder().createServer(properties); var connection = dedicated.connect()) {
             context.waitFor(client -> client.player != null && ClientStateCache.INSTANCE.view() != null);
             dedicated.runCommand("runelegend admin @p clear");
             dedicated.runCommand("runelegend admin @p equip runelegend:substitute");
-            dedicated.runCommand("difficulty normal");
+            dedicated.runCommand("difficulty peaceful");
             dedicated.runCommand("time set noon");
             dedicated.runCommand("runelegend game start");
             context.waitFor(client -> hasFlag(TokenEngine.READY));
@@ -51,19 +53,15 @@ public final class SubstituteClientGameTest implements FabricClientGameTest {
                     && model.getProfile().partialProfile().equals(profile.get())
                     && model.getItemBySlot(EquipmentSlot.CHEST).is(Items.DIAMOND_CHESTPLATE)
                     && model.getMaxHealth() == 32 && model.getHealth() == 32 && hasFlag(TokenEngine.ACTIVE));
+            context.runOnClient(client -> expiry.set(view().activeUntil()));
             context.takeScreenshot("runelegend-substitute");
 
-            dedicated.runOnServer(server -> {
-                var level = connection.getServerPlayer().level();
-                var model = (Mannequin) level.getEntity(modelId.get());
-                model.hurtServer(level, level.damageSources().genericKill(), 1000);
-            });
-            context.waitFor(client -> hasFlag(TokenEngine.COOLDOWN));
+            context.waitFor(client -> hasFlag(TokenEngine.COOLDOWN), 600);
             context.runOnClient(client -> {
-                var cache = ClientStateCache.INSTANCE;
-                long ticks = view().cooldownUntil() - cache.serverTick();
-                if (ticks <= 0 || ticks > 800) throw new AssertionError("Unexpected substitute cooldown: " + ticks);
+                long ticks = view().cooldownUntil() - expiry.get();
+                if (ticks != 800) throw new AssertionError("Unexpected substitute cooldown from expiry: " + ticks);
             });
+            context.waitFor(client -> client.level != null && client.level.getEntity(modelId.get()) == null);
         }
     }
 

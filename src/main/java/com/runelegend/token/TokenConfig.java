@@ -324,12 +324,14 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
-    public record SubstituteSettings(float healthThreshold, int cooldownSeconds) {
+    public record SubstituteSettings(float healthThreshold, int durationSeconds, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
-        public static final SubstituteSettings DEFAULT = new SubstituteSettings(0.5F, 40);
+        public static final SubstituteSettings DEFAULT = new SubstituteSettings(0.5F, 20, 40);
         public static final Codec<SubstituteSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(SubstituteSettings::healthThreshold),
+                field(wholeNumber(1, MAX_SECONDS), "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(SubstituteSettings::durationSeconds),
                 field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
                         .forGetter(SubstituteSettings::cooldownSeconds)
         ).apply(instance, SubstituteSettings::new));
@@ -339,11 +341,15 @@ public record TokenConfig(
             if (healthThreshold < 0 || healthThreshold > 1) {
                 throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
             }
+            if (durationSeconds < 1 || durationSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
+            }
             if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
                 throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
             }
         }
 
+        public int durationTicks() { return durationSeconds * 20; }
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 

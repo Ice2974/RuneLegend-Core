@@ -267,7 +267,7 @@ public final class TokenEngine {
             });
         }
 
-        public boolean summonSubstitute(String name, Runnable ended) {
+        public boolean summonSubstitute(String name, long expiresAt, Runnable ended) {
             if (!valid()) return false;
             var owner = player();
             var level = owner.level();
@@ -280,7 +280,9 @@ public final class TokenEngine {
                 model.onEnd(null);
                 if (model.isAlive()) model.discard();
             });
-            return !model.isRemoved();
+            if (model.isRemoved()) return false;
+            at(name, expiresAt, model::expire);
+            return true;
         }
 
         public void at(String effect, long tick, Runnable action) {

@@ -29,8 +29,8 @@ public final class SubstituteEffect implements TokenEffectHandler {
         long tick = context.tick();
         if (!context.valid() || !ready(player, state, tick)
                 || player.getHealth() > player.getMaxHealth() * settings.healthThreshold()) return;
-        state.activeUntil = Long.MAX_VALUE;
-        if (!context.summonSubstitute(EFFECT, () -> end(context, state))) {
+        state.activeUntil = tick + settings.durationTicks();
+        if (!context.summonSubstitute(EFFECT, state.activeUntil, () -> end(context, state))) {
             state.activeUntil = 0;
             return;
         }
@@ -48,6 +48,6 @@ public final class SubstituteEffect implements TokenEffectHandler {
     }
 
     @Override public Object[] descriptionArguments() {
-        return new Object[]{TokenConfig.percent(settings.healthThreshold()), settings.cooldownSeconds()};
+        return new Object[]{TokenConfig.percent(settings.healthThreshold()), settings.durationSeconds(), settings.cooldownSeconds()};
     }
 }

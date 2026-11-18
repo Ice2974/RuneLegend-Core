@@ -33,7 +33,7 @@
   "token.runelegend.venomous_tip": "刃尖毒发",
   "token.runelegend.venomous_tip.description": "近战攻击有 %s 概率赋予敌人 %s 秒中毒Ⅱ效果",
   "token.runelegend.substitute": "替身",
-  "token.runelegend.substitute.description": "生命值不高于 %1$s 时召唤满血替身，复制自身的最大生命值和护甲。怪物优先攻击索敌范围内的替身。替身死亡后冷却 %2$s 秒",
+  "token.runelegend.substitute.description": "生命值不高于 %1$s 时召唤满血替身，复制自身的最大生命值和护甲。怪物优先攻击索敌范围内的替身。替身在 %2$s 秒后自动死亡，死亡后冷却 %3$s 秒",
   "token.runelegend.poisoned_arrow": "淬毒之箭",
   "token.runelegend.poisoned_arrow.description": "弓箭命中有 %1$s 概率赋予敌人 %2$s 秒中毒Ⅱ效果",
   "token.runelegend.fountain_of_life": "生命之泉",

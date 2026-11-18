@@ -59,8 +59,9 @@ class TokenConfigTest {
         assertEquals(5, retribution.get("duration_seconds").getAsInt());
         assertEquals(10, retribution.get("cooldown_seconds").getAsInt());
         var substitute = tokens.getAsJsonObject("runelegend:substitute");
-        assertEquals(2, substitute.size());
+        assertEquals(3, substitute.size());
         assertEquals(0.5F, substitute.get("health_threshold").getAsFloat());
+        assertEquals(20, substitute.get("duration_seconds").getAsInt());
         assertEquals(40, substitute.get("cooldown_seconds").getAsInt());
     }
 
@@ -77,7 +78,7 @@ class TokenConfigTest {
                 new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F),
                 new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13),
                 new TokenConfig.RetributionSettings(7, 0),
-                new TokenConfig.SubstituteSettings(0.4F, 7));
+                new TokenConfig.SubstituteSettings(0.4F, 12, 7));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
     }
 
@@ -86,13 +87,15 @@ class TokenConfigTest {
         assertEquals(TokenConfig.SubstituteSettings.DEFAULT, TokenConfig.fromJson(tokens).substitute());
         for (var invalid : new String[]{
                 "[]", "{\"health_threshold\":-0.1,\"cooldown_seconds\":7}", "{\"health_threshold\":1.01}",
-                "{\"health_threshold\":\"half\"}", "{\"cooldown_seconds\":-1}", "{\"cooldown_seconds\":0.5}",
+                "{\"health_threshold\":\"half\"}", "{\"duration_seconds\":0,\"cooldown_seconds\":7}",
+                "{\"duration_seconds\":1.5}", "{\"duration_seconds\":107374183}", "{\"duration_seconds\":\"short\"}",
+                "{\"cooldown_seconds\":-1}", "{\"cooldown_seconds\":0.5}",
                 "{\"cooldown_seconds\":107374183}", "{\"cooldown_seconds\":\"fast\"}"}) {
             tokens.add("runelegend:substitute", JsonParser.parseString(invalid));
             assertEquals(TokenConfig.SubstituteSettings.DEFAULT, TokenConfig.fromJson(tokens).substitute(), invalid);
         }
-        tokens.add("runelegend:substitute", JsonParser.parseString("{\"cooldown_seconds\":0}"));
-        assertEquals(new TokenConfig.SubstituteSettings(0.5F, 0), TokenConfig.fromJson(tokens).substitute());
+        tokens.add("runelegend:substitute", JsonParser.parseString("{\"health_threshold\":0.4,\"cooldown_seconds\":0}"));
+        assertEquals(new TokenConfig.SubstituteSettings(0.4F, 20, 0), TokenConfig.fromJson(tokens).substitute());
     }
 
     @Test void missingAndInvalidRetributionSettingsUseDefaults() {
