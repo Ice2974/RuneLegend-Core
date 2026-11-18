@@ -27,8 +27,12 @@ public record ClientConfig(TokenHud tokenHud, StaminaHud staminaHud) {
 
     public record StaminaHud(int offsetX, int offsetY) {}
 
-    public static Path defaultPath() {
-        return FabricLoader.getInstance().getConfigDir().resolve("client.json");
+    public static ClientConfig load() {
+        return loadFromDirectory(FabricLoader.getInstance().getConfigDir());
+    }
+
+    public static ClientConfig loadFromDirectory(Path configDirectory) {
+        return loadOrGenerate(configDirectory.resolve("runelegend-core/client.json"));
     }
 
     public static ClientConfig loadOrGenerate(Path path) {

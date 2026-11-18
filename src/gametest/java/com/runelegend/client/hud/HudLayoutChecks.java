@@ -13,6 +13,7 @@ public final class HudLayoutChecks {
 
     public static ClientConfig checkConfigAndLayout() {
         var custom = checkConfig();
+        checkConfigLocation(custom);
         var defaults = ClientConfig.DEFAULT;
         expect(new HudLayout(130, 105, 22), HudLayout.place(320, 200, 3, defaults.tokenHud()));
         expect(new HudLayout(160, 75, 34), HudLayout.place(320, 200, 3, custom.tokenHud()));
@@ -32,6 +33,35 @@ public final class HudLayoutChecks {
 
     public static HudElement renderWith(ClientConfig config) {
         return (graphics, delta) -> RuneLegendHud.draw(graphics, config);
+    }
+
+    private static void checkConfigLocation(ClientConfig custom) {
+        try {
+            var directory = Files.createTempDirectory("runelegend-client-config-location-");
+            var legacy = directory.resolve("client.json");
+            var destination = directory.resolve("runelegend-core/client.json");
+            String settings = """
+                    {"schemaVersion":1,
+                     "token_hud":{"offset_x":42,"offset_y":30,"spacing":18},
+                     "stamina_hud":{"offset_x":-44,"offset_y":3}}
+                    """;
+            try {
+                Files.writeString(legacy, settings);
+                expect(ClientConfig.DEFAULT, ClientConfig.loadFromDirectory(directory));
+                expect(true, Files.isRegularFile(destination));
+                expect(settings, Files.readString(legacy));
+
+                Files.writeString(destination, settings);
+                expect(custom, ClientConfig.loadFromDirectory(directory));
+            } finally {
+                Files.deleteIfExists(legacy);
+                Files.deleteIfExists(destination);
+                Files.deleteIfExists(destination.getParent());
+                Files.delete(directory);
+            }
+        } catch (IOException error) {
+            throw new AssertionError("Client config location fixture failed", error);
+        }
     }
 
     private static ClientConfig checkConfig() {

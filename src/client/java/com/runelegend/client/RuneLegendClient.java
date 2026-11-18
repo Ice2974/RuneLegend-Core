@@ -15,7 +15,7 @@ public final class RuneLegendClient implements ClientModInitializer {
             if (client.player != null && !client.player.isAlive()) ClientStateCache.INSTANCE.tokenAnimation().clear();
             GuardInputController.INSTANCE.tick(client);
         });
-        RuneLegendHud.register(ClientConfig.loadOrGenerate(ClientConfig.defaultPath()));
+        RuneLegendHud.register(ClientConfig.load());
         com.runelegend.client.render.DownedMarkerRenderer.register();
     }
 }
