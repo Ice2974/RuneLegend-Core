@@ -36,7 +36,8 @@ public final class ArroganceEffect implements TokenEffectHandler {
         if (!retainProgress(context.player(), state) || event.kind() != TokenEvent.Kind.KILL
                 || event.target() == null || event.target() instanceof Player || !TokenTargeting.enemy(event.target())) return;
         float previous = bonusDamage(state);
-        if (previous >= settings.maxBonusDamage() || ++state.charge < settings.killsPerIncrease()) return;
+        if (previous >= settings.maxBonusDamage()) return;
+        if (state.damageSteps > 0 && ++state.charge < settings.killsPerIncrease()) return;
         state.charge = 0;
         state.damageSteps++;
         state.activeUntil = Long.MAX_VALUE; // Ends on a health change, not on a deadline.

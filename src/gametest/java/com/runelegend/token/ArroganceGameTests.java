@@ -169,8 +169,8 @@ public final class ArroganceGameTests {
             player.setHealth(15);
             for (int i = 1; i <= 12; i++) {
                 engine.dispatch(kill);
-                bonus(test, engine, player, Math.min(5, i / 3 * 2));
-                test.assertValueEqual(flashes.size(), Math.min(3, i / 3), "One flash per actual increase");
+                bonus(test, engine, player, Math.min(5, (1 + (i - 1) / 3) * 2));
+                test.assertValueEqual(flashes.size(), Math.min(3, 1 + (i - 1) / 3), "One flash per actual increase");
             }
             test.assertValueEqual(flashes, List.of(ARROGANCE, ARROGANCE, ARROGANCE),
                     "All three flashes were emitted in the same tick, including the partial increase at the cap");
