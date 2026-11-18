@@ -41,7 +41,7 @@
   "token.runelegend.full_blessing": "Full Blessing",
   "token.runelegend.full_blessing.description": "This token's effect is not implemented yet",
   "token.runelegend.retribution": "Retribution",
-  "token.runelegend.retribution.description": "This token's effect is not implemented yet",
+  "token.runelegend.retribution.description": "Taking damage from an active attack triggers this token for %1$s seconds. Starting with that hit, accumulate damage taken before absorption. Each direct melee hit on a non-player creature adds that total as true damage. The total resets when the effect ends, then the token cools down for %2$s seconds.",
   "token.runelegend.asura_form": "Asura Form",
   "token.runelegend.asura_form.description": "Kill %1$s monsters to transform for %2$s seconds: melee hits add %3$s HP of true damage, you move as if you had Speed %4$s, and you use a temporary %5$s HP health bar. When the form ends, your original health returns and a %6$s-second cooldown begins.",
   "token.runelegend.vernal_tide": "Vernal Tide",

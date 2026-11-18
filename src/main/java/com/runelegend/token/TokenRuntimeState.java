@@ -11,6 +11,7 @@ public final class TokenRuntimeState {
     /** Execution Echo: the damage recorded by the last killing blow, and the tick its decay started. */
     public int recordedDamage;
     public long decayStartedAt;
+    public float retributionDamage;
 
     public void flash(long tick) { triggeredUntil = tick + 12; }
 }

@@ -25,13 +25,14 @@ public record TokenConfig(
         ResonanceHealingSettings resonanceHealing,
         VernalTideSettings vernalTide,
         ArroganceSettings arrogance,
-        ExecutionEchoSettings executionEcho) {
+        ExecutionEchoSettings executionEcho,
+        RetributionSettings retribution) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
-            "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo");
+            "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution");
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -298,6 +299,29 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
+    public record RetributionSettings(int durationSeconds, int cooldownSeconds) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final RetributionSettings DEFAULT = new RetributionSettings(5, 10);
+        public static final Codec<RetributionSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(wholeNumber(1, MAX_SECONDS), "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(RetributionSettings::durationSeconds),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(RetributionSettings::cooldownSeconds)
+        ).apply(instance, RetributionSettings::new));
+
+        public RetributionSettings {
+            if (durationSeconds < 1 || durationSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("duration_seconds must be positive and fit in ticks");
+            }
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+        }
+
+        public int durationTicks() { return durationSeconds * 20; }
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+    }
+
     // JsonOps' integer codec would silently truncate fractional input.
     private static Codec<Integer> wholeNumber(int min, int max) {
         return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
@@ -309,7 +333,7 @@ public record TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
-            ExecutionEchoSettings.DEFAULT);
+            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
         warnAboutUnknownTokens(tokens);
@@ -324,7 +348,8 @@ public record TokenConfig(
                         ResonanceHealingSettings.DEFAULT),
                 section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT),
                 section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT),
-                section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT));
+                section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT),
+                section(tokens, "runelegend:retribution", RetributionSettings.CODEC, RetributionSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -339,6 +364,7 @@ public record TokenConfig(
         tokens.add("runelegend:vernal_tide", encode(VernalTideSettings.CODEC, vernalTide));
         tokens.add("runelegend:arrogance", encode(ArroganceSettings.CODEC, arrogance));
         tokens.add("runelegend:execution_echo", encode(ExecutionEchoSettings.CODEC, executionEcho));
+        tokens.add("runelegend:retribution", encode(RetributionSettings.CODEC, retribution));
         return tokens;
     }
 

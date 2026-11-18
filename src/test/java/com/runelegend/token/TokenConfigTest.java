@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(10, tokens.size());
+        assertEquals(11, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -54,6 +54,10 @@ class TokenConfigTest {
         assertEquals(1, executionEcho.get("decay_interval_seconds").getAsInt());
         assertEquals(10, executionEcho.get("cooldown_seconds").getAsInt());
         assertEquals(10, executionEcho.get("max_recorded_damage").getAsInt());
+        var retribution = tokens.getAsJsonObject("runelegend:retribution");
+        assertEquals(2, retribution.size());
+        assertEquals(5, retribution.get("duration_seconds").getAsInt());
+        assertEquals(10, retribution.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -67,8 +71,29 @@ class TokenConfigTest {
                 new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11),
                 new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F),
                 new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F),
-                new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13));
+                new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13),
+                new TokenConfig.RetributionSettings(7, 0));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
+    }
+
+    @Test void missingAndInvalidRetributionSettingsUseDefaults() {
+        var tokens = JsonParser.parseString("""
+                {"runelegend:soul_siphon":{"chance":0.2}}
+                """).getAsJsonObject();
+        var defaults = TokenConfig.fromJson(tokens);
+        assertEquals(TokenConfig.RetributionSettings.DEFAULT, defaults.retribution());
+        for (var invalid : new String[]{"[]", "{\"duration_seconds\":0,\"cooldown_seconds\":1}",
+                "{\"duration_seconds\":1.5}", "{\"duration_seconds\":107374183}",
+                "{\"cooldown_seconds\":-1,\"duration_seconds\":1}", "{\"cooldown_seconds\":0.5}",
+                "{\"cooldown_seconds\":107374183}", "{\"cooldown_seconds\":\"fast\"}"}) {
+            tokens.add("runelegend:retribution", JsonParser.parseString(invalid));
+            assertEquals(defaults, TokenConfig.fromJson(tokens), invalid);
+        }
+        tokens.add("runelegend:retribution", JsonParser.parseString("{\"cooldown_seconds\":0}"));
+        var settings = TokenConfig.fromJson(tokens).retribution();
+        assertEquals(new TokenConfig.RetributionSettings(5, 0), settings);
+        assertEquals(100, settings.durationTicks());
+        assertEquals(0, settings.cooldownTicks());
     }
 
     @Test void missingOrInvalidArroganceSettingsPreserveOtherTokens() {
