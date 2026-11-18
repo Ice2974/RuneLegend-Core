@@ -3,6 +3,7 @@ package com.runelegend.game;
 import com.runelegend.api.*;
 import net.minecraft.resources.Identifier;
 
+import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
@@ -15,8 +16,10 @@ public final class GameController implements RuneLegendApi {
 
     private final Runnable checkThread;
     private final TransitionListener onChange;
+    private final ArrayDeque<Runnable> pendingNotifications = new ArrayDeque<>();
     private RuleSnapshot rules = new RuleSnapshot(GameState.WAITING, 0, 0);
     private boolean transitioning;
+    private boolean deferringNotifications;
 
     public GameController(Runnable checkThread, BiConsumer<RuleSnapshot, RuleSnapshot> onChange) {
         this(checkThread, (before, after, reason, outcomeId) -> onChange.accept(before, after));
@@ -40,10 +43,31 @@ public final class GameController implements RuneLegendApi {
         return update(GameState.WAITING, RoundSummary.Reason.NO_ALIVE, null);
     }
 
+    public void publishNotification(Runnable notification) {
+        withDeferredNotifications(() -> pendingNotifications.addLast(notification));
+    }
+
+    /** Finishes a group of commits before callbacks can change the state they operated on. */
+    public void withDeferredNotifications(Runnable action) {
+        checkThread.run();
+        if (deferringNotifications) {
+            action.run();
+            return;
+        }
+        deferringNotifications = true;
+        try {
+            action.run();
+            while (!pendingNotifications.isEmpty()) pendingNotifications.removeFirst().run();
+        } finally {
+            pendingNotifications.clear();
+            deferringNotifications = false;
+        }
+    }
+
     private boolean update(GameState state, RoundSummary.Reason reason, Identifier outcomeId) {
         checkThread.run();
         var previous = rules;
-        if (transitioning || state == previous.state()) return false;
+        if (transitioning || deferringNotifications || state == previous.state()) return false;
         long round = previous.round() + (state == GameState.RUNNING ? 1 : 0);
         rules = new RuleSnapshot(state, round, previous.revision() + 1);
         transitioning = true;

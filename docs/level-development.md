@@ -72,6 +72,38 @@ $data modify storage mymap:round last set value {round:$(round)L,reason:"$(reaso
 
 Java 通知先于对应函数标签同步执行。回调可以查询状态。回调直接或通过嵌套函数调用 `start`、`stop` 或 `finish` 时返回 `0`，Java 返回 `false`。若要在结算后重新开局，可将开局命令放入之后执行的函数。
 
+## 订阅倒地、扶起和淘汰
+
+在服务端模组初始化时注册 `PlayerStateEvents`，或在数据包的 `data/runelegend/tags/function/` 下添加下表对应的标签文件。标签的写法和重载行为与回合通知相同。
+
+| Java 事件 | 函数标签 | 触发时机 |
+| --- | --- | --- |
+| `PlayerStateEvents.DOWNED` | `#runelegend:player_downed` | 玩家进入 `DOWNED` 并生成倒地记录。图腾生效时没有通知 |
+| `PlayerStateEvents.REVIVED` | `#runelegend:player_revived` | 传送成功、恢复 `ALIVE` 并清除倒地记录后。玩家救援会携带实际救援者 UUID |
+| `PlayerStateEvents.ELIMINATED` | `#runelegend:player_eliminated` | `ALIVE` 或 `DOWNED` 转为 `ELIMINATED` 并完成清理后。原因是倒地超时（`timeout`）、断线（`disconnect`）或原版死亡回调确实提交了淘汰（`death`） |
+
+救援完成与倒地超时落在同一 tick 时，只发布超时淘汰。传送失败时保留倒地记录，且没有扶起通知。断线回调发出时，Core 已将该 UUID 标记为离线；玩家重连或旧连接再次断开时，原有淘汰记录不会再发布。末位玩家倒地或断线导致自动停局时，身份通知先于 `round_ended`。
+
+### 函数参数与执行源
+
+标签函数的执行源与回合通知相同，由服务器以权限等级 2 在世界出生点及其维度执行，`@s` 初始为空。使用 `player_uuid` 或 `rescuer_uuid` 定位参与者。需要对仍在线且可选中的玩家执行命令时，可使用 `execute as <UUID>`。处理离线参与者时，用 UUID 字符串写入地图存储即可。
+
+| 参数 | 类型与含义 |
+| --- | --- |
+| `round` | NBT long，本次身份变更所属的回合 |
+| `player_uuid` | UUID 字符串，倒地、被扶起或被淘汰的玩家 |
+| `anchor` | NBT compound。包含倒地 `sequence`（long）、`dimension`（资源 ID 字符串）、`x`、`y`、`z`（double）和 `yaw`、`pitch`（float）。无倒地记录的淘汰传入 `{}` |
+| `rescuer_uuid` | 仅扶起事件提供。匹配到的救援者 UUID 字符串，无归属的扶起传入空字符串 |
+| `reason`、`previous_identity` | 仅淘汰事件提供。原因见上表，先前身份为 `ALIVE` 或 `DOWNED` |
+
+锚点属于倒地发生时的维度，位置和朝向取自原始倒地记录。使用锚点坐标前先在其 `dimension` 中执行，再用 `positioned` 指定绝对坐标。同一次倒地及其后续扶起或淘汰可用回合、玩家 UUID 和倒地序号关联；服务器重启会重新开始计数。以下宏可记录淘汰，即使玩家已离线。
+
+```mcfunction
+$data modify storage mymap:round last_elimination set value {round:$(round)L,player_uuid:"$(player_uuid)",reason:"$(reason)",previous_identity:"$(previous_identity)",anchor:$(anchor)}
+```
+
+Java 回调先于相应函数标签，参数保存提交时的数据。若回调引发另一项身份变更，新事件会排在已提交的事件之后。回调可查询实时状态，`start`、`stop` 和 `finish` 的重入规则与回合通知相同。
+
 ## 调整战斗参数
 
 战斗参数位于 `config/runelegend-core/server.json`，分为以下三组。
@@ -172,6 +204,17 @@ RoundEvents.ENDED.register((server, summary) -> {
         var finalIdentities = summary.identities();
         // 根据关卡结局 ID 和最终身份计算奖励
     }
+});
+```
+
+身份事件在服务器线程提供不可变参数，可通过 `round()`、`playerId()` 和倒地锚点的 `sequence()` 关联同一次倒地。`REVIVED` 的 `rescuerId()` 和 `ELIMINATED` 的 `anchor()` 使用 `Optional` 表示可能缺失的参数。
+
+```java
+PlayerStateEvents.REVIVED.register((server, event) -> {
+    UUID target = event.playerId();
+    event.rescuerId().ifPresent(rescuer -> {
+        // 用 event.round()、target、event.anchor().sequence() 和 rescuer 记录这次救援
+    });
 });
 ```
 

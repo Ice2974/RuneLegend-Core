@@ -1,10 +1,13 @@
 package com.runelegend;
 
-import com.runelegend.api.RuleSnapshot;
+import com.runelegend.api.PlayerStateEvents;
+import com.runelegend.api.PlayerStateEvents.EliminationReason;
 import com.runelegend.api.RoundSummary;
+import com.runelegend.api.RuleSnapshot;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
+import com.runelegend.game.PlayerStateNotifications;
 import com.runelegend.game.RoundNotifications;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.*;
@@ -105,12 +108,13 @@ public final class RuneLegendServer {
         checkThread();
         var current = transports.get(player.getUUID());
         if (current == null || current != player.connection || current.player != player) return;
-        playerStates.leave(player.getUUID());
-        downed.removeDowned(player.getUUID());
-        transports.remove(player.getUUID());
+        var uuid = player.getUUID();
+        var elimination = commitElimination(uuid, downed.get(uuid), EliminationReason.DISCONNECT);
+        transports.remove(uuid);
         sync.leave(player);
         stamina.leave(player);
         clearPlayerEffects(player);
+        publishElimination(elimination);
     }
 
     public boolean isCurrent(ServerPlayer player) {
@@ -122,8 +126,9 @@ public final class RuneLegendServer {
     public boolean interceptDeath(ServerPlayer player) {
         checkThread();
         if (!isCurrent(player) || !game.getRules().running() || playerStates.state(player.getUUID()) == null) return false;
+        DownedService.DownedRecord record = null;
         if (playerStates.enterDowned(player.getUUID())) {
-            downed.add(player.getUUID(), game.getRules().round(), tick, player.level().dimension(),
+            record = downed.add(player.getUUID(), game.getRules().round(), tick, player.level().dimension(),
                     player.position(), player.getYRot(), player.getXRot());
             player.stopUsingItem();
             clearPlayerEffects(player);
@@ -133,6 +138,10 @@ public final class RuneLegendServer {
         player.setHealth(Math.min(1F, player.getMaxHealth()));
         player.setGameMode(GameType.SPECTATOR);
         player.setCamera(player);
+        if (record != null) {
+            var event = new PlayerStateEvents.Downed(record.round(), record.playerUuid(), anchor(record));
+            game.publishNotification(() -> PlayerStateNotifications.downed(minecraft, event));
+        }
         return true;
     }
 
@@ -165,19 +174,41 @@ public final class RuneLegendServer {
         }
     }
 
-    private void eliminate(UUID uuid) {
-        playerStates.eliminate(uuid);
+    private PlayerStateEvents.Eliminated commitElimination(UUID uuid, DownedService.DownedRecord record, EliminationReason reason) {
+        var previous = playerStates.state(uuid);
+        boolean changed = playerStates.eliminate(uuid);
         downed.removeDowned(uuid);
-        var player = currentPlayer(uuid);
+        if (!changed) return null;
+        return new PlayerStateEvents.Eliminated(game.getRules().round(), uuid, previous.identity(), reason,
+                Optional.ofNullable(record).map(RuneLegendServer::anchor));
+    }
+
+    private void expire(DownedService.DownedRecord record) {
+        var elimination = commitElimination(record.playerUuid(), record, EliminationReason.TIMEOUT);
+        var player = currentPlayer(record.playerUuid());
         if (player != null) {
             player.stopUsingItem();
             clearPlayerEffects(player);
             player.setGameMode(GameType.SPECTATOR);
         }
+        publishElimination(elimination);
     }
 
-    /** Shared authoritative completion point for future rescue effects. */
+    private void publishElimination(PlayerStateEvents.Eliminated event) {
+        if (event != null) game.publishNotification(() -> PlayerStateNotifications.eliminated(minecraft, event));
+    }
+
+    private static PlayerStateEvents.DownedAnchor anchor(DownedService.DownedRecord record) {
+        return new PlayerStateEvents.DownedAnchor(record.sequence(), record.dimension(), record.position(),
+                record.yaw(), record.pitch());
+    }
+
+    /** Shared authoritative completion point when no player rescuer is supplied. */
     public boolean revive(UUID uuid, long sequence) {
+        return revive(uuid, sequence, Optional.empty());
+    }
+
+    private boolean revive(UUID uuid, long sequence, Optional<UUID> rescuerId) {
         checkThread();
         var record = downed.get(uuid);
         var player = currentPlayer(uuid);
@@ -195,6 +226,8 @@ public final class RuneLegendServer {
             RuneLegendMod.LOGGER.error("Cannot teleport {} to revive position {}", uuid, position);
             return false;
         }
+        // A cross-dimension teleport can trigger other mods' callbacks before it returns.
+        if (!isCurrent(player) || downed.get(uuid) != record) return false;
         resetHazards(player);
         float maximum = player.getMaxHealth();
         player.setHealth(Math.min(maximum, Math.max(Float.MIN_NORMAL,
@@ -202,6 +235,8 @@ public final class RuneLegendServer {
         player.setGameMode(GameType.ADVENTURE);
         if (!playerStates.completeRevive(uuid)) return false;
         downed.removeDowned(uuid);
+        var event = new PlayerStateEvents.Revived(record.round(), uuid, anchor(record), rescuerId);
+        game.publishNotification(() -> PlayerStateNotifications.revived(minecraft, event));
         return true;
     }
 
@@ -242,10 +277,11 @@ public final class RuneLegendServer {
     public void died(ServerPlayer player) {
         checkThread();
         if (!isCurrent(player)) return;
-        playerStates.eliminate(player.getUUID());
-        downed.removeDowned(player.getUUID());
+        var uuid = player.getUUID();
+        var elimination = commitElimination(uuid, downed.get(uuid), EliminationReason.DEATH);
         if (GuardItems.using(player)) player.stopUsingItem();
         clearPlayerEffects(player);
+        publishElimination(elimination);
     }
 
     private void clearPlayerEffects(ServerPlayer player) {
@@ -255,13 +291,14 @@ public final class RuneLegendServer {
 
     void endTick() {
         tick++;
-        var online = online();
         if (game.getRules().running()) {
-            downed.tick(tick, game.getRules().round(), online.stream().map(player -> new DownedService.Rescuer(
+            var rescuers = online().stream().map(player -> new DownedService.Rescuer(
                     player.getUUID(), player.level().dimension(), player.position(), tokenEligible(player) && player.isAlive(),
-                    player.getLastClientInput().shift())).toList(), record -> eliminate(record.playerUuid()),
-                    (record, rescuer) -> revive(record.playerUuid(), record.sequence()));
+                    player.getLastClientInput().shift())).toList();
+            game.withDeferredNotifications(() -> downed.tick(tick, game.getRules().round(), rescuers, this::expire,
+                    (record, rescuer) -> revive(record.playerUuid(), record.sequence(), Optional.of(rescuer))));
         }
+        var online = online();
         online.forEach(stamina::tick);
         tokens.tick(online);
         if (game.getRules().running() && !playerStates.hasAlive()) game.endWithoutSurvivors();
@@ -298,9 +335,10 @@ public final class RuneLegendServer {
         // make the client reject a delta that arrives before the new rules packet.
         if (summary != null) {
             online().forEach(this::teleportToWorldSpawn);
-            RoundNotifications.ended(minecraft, summary);
+            game.publishNotification(() -> RoundNotifications.ended(minecraft, summary));
         } else {
-            RoundNotifications.started(minecraft, after.round(), playerStates.snapshotRound());
+            var identities = playerStates.snapshotRound();
+            game.publishNotification(() -> RoundNotifications.started(minecraft, after.round(), identities));
         }
     }
 

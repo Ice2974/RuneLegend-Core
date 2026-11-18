@@ -15,7 +15,7 @@ public interface RuneLegendApi {
         return new RuneLegendQueries(requireServer(server));
     }
 
-    /** Ends the active round with a map-defined outcome. Returns false in WAITING or during a round notification. */
+    /** Ends the active round with a map-defined outcome. Returns false in WAITING or during a notification. */
     static boolean finishGame(MinecraftServer server, Identifier outcomeId) {
         return requireServer(server).game().finishGame(outcomeId);
     }
