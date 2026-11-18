@@ -1,6 +1,9 @@
 package com.runelegend.token;
 
+import com.runelegend.api.token.TokenEffect;
+
 public final class TokenRuntimeState {
+    TokenEffect extensionEffect;
     public int charge;
     public long damageSteps;
     public long cooldownUntil;

@@ -1,5 +1,6 @@
 package com.runelegend.token;
 
+import com.google.gson.JsonObject;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.token.effect.*;
 import net.minecraft.resources.Identifier;
@@ -26,6 +27,16 @@ public final class TokenRegistry {
     }
 
     public static TokenRegistry builtIn(TokenConfig config) {
+        return builtIns(config).build();
+    }
+
+    public static TokenRegistry create(TokenConfig config, TokenExtensions extensions, JsonObject tokenSections) {
+        var builder = builtIns(config);
+        extensions.install(builder, tokenSections);
+        return builder.build();
+    }
+
+    private static Builder builtIns(TokenConfig config) {
         return new Builder()
                 .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
                 .add("echo", new EchoEffect(config.echo()), KILL)
@@ -40,8 +51,7 @@ public final class TokenRegistry {
                 .addNoEffect("full_blessing")
                 .add("retribution", new RetributionEffect(config.retribution()), HURT, MELEE)
                 .add("execution_echo", new ExecutionEchoEffect(config.executionEcho()), MELEE)
-                .add("arrogance", new ArroganceEffect(config.arrogance()), HEALTH, KILL, MELEE)
-                .build();
+                .add("arrogance", new ArroganceEffect(config.arrogance()), HEALTH, KILL, MELEE);
     }
 
     public TokenDefinition get(Identifier id) { return definitions.get(id); }

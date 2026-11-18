@@ -107,7 +107,7 @@ public final class TokenEngine {
             var definition = registry.get(id);
             if (definition == null || !definition.events().contains(TokenEvent.Kind.MELEE)) continue;
             float extra = definition.effect().addMeleeDamage(new Context(player, id, target), state(player, id));
-            if (extra > 0) {
+            if (Float.isFinite(extra) && extra > 0 && Float.isFinite(bonus + extra)) {
                 bonus += extra;
                 applied.add(id);
             }
@@ -202,8 +202,20 @@ public final class TokenEngine {
         } finally {
             scheduler.cancelPlayer(uuid);
             health.remove(uuid);
-            states.remove(uuid);
-            clearing.remove(uuid);
+            try { cleanup(states.remove(uuid)); }
+            finally { clearing.remove(uuid); }
+        }
+    }
+
+    public void playerReplaced(ServerPlayer previous, ServerPlayer replacement) {
+        var runtime = states.get(previous.getUUID());
+        if (runtime == null) return;
+        for (var id : List.copyOf(runtime.keySet())) {
+            if (!eligible(previous) || states.get(previous.getUUID()) != runtime) break;
+            var definition = registry.get(id);
+            if (definition != null && definition.effect() instanceof ExtensionTokenEffect effect) {
+                effect.playerReplaced(runtime.get(id), previous, replacement);
+            }
         }
     }
 
@@ -214,10 +226,24 @@ public final class TokenEngine {
         try { owned.clear(); }
         finally {
             scheduler.clear();
-            states.clear();
-            health.clear();
-            generations.clear();
-            clearingRound = false;
+            try {
+                for (var runtime : List.copyOf(states.values())) cleanup(runtime);
+            } finally {
+                states.clear();
+                health.clear();
+                generations.clear();
+                clearingRound = false;
+            }
+        }
+    }
+
+    private void cleanup(Map<Identifier, TokenRuntimeState> runtime) {
+        if (runtime == null) return;
+        for (var entry : runtime.entrySet()) {
+            var definition = registry.get(entry.getKey());
+            if (definition != null && definition.effect() instanceof ExtensionTokenEffect effect) {
+                effect.cleanup(entry.getValue());
+            }
         }
     }
 
@@ -306,11 +332,24 @@ public final class TokenEngine {
         }
 
         // Revocation can run after losing ALIVE, but an old generation must never revoke a new effect.
-        public void finish(String name) { if (currentGeneration()) owned.remove(key(name)); }
+        public void finish(String name) {
+            if (!currentGeneration()) return;
+            var key = key(name);
+            scheduler.cancel(key);
+            owned.remove(key);
+        }
 
         public void damage(ServerLevel level, LivingEntity victim, float amount) {
             if (!canHarm(victim) || victim.level() != level) return;
             victim.hurtServer(level, directDamageSource(level, player()), amount);
+        }
+
+        boolean normalDamage(LivingEntity victim, float amount) {
+            var owner = player();
+            var level = owner.level();
+            if (!canHarm(victim) || victim.level() != level) return false;
+            var source = level.damageSources().playerAttack(owner);
+            return TokenEventBridge.directDamage(victim, source, () -> victim.hurtServer(level, source, amount));
         }
 
         private OwnedEffects.Key key(String name) { return new OwnedEffects.Key(player.getUUID(), token, name); }

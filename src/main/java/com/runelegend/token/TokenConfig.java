@@ -367,7 +367,11 @@ public record TokenConfig(
             ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
-        warnAboutUnknownTokens(tokens);
+        return fromJson(tokens, TokenExtensions.EMPTY);
+    }
+
+    public static TokenConfig fromJson(JsonObject tokens, TokenExtensions extensions) {
+        warnAboutUnknownTokens(tokens, extensions);
         return new TokenConfig(
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
@@ -401,9 +405,9 @@ public record TokenConfig(
         return tokens;
     }
 
-    private static void warnAboutUnknownTokens(JsonObject tokens) {
+    private static void warnAboutUnknownTokens(JsonObject tokens, TokenExtensions extensions) {
         for (var key : tokens.keySet()) {
-            if (KNOWN_IDS.contains(key)) continue;
+            if (KNOWN_IDS.contains(key) || extensions.contains(key)) continue;
             try {
                 Identifier.parse(key);
                 RuneLegendMod.LOGGER.warn("Unknown RuneLegend token config entry {} ignored", key);
@@ -413,15 +417,19 @@ public record TokenConfig(
         }
     }
 
-    private static <T> T section(JsonObject tokens, String id, Codec<T> codec, T fallback) {
+    static <T> T section(JsonObject tokens, String id, Codec<T> codec, T fallback) {
         var element = tokens.get(id);
-        if (element == null || !element.isJsonObject()) return fallback;
+        if (element == null) return fallback;
+        if (!element.isJsonObject()) {
+            RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; expected an object, using defaults", id);
+            return fallback;
+        }
         try {
             return codec.parse(JsonOps.INSTANCE, element).result().orElseGet(() -> {
                 RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; using defaults", id);
                 return fallback;
             });
-        } catch (IllegalArgumentException error) {
+        } catch (RuntimeException error) {
             RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; using defaults", id, error);
             return fallback;
         }

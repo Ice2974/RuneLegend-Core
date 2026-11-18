@@ -10,8 +10,10 @@ public record TokenDefinition(Identifier id, Set<TokenEvent.Kind> events, TokenE
         events = Set.copyOf(events);
     }
 
-    public Component name() { return RuneLegendText.message("token.runelegend." + id.getPath()); }
+    private String translationKey() { return "token." + id.getNamespace() + "." + id.getPath(); }
+
+    public Component name() { return RuneLegendText.message(translationKey()); }
     public Component description() {
-        return RuneLegendText.message("token.runelegend." + id.getPath() + ".description", effect.descriptionArguments());
+        return RuneLegendText.message(translationKey() + ".description", effect.descriptionArguments());
     }
 }

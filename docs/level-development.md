@@ -175,7 +175,7 @@ execute store result score @s mymap_damage run runelegend stats get @s damage_de
 | --- | --- |
 | `guard` | 格挡体力 |
 | `player_states` | 倒地时长、扶起距离、时长和生命比例，字段见[玩家状态文档](player-states.md#配置) |
-| `tokens` | 内置令牌数值，字段见[令牌文档](tokens.md#令牌配置) |
+| `tokens` | 内置与附属令牌设置，字段按完整 ID 分组，见[令牌文档](tokens.md#令牌配置) |
 
 玩家令牌装备由模组写入同目录的 `players.json`。
 
@@ -302,4 +302,4 @@ boolean connected = player.connected();
 
 `RuneLegendApi.startGame(server, candidateUuids)` 接收 UUID 集合，按开局时的在线玩家和观战选择分配身份。`queries.downedHandle(playerUuid)` 返回不可变的 `Optional<DownedHandle>`，只有当前回合在线且倒地未到期的玩家有凭据。关卡可以保留凭据并在机关触发时调用 `RuneLegendApi.tryRevive(server, handle)`，由 Core 在写入前重新校验。`RuneLegendApi.tryEliminate(server, playerUuid, round, reasonId)` 执行指定回合的淘汰。两项写操作完成时返回 `true`，条件不满足时返回 `false`。关卡淘汰事件的 `reason()` 为 `SCRIPTED`，`reasonId()` 提供调用者传入的资源 ID。
 
-令牌框架本身也可以扩展：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。新增令牌的全部可调数值需要放进 `TokenConfig` 并在 `server.json` 的 `tokens` 段暴露；当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。事件类型、`TokenEvent` 语义与伤害通道见[令牌文档](tokens.md#扩展令牌)。
+附属 Fabric 模组可以通过 `runelegend:tokens` 注册令牌。关卡可用现有配装和查询命令按完整 ID 引用这些令牌，例如 `runelegend admin @p equip mymap:rally`。注册示例、配置、资源路径和效果语义见[令牌文档](tokens.md#扩展令牌)。

@@ -3,6 +3,7 @@ package com.runelegend;
 import com.runelegend.command.RuneLegendCommands;
 import com.runelegend.network.RuneLegendPayloads;
 import com.runelegend.network.ServerNetworking;
+import com.runelegend.token.TokenExtensions;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -25,7 +26,8 @@ public final class RuneLegendMod implements ModInitializer {
         ServerNetworking.register();
         RuneLegendCommands.register();
 
-        ServerLifecycleEvents.SERVER_STARTED.register(RuneLegendServer::open);
+        var extensions = TokenExtensions.load();
+        ServerLifecycleEvents.SERVER_STARTED.register(minecraft -> RuneLegendServer.open(minecraft, extensions));
         ServerLifecycleEvents.SERVER_STOPPING.register(minecraft -> {
             var server = RuneLegendServer.find(minecraft);
             if (server != null) server.close();

@@ -1,0 +1,6 @@
+{
+  "token.runelegend_test.echo": "附属回音",
+  "token.runelegend_test.echo.description": "验证附属令牌的生命周期与伤害。",
+  "token.runelegend_test.without_icon": "无图标的附属令牌",
+  "token.runelegend_test.without_icon.description": "验证令牌的占位图标。"
+}

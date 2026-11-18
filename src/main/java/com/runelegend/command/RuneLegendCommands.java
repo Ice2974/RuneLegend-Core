@@ -185,8 +185,11 @@ public final class RuneLegendCommands {
             if (server != null) {
                 String prefix = builder.getRemaining();
                 server.registry().all().forEach(definition -> {
-                    if (definition.id().toString().startsWith(prefix)) builder.suggest(definition.id().toString());
-                    else if (definition.id().getPath().startsWith(prefix)) builder.suggest(definition.id().getPath());
+                    var id = definition.id();
+                    if (id.toString().startsWith(prefix)) builder.suggest(id.toString());
+                    else if (id.getPath().startsWith(prefix)) {
+                        builder.suggest(id.getNamespace().equals(RuneLegendMod.MOD_ID) ? id.getPath() : id.toString());
+                    }
                 });
             }
             return builder.buildFuture();

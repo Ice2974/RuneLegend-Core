@@ -14,6 +14,7 @@ import com.runelegend.game.RoundStatistics;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.*;
 import com.runelegend.token.TokenEngine;
+import com.runelegend.token.TokenExtensions;
 import com.runelegend.token.TokenRegistry;
 import com.runelegend.token.effect.SoulSiphonEffect;
 import com.runelegend.token.effect.AsuraHealth;
@@ -54,15 +55,15 @@ public final class RuneLegendServer {
     private final Map<UUID, ServerGamePacketListenerImpl> transports = new HashMap<>();
     private long tick;
 
-    private RuneLegendServer(MinecraftServer minecraft) {
+    private RuneLegendServer(MinecraftServer minecraft, TokenExtensions extensions) {
         this.minecraft = minecraft;
-        var config = ServerConfig.load();
+        var config = ServerConfig.load(extensions);
         game = new GameController(this::checkThread, this::rulesChanged);
         statistics = new RoundStatistics(game);
         playerStateConfig = config.playerStates();
         playerStates = new PlayerStateService(game);
         downed = new DownedService(playerStateConfig);
-        registry = TokenRegistry.builtIn(config.tokens());
+        registry = config.tokenRegistry(extensions);
         players = new PlayerTokenService(game, PlayerTokenStore.load(PlayerTokenStore.defaultPath()), registry);
         sync = new PlayerStateSync(this);
         tokens = new TokenEngine(game, players, registry, this::tick, sync::flash, this::tokenEligible, this::currentPlayer);
@@ -70,7 +71,9 @@ public final class RuneLegendServer {
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }
-    static void open(MinecraftServer minecraft) { INSTANCES.put(minecraft, new RuneLegendServer(minecraft)); }
+    static void open(MinecraftServer minecraft, TokenExtensions extensions) {
+        INSTANCES.put(minecraft, new RuneLegendServer(minecraft, extensions));
+    }
     static void remove(MinecraftServer minecraft) { INSTANCES.remove(minecraft); }
 
     public long tick() { return tick; }
@@ -183,6 +186,7 @@ public final class RuneLegendServer {
         if (alive && isCurrent(oldPlayer) && playerStates.alive(oldPlayer.getUUID())) {
             SoulSiphonEffect.transferBonus(oldPlayer, player, true);
             AsuraHealth.transfer(oldPlayer, player);
+            tokens.playerReplaced(oldPlayer, player);
         }
     }
 

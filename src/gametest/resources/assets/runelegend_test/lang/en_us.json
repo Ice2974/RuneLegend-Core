@@ -1,0 +1,6 @@
+{
+  "token.runelegend_test.echo": "Addon Echo",
+  "token.runelegend_test.echo.description": "Tests addon token lifecycle and damage.",
+  "token.runelegend_test.without_icon": "Addon without an icon",
+  "token.runelegend_test.without_icon.description": "Tests the fallback token icon."
+}

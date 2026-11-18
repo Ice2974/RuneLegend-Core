@@ -31,23 +31,36 @@ public final class TokenEventBridge {
     }
 
     private record Melee(ServerPlayer player, Entity victim, DamageSource source, float bonus) {}
+    private record Direct(LivingEntity victim, DamageSource source) {}
     private static final ThreadLocal<Hit> HITS = new ThreadLocal<>();
     private static final ThreadLocal<Melee> MELEE = new ThreadLocal<>();
+    private static final ThreadLocal<Direct> DIRECT = new ThreadLocal<>();
 
     private TokenEventBridge() {}
 
     public static boolean trackHit(RuneLegendServer server, LivingEntity victim, ServerLevel level,
                                    DamageSource source, float amount, BooleanSupplier original) {
-        if (source.is(TokenEngine.TOKEN_DAMAGE)) return original.getAsBoolean();
         var previous = HITS.get();
-        var hit = new Hit(victim, source, amount);
+        var direct = DIRECT.get();
+        boolean tokenDamage = source.is(TokenEngine.TOKEN_DAMAGE) || direct != null && direct.victim == victim && direct.source == source;
+        var hit = tokenDamage ? null : new Hit(victim, source, amount);
         HITS.set(hit);
         try {
             boolean accepted = original.getAsBoolean();
-            if (hit.aliveBefore && hit.settled) dispatch(server, hit, level, accepted && hit.beforeMitigation > 0);
+            if (hit != null && hit.aliveBefore && hit.settled) dispatch(server, hit, level, accepted && hit.beforeMitigation > 0);
             return accepted;
         } finally {
             restore(HITS, previous);
+        }
+    }
+
+    static boolean directDamage(LivingEntity victim, DamageSource source, BooleanSupplier original) {
+        var previous = DIRECT.get();
+        DIRECT.set(new Direct(victim, source));
+        try {
+            return original.getAsBoolean();
+        } finally {
+            restore(DIRECT, previous);
         }
     }
 

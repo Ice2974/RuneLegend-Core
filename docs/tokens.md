@@ -181,12 +181,62 @@
 
 ## 扩展令牌
 
-每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态。内置实现可参考 `src/main/java/com/runelegend/token/effect`。
+附属 Fabric 模组通过 `com.runelegend.api.token` 提供令牌。在附属模组的 `fabric.mod.json` 中声明对 `runelegend` 的依赖，并添加公共入口。Core 在公共初始化期间调用入口一次，随后冻结注册表。入口应直接提交注册，设置和效果实例由 Core 在逻辑服务器启动后使用。
 
-- `TokenDefinition` 声明令牌订阅的事件：`MELEE`、`HURT`、`KILL`、`ARROW`、`GUARD_SUCCESS`、`HEALTH`。只有订阅了对应事件的令牌才会收到该事件；`HEALTH` 只在玩家生命或最大生命变化时按需分发。
-- 效果应事件驱动；只有确实需要时间推进的效果才通过 `Context.at` 调度任务。
-- 每个令牌的全部可调数值必须进入 `TokenConfig` 的 typed settings，并在 `server.json` 的 `tokens` 段暴露，效果类不得硬编码。
-- 新增伤害路径时必须保留归因和嵌套命中隔离；令牌自产伤害不得递归触发令牌。
-- 当前版本没有运行时注册入口，自定义令牌需要在本仓库内实现、在 `TokenRegistry.builtIn` 中登记并重新构建。
+```json
+{
+  "depends": { "runelegend": "*" },
+  "entrypoints": { "runelegend:tokens": ["example.RallyTokens"] }
+}
+```
 
-`TokenEvent` 是令牌触发事件，不是伤害统计记录。`damageBeforeMitigation` 表示原版格挡和受伤间隔调整后、进入 `actuallyHurt` 的基础命中量，尚未经过护甲、附魔、抗性和吸收，也不包含独立追加的近战令牌伤害。`damageBeforeAbsorption` 表示同一次命中经过原版护甲、防护附魔和抗性提升结算、并加上本次挥击的近战令牌追加伤害（追加部分同样经过抗性结算）之后、伤害吸收之前的值；没有命中记录的合成事件两者相同。旧的 `effectiveDamage()` 访问器保留但已弃用，返回值含义不变。致死受击不会向死亡玩家分发 `HURT`，令牌自产直接伤害也不会递归分发令牌事件，因此不能据此直接计算输出或承伤统计。
+```java
+package example;
+
+import com.mojang.serialization.Codec;
+import com.runelegend.api.token.*;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ExtraCodecs;
+import java.util.Set;
+
+public final class RallyTokens implements TokenEntrypoint {
+    private static final Codec<Float> SETTINGS =
+            ExtraCodecs.floatRange(0.0F, 20.0F).fieldOf("heal").codec();
+
+    @Override public void registerTokens(Registrar registrar) {
+        registrar.register(Identifier.parse("mymap:rally"), SETTINGS, 2.0F,
+                Set.of(TokenTrigger.Kind.GUARD_SUCCESS), heal -> new TokenEffect() {
+                    @Override public void onEvent(TokenContext context, TokenTrigger trigger) {
+                        if (context.heal(context.player(), heal)) context.flash();
+                    }
+                });
+    }
+}
+```
+
+- 注册使用完整 ID。`runelegend` 和 `minecraft` 是保留命名空间，同路径的不同命名空间各自独立。重复 ID、非法默认值和非对象设置都会导致注册失败。
+- 设置 Codec 必须编解码 JSON 对象并校验字段范围。新生成的 `server.json` 会在 `tokens` 写入默认配置，例如 `"mymap:rally": {"heal": 2.0}`。已有文件可手动加段，缺段使用默认值，非法段记录错误并只回退对应令牌。Core 保留原配置文件，重启逻辑服务器后读取修改。
+- 用 `/runelegend token equip mymap:rally` 配装，用 `/runelegend token info mymap:rally` 查看说明。附属令牌在命令中使用完整 ID，内置令牌仍支持省略 `runelegend:`。移除附属模组后，已保存的 ID 仍占用原槽位，HUD 显示未知图标，可用完整 ID 卸下。重新装回附属模组会恢复该 ID 的定义。
+
+### 客户端资源
+
+将名称 `token.mymap.rally` 和说明 `token.mymap.rally.description` 放入 `assets/mymap/lang/en_us.json`、`zh_cn.json` 等语言文件。缺少语言条目时显示翻译键。图标放在 `assets/mymap/textures/gui/sprites/token/rally.png`。如果 ID 为 `mymap:combat/rally`，图标路径为 `textures/gui/sprites/token/combat/rally.png`，语言键中的路径也保留 `combat/rally`。客户端可从附属模组或资源包加载这些资源，缺少图标时使用 Core 的未知图标。服务端代码和配置由服务端加载，客户端安装 Core 即可通过现有握手和同步接收完整 ID。
+
+### 触发与清理
+
+- `TokenEffect` 工厂应返回新实例。实例按逻辑服务器、玩家 UUID、令牌 ID 和运行态代次隔离，可在实例字段保存本局状态。触发在服务器主线程进行，只对当前已连接、存活且非旁观的 `RUNNING + ALIVE` 玩家分发。
+- 可订阅 `MELEE`、`HURT`、`KILL`、`ARROW`、`GUARD_SUCCESS`、`HEALTH`。近战、箭和击杀事件的目标是被命中的实体；受击、格挡成功和生命变化事件的目标是令牌持有者。`HEALTH` 在生命或最大生命变化时分发。`HURT` 只分发给存活玩家。`startCooldown` 更新 HUD 及查询值，效果可用 `cooldownRemainingTicks` 判断是否继续响应事件。
+- `TokenContext` 只在当前回调和服务器线程上有效。延迟工作用 `schedule(key, delayTicks, callback)`，在回调内用新上下文取得当前玩家，避免持有旧玩家实体或旧上下文。执行时重新校验回合、连接、身份和运行态代次。
+- 用 `trackEffect` 登记属性修饰符、召唤物等托管资源的清理。同键登记会先执行原清理，`finishEffect` 会撤销资源并取消同键任务。存活实体替换时，`onPlayerReplaced` 在新实体接管连接前调用，效果可以迁移实体绑定资源，原冷却和调度继续有效。倒地、阵亡、断线、停局及服务器关闭会取消运行任务，撤销托管资源，再调用 `onCleanup`。
+
+### 伤害通道
+
+| 接口 | 结算 |
+| --- | --- |
+| `TokenContext.damage` | 单独的原版玩家攻击伤害，经护甲、防护附魔、抗性和吸收结算。保留伤害统计归因，普通直接伤害和其击杀均不会递归触发令牌。 |
+| `TokenEffect.penetratingMeleeBonus` | 订阅 `MELEE` 时可为本次基础近战追加有限正值。追加部分绕过护甲和防护附魔，仍受抗性及吸收影响，与基础伤害合并为一次命中。 |
+| `TokenContext.applyDebuff` | 用原版免疫及合并规则施加有害状态。中毒、凋零等后续效果沿用原版伤害类型和计时，生物身上已经施加的原版状态按原版到期。 |
+
+伤害和有害状态接口排除玩家、替身和不在当前维度的目标。治疗接口限同维度的存活参与者。附属模组是可信 Java 代码，应使用这些接口实施效果，遵守合作玩法的目标限制。
+
+`TokenTrigger.damageBeforeMitigation` 表示原版格挡和受伤间隔调整后、进入 `actuallyHurt` 的基础命中量，尚未经过护甲、附魔、抗性和吸收，也不含穿透追加。`damageBeforeAbsorption` 表示护甲、防护附魔和抗性结算后，加上同次挥击的近战令牌追加，且尚未扣除吸收的数值。没有命中记录的合成事件两值相同。结算统计使用独立的回合统计接口。
