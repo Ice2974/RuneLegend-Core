@@ -58,6 +58,7 @@
 - `guard.json`、`tokens.json` 与 `player_states.json` 只在逻辑服务器启动时读取一次，不提供运行时热重载。
 - 格挡方向和减伤由原版结算；只为缺失或不准确的来源坐标提供窄桥接。箭按飞行方向反推，爆炸按真实爆心，不借用射手或引爆者位置。
 - 原版动画与实体同步优先；不要恢复自定义 GuardPose 协议。
+- 非必要不使用 `@Redirect`。包装原调用优先使用 `@WrapOperation` 并通过 `original.call(...)` 继续调用链；只调整调用结果时优先使用 `@ModifyExpressionValue`，只决定是否执行 `void` 调用时优先使用 `@WrapWithCondition`。仅在其他注入方式无法满足所需语义时使用 `@Redirect`，并在代码中说明原因。
 
 ## 玩家状态与救援
 
