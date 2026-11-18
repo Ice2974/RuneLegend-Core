@@ -27,6 +27,11 @@ public final class RuneLegendQueries {
         return server.downedHandle(playerId);
     }
 
+    /** Current or latest completed round statistics, including offline participants. */
+    public PlayerRoundStats stats(UUID playerId) {
+        return server.statistics().player(playerId);
+    }
+
     /** Captures the UUID's state, including stored equipment when the player is offline. */
     public PlayerSnapshot player(UUID playerId) {
         var rules = server.game().getRules();

@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.combat.GuardSourcePosition;
+import com.runelegend.game.DamageStatistics;
 import com.runelegend.token.TokenEventBridge;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -42,8 +43,9 @@ abstract class LivingEntityDamageMixin {
     private boolean runelegend$trackAcceptedHit(ServerLevel level, DamageSource source, float amount, Operation<Boolean> original) {
         var server = RuneLegendServer.find(level.getServer());
         if (server == null || !server.game().getRules().running()) return original.call(level, source, amount);
-        return TokenEventBridge.trackHit(server, (LivingEntity) (Object) this, level, source, amount,
-                () -> original.call(level, source, amount));
+        var victim = (LivingEntity) (Object) this;
+        return TokenEventBridge.trackHit(server, victim, level, source, amount,
+                () -> DamageStatistics.track(server, victim, source, () -> original.call(level, source, amount)));
     }
 
     @WrapOperation(method = "hurtServer", at = @At(value = "INVOKE",
@@ -51,6 +53,7 @@ abstract class LivingEntityDamageMixin {
     private float runelegend$observeBlock(LivingEntity victim, ServerLevel level, DamageSource source, float amount, Operation<Float> original) {
         float blocked = original.call(victim, level, source, amount);
         TokenEventBridge.blocked(victim, source, blocked);
+        DamageStatistics.blocked(victim, source, blocked);
         return blocked;
     }
 
@@ -59,6 +62,7 @@ abstract class LivingEntityDamageMixin {
     private void runelegend$observeDamage(LivingEntity victim, ServerLevel level, DamageSource source, float amount, Operation<Void> original) {
         TokenEventBridge.applied(victim, source, amount);
         original.call(victim, level, source, amount);
+        DamageStatistics.settled(victim, source);
     }
 
     @WrapOperation(method = "actuallyHurt", at = @At(value = "INVOKE", target =

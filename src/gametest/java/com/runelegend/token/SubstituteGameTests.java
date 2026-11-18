@@ -3,6 +3,7 @@ package com.runelegend.token;
 import com.google.gson.JsonParser;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.PlayerRoundStats;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.player.PlayerTokenStore;
@@ -186,6 +187,10 @@ public final class SubstituteGameTests {
             float health = model.getHealth();
             zombie.doHurtTarget(level, zombie.getTarget());
             test.assertTrue(model.getHealth() < health, "The redirected attack damages the model");
+            test.assertValueEqual(server.statistics().player(owner.getUUID()), PlayerRoundStats.EMPTY,
+                    "The substitute's damage does not count against its owner");
+            test.assertValueEqual(server.statistics().player(teammate.getUUID()), PlayerRoundStats.EMPTY,
+                    "The substitute's damage does not count against the original target");
 
             skeleton.setTarget(teammate);
             test.assertValueEqual(skeleton.getTarget(), model, "New ranged target is redirected");

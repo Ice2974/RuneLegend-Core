@@ -10,6 +10,7 @@ import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
 import com.runelegend.game.PlayerStateNotifications;
 import com.runelegend.game.RoundNotifications;
+import com.runelegend.game.RoundStatistics;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.*;
 import com.runelegend.token.TokenEngine;
@@ -40,6 +41,7 @@ public final class RuneLegendServer {
     private static final Map<MinecraftServer, RuneLegendServer> INSTANCES = new ConcurrentHashMap<>();
     private final MinecraftServer minecraft;
     private final GameController game;
+    private final RoundStatistics statistics;
     private final TokenRegistry registry;
     private final PlayerTokenService players;
     private final TokenEngine tokens;
@@ -56,6 +58,7 @@ public final class RuneLegendServer {
         this.minecraft = minecraft;
         var config = ServerConfig.load();
         game = new GameController(this::checkThread, this::rulesChanged);
+        statistics = new RoundStatistics(game);
         playerStateConfig = config.playerStates();
         playerStates = new PlayerStateService(game);
         downed = new DownedService(playerStateConfig);
@@ -72,6 +75,7 @@ public final class RuneLegendServer {
 
     public long tick() { return tick; }
     public GameController game() { return game; }
+    public RoundStatistics statistics() { return statistics; }
     public TokenRegistry registry() { return registry; }
     public PlayerTokenService players() { return players; }
     public TokenEngine tokens() { return tokens; }
@@ -147,6 +151,7 @@ public final class RuneLegendServer {
         if (record != null) {
             var event = new PlayerStateEvents.Downed(record.round(), record.playerUuid(), anchor(record));
             var handleId = record.handleId();
+            statistics.record(event);
             game.publishNotification(() -> PlayerStateNotifications.downed(minecraft, event, handleId));
         }
         return true;
@@ -217,7 +222,9 @@ public final class RuneLegendServer {
     }
 
     private void publishElimination(PlayerStateEvents.Eliminated event) {
-        if (event != null) game.publishNotification(() -> PlayerStateNotifications.eliminated(minecraft, event));
+        if (event == null) return;
+        statistics.record(event);
+        game.publishNotification(() -> PlayerStateNotifications.eliminated(minecraft, event));
     }
 
     private static PlayerStateEvents.DownedAnchor anchor(DownedService.DownedRecord record) {
@@ -260,6 +267,7 @@ public final class RuneLegendServer {
             reviving.remove(sequence);
         }
         var event = new PlayerStateEvents.Revived(record.round(), uuid, anchor(record), rescuerId);
+        statistics.record(event);
         game.publishNotification(() -> PlayerStateNotifications.revived(minecraft, event));
         return true;
     }
@@ -357,6 +365,7 @@ public final class RuneLegendServer {
     }
 
     void close() {
+        statistics.clear();
         playerStates.clearRound();
         tokens.clearRound();
         online().forEach(SoulSiphonEffect::clearBonus);
@@ -368,7 +377,8 @@ public final class RuneLegendServer {
     private void rulesChanged(RuleSnapshot before, RuleSnapshot after, RoundSummary.Reason reason, Identifier outcomeId,
                               Predicate<UUID> participates) {
         var summary = after.running() ? null : new RoundSummary(before.round(), reason,
-                Optional.ofNullable(outcomeId), playerStates.snapshotRound());
+                Optional.ofNullable(outcomeId), playerStates.snapshotRound(), statistics.finish());
+        if (after.running()) statistics.clear();
         var online = online();
         downed.clearRound();
         if (after.running()) playerStates.beginRound(online.stream().map(ServerPlayer::getUUID).toList(), participates);

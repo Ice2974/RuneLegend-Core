@@ -5,6 +5,7 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.player.PlayerTokenStore;
@@ -51,6 +52,7 @@ public final class RetributionGameTests {
             level.getServer().setDifficulty(Difficulty.NORMAL, true);
             equip(test, server, player);
             hurt(player, attack, 4);
+            stat(test, server, player, RoundMetric.HITS_TAKEN, 0);
             near(test, bonus(server.tokens(), player, zombie), 0, "A waiting player cannot trigger Retribution");
             server.game().startGame();
             player.setHealth(player.getMaxHealth());
@@ -70,6 +72,11 @@ public final class RetributionGameTests {
             test.assertTrue(player.isBlocking(), "Full-block sword is in use");
             test.assertTrue(!hurt(player, attack, 4), "Vanilla rejects a completely blocked hit");
             near(test, bonus(server.tokens(), player, zombie), 0, "A full block cannot start the effect");
+            stat(test, server, player, RoundMetric.HITS_TAKEN, 3);
+            stat(test, server, player, RoundMetric.DAMAGE_BLOCKED, 4);
+            stat(test, server, player, RoundMetric.DAMAGE_TAKEN, 3);
+            stat(test, server, player, RoundMetric.UNATTRIBUTED_HITS_TAKEN, 2);
+            stat(test, server, player, RoundMetric.UNATTRIBUTED_DAMAGE_TAKEN, 3);
             releaseGuard(player);
 
             float health = player.getHealth();
@@ -77,9 +84,12 @@ public final class RetributionGameTests {
             test.assertTrue(hurt(player, attack, 4), "Vanilla accepts an entirely absorbed hit");
             near(test, player.getHealth(), health, "The triggering hit took no red hearts");
             near(test, bonus(server.tokens(), player, zombie), 4, "All four points of the triggering hit count");
+            stat(test, server, player, RoundMetric.DAMAGE_ABSORBED, 4);
+            stat(test, server, player, RoundMetric.DAMAGE_TAKEN, 3);
 
             test.assertTrue(!player.hurtServer(level, attack, 3), "The hurt cooldown rejects a weaker hit");
             near(test, bonus(server.tokens(), player, zombie), 4, "A rejected hit adds nothing");
+            stat(test, server, player, RoundMetric.HITS_TAKEN, 4);
             player.hurtServer(level, attack, 6);
             near(test, bonus(server.tokens(), player, zombie), 6, "A stronger hit during the hurt cooldown adds only its excess");
 
@@ -231,19 +241,27 @@ public final class RetributionGameTests {
             float protectedDamage = swing(attacker, zombie);
             test.assertTrue(protectedDamage > 0 && protectedDamage < armored && armored < plain,
                     "Armor and Protection independently reduce the unboosted melee hit");
+            stat(test, server, attacker, RoundMetric.DAMAGE_DEALT, plain + armored + protectedDamage);
+            stat(test, server, attacker, RoundMetric.HITS_DEALT, 3);
             float teammateDamage = swing(attacker, teammate);
             test.assertTrue(teammateDamage > 0, "The mock teammate takes base melee damage");
 
             hurt(attacker, level.damageSources().mobAttack(zombie), 4);
             float bonus = bonus(server.tokens(), attacker, zombie);
             test.assertTrue(bonus > 0, "The incoming attack activates Retribution");
-            near(test, swing(attacker, zombie), protectedDamage + bonus, "The bonus bypasses armor and Protection");
+            float boosted = swing(attacker, zombie);
+            near(test, boosted, protectedDamage + bonus, "The bonus bypasses armor and Protection");
+            stat(test, server, attacker, RoundMetric.DAMAGE_DEALT, plain + armored + protectedDamage + teammateDamage + boosted);
+            stat(test, server, attacker, RoundMetric.HITS_DEALT, 5);
             test.assertValueEqual(zombie.damageCooldownTime, 20, "The boosted hit uses the vanilla hurt cooldown");
             near(test, swing(attacker, teammate), teammateDamage, "Player targets take only the base damage");
             zombie.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200));
             zombie.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 200));
             near(test, swing(attacker, zombie), (protectedDamage + bonus) * 0.8F - 4,
                     "Resistance and then absorption apply to the combined hit");
+            stat(test, server, attacker, RoundMetric.DAMAGE_DEALT,
+                    plain + armored + protectedDamage + 2 * teammateDamage + boosted + (protectedDamage + bonus) * 0.8F - 4);
+            stat(test, server, attacker, RoundMetric.HITS_DEALT, 7);
             near(test, bonus(server.tokens(), attacker, zombie), bonus, "Swings do not spend the accumulated damage");
 
             hurt(attacker, level.damageSources().mobAttack(zombie), 100);
@@ -309,5 +327,10 @@ public final class RetributionGameTests {
 
     private static void near(GameTestHelper test, float actual, float expected, String message) {
         test.assertTrue(Math.abs(actual - expected) < 0.001F, message + ": expected " + expected + ", got " + actual);
+    }
+
+    private static void stat(GameTestHelper test, RuneLegendServer server, ServerPlayer player, RoundMetric metric, float expected) {
+        float actual = (float) server.statistics().player(player.getUUID()).value(metric);
+        near(test, actual, expected, metric.id());
     }
 }

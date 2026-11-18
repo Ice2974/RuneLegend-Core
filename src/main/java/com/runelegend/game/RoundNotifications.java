@@ -28,6 +28,16 @@ public final class RoundNotifications {
             var args = arguments(summary.round(), summary.identities());
             args.putString("reason", summary.reason().name().toLowerCase(Locale.ROOT));
             args.putString("outcome_id", summary.outcomeId().map(Identifier::toString).orElse(""));
+            var stats = new CompoundTag();
+            summary.stats().forEach((uuid, playerStats) -> {
+                var metrics = new CompoundTag();
+                playerStats.values().forEach((metric, value) -> {
+                    if (metric.isDamage()) metrics.putDouble(metric.id(), value);
+                    else metrics.putLong(metric.id(), value.longValue());
+                });
+                stats.put(uuid.toString(), metrics);
+            });
+            args.put("stats", stats);
             return args;
         });
     }

@@ -92,10 +92,10 @@ $execute as $(player_uuid) run runelegend player revive @s $(revive_handle)
 }
 ```
 
-标签内可以使用普通函数，也可以在宏行中读取本次参数。两个标签都接收 `round`（NBT long）和 `identities`（以 UUID 字符串为键、身份名为值的 NBT compound）。身份名为 `ALIVE`、`DOWNED`、`ELIMINATED` 或 `SPECTATOR`。结束标签额外接收上表中的 `reason` 和 `outcome_id`。下面的 `data/mymap/function/round/settle.mcfunction` 将摘要复制到地图自己的存储，供后续逻辑使用。
+标签内可以使用普通函数，也可以在宏行中读取本次参数。两个标签都接收 `round`（NBT long）和 `identities`（以 UUID 字符串为键、身份名为值的 NBT compound）。身份名为 `ALIVE`、`DOWNED`、`ELIMINATED` 或 `SPECTATOR`。结束标签额外接收上表中的 `reason` 和 `outcome_id`，以及最终回合统计 `stats`。下面的 `data/mymap/function/round/settle.mcfunction` 将摘要复制到地图自己的存储，供后续逻辑使用。
 
 ```mcfunction
-$data modify storage mymap:round last set value {round:$(round)L,reason:"$(reason)",outcome_id:"$(outcome_id)",identities:$(identities)}
+$data modify storage mymap:round last set value {round:$(round)L,reason:"$(reason)",outcome_id:"$(outcome_id)",identities:$(identities),stats:$(stats)}
 ```
 
 参数随本次函数调用传入，由 Core 在派发时确定。若要在后续函数或 `schedule` 任务中使用这些值，请在回调内保存或显式传递。函数沿用原版 `#minecraft:tick` 的服务器执行源，位于世界出生点及其维度（维度不可用时回退主世界），以权限等级 2 运行，`@s` 初始为空。可用 `execute in` 或 `execute as` 指定关卡自己的维度或执行者。
@@ -135,6 +135,37 @@ $data modify storage mymap:round last_elimination set value {round:$(round)L,pla
 ```
 
 Java 回调先于相应函数标签，参数保存提交时的数据。若回调引发另一项身份变更，新事件会排在已提交的事件之后。回调可查询实时状态，`start`、`stop` 和 `finish` 的重入规则与回合通知相同。
+
+## 查询回合统计
+
+`runelegend stats get <player> <metric>` 接受在线玩家名、单玩家选择器或 UUID。离线玩家用 UUID 查询。运行中返回当前回合的累计值，停局后返回最近一场的最终值，开新局时归零。没有记录时返回 `0`。统计只保存在服务器会话内存中。
+
+| 指标 | 含义 |
+| --- | --- |
+| `downs` | 进入倒地的次数 |
+| `revived` | 被扶起的次数，包含机关扶起 |
+| `rescues` | 作为匹配到的救援者成功扶起队友的次数 |
+| `eliminations` | 自己被淘汰的次数，包含断线 |
+| `hits_dealt`、`hits_taken` | 造成和承受的已结算命中次数 |
+| `damage_dealt`、`damage_taken` | 造成和承受的实际生命损失 |
+| `damage_blocked`、`damage_absorbed` | 自己以物品格挡和吸收生命抵消的伤害量 |
+| `unattributed_hits_taken`、`unattributed_damage_taken` | 自己承受的无攻击者命中次数及实际生命损失 |
+
+命令返回 Brigadier 整数，可用 `execute store result score` 读取。次数按原值返回，伤害指标累计后以 0.001 生命值为单位四舍五入，超出整数范围时返回 `2147483647`。1 生命值相当于半颗心。例如：
+
+```mcfunction
+execute store result score @s mymap_damage run runelegend stats get @s damage_dealt
+```
+
+结算函数的 `stats` 是以 UUID 字符串为键的 NBT compound，内层以指标名为键，次数存为 long，伤害按未缩放的生命值存为 double。没有变化的指标和没有任何贡献的 UUID 可以省略，读取缺项时按 0 处理。Java 的 `RuneLegendApi.queries(server).stats(uuid)` 返回当前可查询的不可变统计，`RoundSummary.stats()` 保存该场的不可变最终统计。关卡可自行用这些值计算积分。
+
+### 命中统计口径
+
+- 对参与者承受的伤害、以及可归因给本轮参与者的生物伤害，原版进入实际减伤与吸收结算后记一次命中。完全格挡、完全吸收和被抗性抵消的已结算命中都计次数。免疫或受击间隔直接拒绝的尝试不计。
+- 格挡量取物品格挡结果，吸收量取该次伤害实际扣除的吸收生命。实际扣血取护甲、防护附魔、抗性和吸收之后从当前生命条扣掉的值，上限为受击前的剩余生命。扣到 0 后图腾补回的生命和倒地时恢复的 1 点生命都属于后续变化。图腾救命仍计本次扣血，但不会增加倒地次数。
+- 修罗化身期间的扣血计入临时生命条损失，切换或恢复生命条不产生伤害统计。替身承受的伤害不计给本体，替身本身也不计入玩家统计。
+- 同次近战的穿透追加与基础伤害合计为一次。单独结算的令牌伤害各自计一次，并沿用令牌的反递归规则。
+- 攻击者取原版伤害来源的责任实体，命中记录同时区分直接实体（如箭）与伤害类型。持续伤害每次实际结算独立计数。来源能提供本轮参与者时计给该 UUID，即使玩家此时已离线；没有责任实体时记录为未归因，不用上一击、效果施加者或最近攻击者推断。生物自身造成的伤害保留其归因。
 
 ## 调整战斗参数
 

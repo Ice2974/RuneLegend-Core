@@ -1,6 +1,7 @@
 package com.runelegend;
 
 import com.runelegend.api.PlayerSnapshot.Identity;
+import com.runelegend.api.PlayerRoundStats;
 import com.runelegend.api.PlayerStateEvents;
 import com.runelegend.api.PlayerStateEvents.Downed;
 import com.runelegend.api.PlayerStateEvents.DownedAnchor;
@@ -8,6 +9,7 @@ import com.runelegend.api.PlayerStateEvents.Eliminated;
 import com.runelegend.api.PlayerStateEvents.EliminationReason;
 import com.runelegend.api.PlayerStateEvents.Revived;
 import com.runelegend.api.RoundEvents;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.api.RoundSummary;
 import com.runelegend.api.RuneLegendApi;
 import com.runelegend.player.DownedService.DownedRecord;
@@ -90,7 +92,12 @@ public final class PlayerStateEventGameTests {
             probe.assertCount(3);
             var identities = Map.of(first.getUUID(), Identity.DOWNED, last.getUUID(), Identity.DOWNED);
             test.assertValueEqual(probe.javaEvents.get(2), new RoundSummary(lastRecord.round(), RoundSummary.Reason.NO_ALIVE,
-                    Optional.empty(), identities), "Settlement sees both committed identities");
+                    Optional.empty(), identities, Map.of(
+                    first.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.DOWNS, 1.0, RoundMetric.HITS_TAKEN, 1.0,
+                            RoundMetric.DAMAGE_TAKEN, 20.0, RoundMetric.UNATTRIBUTED_HITS_TAKEN, 1.0,
+                            RoundMetric.UNATTRIBUTED_DAMAGE_TAKEN, 20.0)),
+                    last.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.DOWNS, 1.0)))),
+                    "Settlement sees both downs and the health lost before totem recovery");
             var ended = probe.functionEvent(2);
             test.assertValueEqual(ended.getStringOr("type", ""), "round_ended", "Function settlement follows both downs");
             test.assertValueEqual(ended.getLongOr("round", -1), lastRecord.round(), "Settlement round");
@@ -147,6 +154,9 @@ public final class PlayerStateEventGameTests {
                     "No rescuer is attributed to a direct completion");
             var unattributed = probe.assertFunction(3, "revived", next.round(), target.getUUID(), anchor(next));
             test.assertValueEqual(unattributed.getStringOr("rescuer_uuid", "missing"), "", "Unattributed rescuer macro");
+            var queries = RuneLegendApi.queries(probe.minecraft);
+            test.assertValueEqual(queries.stats(target.getUUID()).value(RoundMetric.REVIVED), 2.0, "Both successful revivals count");
+            test.assertValueEqual(queries.stats(helper.getUUID()).value(RoundMetric.RESCUES), 1.0, "Only the player rescue gives credit");
             test.succeed();
         } finally {
             probe.close();
@@ -235,7 +245,9 @@ public final class PlayerStateEventGameTests {
             server.endTick();
             probe.assertCount(4);
             test.assertValueEqual(probe.javaEvents.getLast(), new RoundSummary(round, RoundSummary.Reason.NO_ALIVE,
-                    Optional.empty(), Map.of(helper.getUUID(), Identity.ELIMINATED, target.getUUID(), Identity.ELIMINATED)),
+                    Optional.empty(), Map.of(helper.getUUID(), Identity.ELIMINATED, target.getUUID(), Identity.ELIMINATED),
+                    Map.of(helper.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.ELIMINATIONS, 1.0)),
+                            target.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.DOWNS, 1.0, RoundMetric.ELIMINATIONS, 1.0)))),
                     "The normal last-survivor check settles with the committed eliminations");
             test.succeed();
         } finally {

@@ -1,6 +1,7 @@
 package com.runelegend;
 
 import com.runelegend.api.PlayerSnapshot.Identity;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.api.RoundEvents;
 import com.runelegend.api.RoundSummary;
 import com.runelegend.api.RuneLegendApi;
@@ -14,6 +15,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.scores.ScoreHolder;
@@ -67,8 +69,19 @@ public final class RoundLifecycleGameTests {
                     "runelegend game finish " + OUTCOME);
             test.assertTrue(server.game().getRules().running(), "Finishing requires the game permission");
 
+            var arrow = test.spawn(EntityTypes.ARROW, 2, 3, 2);
+            var target = test.spawnWithNoFreeWill(EntityTypes.COW, 2, 2, 2);
+            var shot = test.getLevel().damageSources().arrow(arrow, disconnected);
             server.leave(disconnected);
+            server.leave(disconnected);
+            target.hurtServer(test.getLevel(), shot, 2.5F);
             downed.die(downed.damageSources().genericKill());
+            var offline = "runelegend stats get " + disconnected.getUUID() + " ";
+            probe.storeResult(source, offline + "eliminations", 1);
+            probe.storeResult(source, offline + "hits_dealt", 1);
+            probe.storeResult(source, offline + "damage_dealt", 2500);
+            probe.storeResult(source.withEntity(downed), "runelegend stats get @s downs", 1);
+            probe.storeResult(source, "runelegend stats get " + UUID.randomUUID() + " downs", 0);
             test.assertTrue(survivor.teleportTo(nether, 0.5, 64, 0.5, java.util.Set.of(), 0, 0, false),
                     "The survivor can leave the world spawn dimension");
             survivor.setHealth(2);
@@ -78,6 +91,13 @@ public final class RoundLifecycleGameTests {
             var finish = probe.assertEnd(1, round, RoundSummary.Reason.FINISH, Optional.of(OUTCOME),
                     Map.of(survivor.getUUID(), Identity.ALIVE, disconnected.getUUID(), Identity.ELIMINATED,
                             downed.getUUID(), Identity.DOWNED));
+            var offlineStats = finish.stats().get(disconnected.getUUID());
+            test.assertValueEqual(offlineStats.value(RoundMetric.DAMAGE_DEALT), 2.5, "Java retains offline damage credit");
+            var finalStats = probe.assertMacroSnapshot("ended", round, finish.identities()).getCompoundOrEmpty("stats");
+            var offlineTag = finalStats.getCompoundOrEmpty(disconnected.getUUID().toString());
+            test.assertValueEqual(offlineTag.getLongOr("eliminations", -1L), 1L, "Function receives the offline elimination count");
+            test.assertValueEqual(offlineTag.getDoubleOr("damage_dealt", -1), 2.5, "Function receives unscaled damage");
+            probe.storeResult(source, offline + "damage_dealt", 2500);
             test.assertValueEqual(probe.score("#alive_on_end"), 0, "The end function queries the cleared round");
             test.assertValueEqual(probe.score("#blocked_start"), 0, "An end function cannot reentrantly start");
             test.assertValueEqual(probe.score("#spawn_dimension"), 1, "Functions use the shared spawn dimension");
@@ -87,12 +107,15 @@ public final class RoundLifecycleGameTests {
             probe.assertCounts(1, 1);
 
             probe.storeResult(source, "runelegend game start", 1);
+            probe.storeResult(source, offline + "hits_dealt", 0);
             probe.storeResult(source, "runelegend game stop", 1);
             probe.assertEnd(2, round + 1, RoundSummary.Reason.MANUAL_STOP, Optional.empty(),
                     Map.of(survivor.getUUID(), Identity.ALIVE, downed.getUUID(), Identity.ALIVE));
             probe.assertCounts(2, 2);
             test.assertValueEqual(finish.identities().get(disconnected.getUUID()), Identity.ELIMINATED,
                     "The finished summary remains usable after a subsequent round");
+            test.assertValueEqual(finish.stats().get(disconnected.getUUID()), offlineStats,
+                    "A subsequent round cannot change retained statistics");
             test.succeed();
         } finally {
             probe.close();
@@ -274,7 +297,10 @@ public final class RoundLifecycleGameTests {
                                Map<UUID, Identity> identities) {
             test.assertValueEqual(summaries.size(), count, "Expected one additional Java end notification");
             var summary = summaries.getLast();
-            test.assertValueEqual(summary, new RoundSummary(round, reason, outcome, identities), "Final Java snapshot");
+            test.assertValueEqual(summary.round(), round, "Final Java round");
+            test.assertValueEqual(summary.reason(), reason, "Final Java reason");
+            test.assertValueEqual(summary.outcomeId(), outcome, "Final Java outcome");
+            test.assertValueEqual(summary.identities(), identities, "Final Java identities");
             var data = assertMacroSnapshot("ended", round, identities);
             test.assertValueEqual(data.getStringOr("reason", "missing"), reason.name().toLowerCase(Locale.ROOT), "Reason macro");
             test.assertValueEqual(data.getStringOr("outcome_id", "missing"), outcome.map(Identifier::toString).orElse(""), "Outcome macro");

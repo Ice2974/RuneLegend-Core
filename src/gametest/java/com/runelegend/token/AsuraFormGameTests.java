@@ -2,6 +2,7 @@ package com.runelegend.token;
 
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.player.PlayerTokenStore;
@@ -66,10 +67,17 @@ public final class AsuraFormGameTests {
             test.assertValueEqual(server.playerStates().state(pvpVictim.getUUID()),
                     com.runelegend.player.PlayerState.DOWNED, "Vanilla lethal player damage enters DOWNED");
             var tokenVictim = zombie(test);
+            var statsBefore = server.statistics().player(attacker.getUUID());
+            float remainingHealth = tokenVictim.getHealth();
             tokenVictim.hurtServer(level, TokenEngine.directDamageSource(level, attacker), 100);
             test.assertTrue(!tokenVictim.isAlive(), "The separate token source killed the monster");
             test.assertValueEqual(view(server.tokens(), attacker).flags(), TokenEngine.READY,
                     "Passive, PvP and separate token kills give no charge");
+            var statsAfter = server.statistics().player(attacker.getUUID());
+            test.assertValueEqual(statsAfter.value(RoundMetric.HITS_DEALT) - statsBefore.value(RoundMetric.HITS_DEALT),
+                    1.0, "An independent token damage source counts as one hit");
+            test.assertValueEqual(statsAfter.value(RoundMetric.DAMAGE_DEALT) - statsBefore.value(RoundMetric.DAMAGE_DEALT),
+                    (double) remainingHealth, "Lethal damage credit is capped at remaining health");
 
             kill(attacker, zombie(test));
             kill(second, zombie(test));
@@ -103,12 +111,18 @@ public final class AsuraFormGameTests {
             near(test, attacker.getMaxHealth(), 16, "A totem save preserves the form");
             near(test, attacker.getHealth(), 1, "The totem sets only the temporary bar");
             near(test, savedHealth(attacker), 20, "The totem does not overwrite the normal bar");
+            test.assertValueEqual(server.statistics().player(attacker.getUUID()).value(RoundMetric.DAMAGE_TAKEN),
+                    16.0, "Totem healing does not reduce the damage recorded on the temporary bar");
+            test.assertValueEqual(server.statistics().player(attacker.getUUID()).value(RoundMetric.DOWNS), 0.0,
+                    "Totem use does not count as a down");
             attacker.damageCooldownTime = 0;
             attacker.hurtServer(level, level.damageSources().magic(), 100);
             test.assertValueEqual(server.playerStates().state(attacker.getUUID()),
                     com.runelegend.player.PlayerState.DOWNED, "The second lethal hit enters DOWNED");
             near(test, attacker.getHealth(), 1, "Downing restores only the spectator proxy health");
             near(test, attacker.getMaxHealth(), 20, "Downing clears the temporary maximum");
+            test.assertValueEqual(server.statistics().player(attacker.getUUID()).value(RoundMetric.DAMAGE_TAKEN),
+                    17.0, "The lethal hit counts the last point before the downed proxy replaces it");
             test.succeed();
         } finally {
             server.game().stopGame();

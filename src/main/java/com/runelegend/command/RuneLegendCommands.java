@@ -10,6 +10,7 @@ import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.api.DownedHandle;
 import com.runelegend.api.PlayerSnapshot;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.api.RuneLegendApi;
 import com.runelegend.player.PlayerTokenService;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -22,6 +23,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionLevel;
+
+import java.util.UUID;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -83,11 +86,24 @@ public final class RuneLegendCommands {
                                     queryPlayer(ctx).cooldownTicks(tokenId(ctx)).orElse(0))))
                             .then(literal("downed_handle").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(RuneLegendCommands::downedHandle)))));
+            var statsPlayer = argument("player", EntityArgument.player());
+            var statsUuid = argument("uuid", UuidArgument.uuid());
+            for (var metric : RoundMetric.values()) {
+                statsPlayer.then(literal(metric.id()).executes(ctx -> stat(ctx, EntityArgument.getPlayer(ctx, "player").getUUID(), metric)));
+                statsUuid.then(literal(metric.id()).executes(ctx -> stat(ctx, UuidArgument.getUuid(ctx, "uuid"), metric)));
+            }
+            root.then(literal("stats").then(literal("get").then(statsUuid).then(statsPlayer)));
             dispatcher.register(root);
         });
     }
 
     private interface Target { ServerPlayer get(CommandContext<CommandSourceStack> context) throws CommandSyntaxException; }
+
+    private static int stat(CommandContext<CommandSourceStack> ctx, UUID player, RoundMetric metric) {
+        double value = RuneLegendApi.queries(ctx.getSource().getServer()).stats(player).value(metric);
+        long result = Math.round(metric.isDamage() ? value * 1000 : value);
+        return (int) Math.min(result, Integer.MAX_VALUE);
+    }
 
     private static int startWithParticipants(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         var participants = EntityArgument.getOptionalPlayers(ctx, "selector").stream().map(ServerPlayer::getUUID).toList();
