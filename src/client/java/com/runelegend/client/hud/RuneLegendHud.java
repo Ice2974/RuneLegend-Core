@@ -1,12 +1,12 @@
 package com.runelegend.client.hud;
 
 import com.runelegend.RuneLegendMod;
+import com.runelegend.client.ClientConfig;
 import com.runelegend.client.network.ClientStateCache;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -26,18 +26,18 @@ public final class RuneLegendHud {
             "fountain_of_life", "full_blessing", "retribution",
             "asura_form", "vernal_tide", "execution_echo",
             "resonance_healing", "arrogance");
-    private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
     private static final int GLOW_SIZE = 32;
     private static final List<Identifier> GLOW = IntStream.range(0, TokenHudAnimation.FRAME_COUNT)
             .mapToObj(frame -> RuneLegendMod.id("token/glow_0" + frame)).toList();
 
     private RuneLegendHud() {}
 
-    public static void register() {
-        HudElementRegistry.attachElementBefore(VanillaHudElements.OVERLAY_MESSAGE, RuneLegendMod.id("hud"), RuneLegendHud::draw);
+    public static void register(ClientConfig config) {
+        HudElementRegistry.attachElementBefore(VanillaHudElements.OVERLAY_MESSAGE, RuneLegendMod.id("hud"),
+                (graphics, delta) -> draw(graphics, config));
     }
 
-    private static void draw(GuiGraphicsExtractor graphics, DeltaTracker delta) {
+    static void draw(GuiGraphicsExtractor graphics, ClientConfig config) {
         var client = Minecraft.getInstance();
         var cache = ClientStateCache.INSTANCE;
         var view = cache.view();
@@ -47,7 +47,7 @@ public final class RuneLegendHud {
         int slots = rules != null && rules.running() && view.playerState() == com.runelegend.player.PlayerState.ALIVE
                 && client.player.isAlive() ? view.tokens().size() : 0;
         if (slots == 0 && !showStamina) return;
-        var layout = HudLayout.place(graphics.guiWidth(), graphics.guiHeight(), slots, VERTICAL_OFFSET);
+        var layout = HudLayout.place(graphics.guiWidth(), graphics.guiHeight(), slots, config.tokenHud());
         long now = Util.getMillis();
         int[] glowFrames = new int[slots];
         for (int i = 0; i < slots; i++) {
@@ -80,7 +80,9 @@ public final class RuneLegendHud {
         if (showStamina) {
             int percent = view.stamina() * 100 / view.staminaMax();
             var text = Component.translatable("runelegend.hud.stamina", percent);
-            graphics.centeredText(client.font, text, layout.center(), layout.staminaTop(), 0xFFFFFFFF);
+            var position = HudLayout.placeStamina(graphics.guiWidth(), graphics.guiHeight(), slots > 0,
+                    client.font.width(text), client.font.lineHeight, config.staminaHud());
+            graphics.centeredText(client.font, text, position.center(), position.top(), 0xFFFFFFFF);
         }
     }
 }

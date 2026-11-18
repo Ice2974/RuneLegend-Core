@@ -3,6 +3,8 @@ package com.runelegend.test;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.client.ClientConfig;
+import com.runelegend.client.hud.HudLayoutChecks;
 import com.runelegend.client.hud.TokenHudAnimation;
 import com.runelegend.combat.GuardConfig;
 import com.runelegend.client.network.ClientStateCache;
@@ -13,6 +15,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
@@ -22,10 +25,12 @@ import net.minecraft.world.item.Items;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class HudClientGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
         checkAnimationTimeline();
+        var customLayout = HudLayoutChecks.checkConfigAndLayout();
         var props = new Properties();
         props.setProperty("online-mode", "false");
         props.setProperty("white-list", "false");
@@ -107,7 +112,7 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
             context.waitFor(client -> !client.player.isUsingItem());
-            captureThreeGlows(context, cache, guard);
+            captureThreeGlows(context, cache, guard, customLayout);
         }
     }
 
@@ -175,8 +180,11 @@ public final class HudClientGameTest implements FabricClientGameTest {
         if (!expected.equals(actual)) throw new AssertionError("HUD at " + now + "ms: expected " + expected + ", got " + actual);
     }
 
-    private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache, GuardConfig guard) {
+    private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache, GuardConfig guard,
+                                          ClientConfig customLayout) {
+        var hud = RuneLegendMod.id("hud");
         var fixture = RuneLegendMod.id("hud_screenshot_fixture");
+        var originalHud = new AtomicReference<HudElement>();
         var ids = List.of(RuneLegendMod.id("vernal_tide"), RuneLegendMod.id("asura_form"),
                 RuneLegendMod.id("resonance_healing"));
         long cooldownUntil = cache.serverTick() + 600;
@@ -186,9 +194,9 @@ public final class HudClientGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             cache.apply(new PlayerSnapshot(Long.MAX_VALUE, cache.serverTick(), new View(
                     ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.COOLDOWN, 0, 0, cooldownUntil)).toList(),
-                    guard.max(), guard.max(), com.runelegend.player.PlayerState.ALIVE, false, List.of()),
+                    guard.max() / 2, guard.max(), com.runelegend.player.PlayerState.ALIVE, false, List.of()),
                     cache.rules().round(), cache.rules().revision()));
-            HudElementRegistry.attachElementBefore(RuneLegendMod.id("hud"), fixture, (graphics, delta) -> {
+            HudElementRegistry.attachElementBefore(hud, fixture, (graphics, delta) -> {
                 // Pin a visual frame with synthetic triggers so screenshot timing does not depend on FPS.
                 long stamp = trigger.incrementAndGet();
                 var views = ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.TRIGGERED | TokenEngine.COOLDOWN,
@@ -207,8 +215,19 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 frameAge.set(350);
                 context.takeScreenshot("token-glow-transparent-last-frame-scale-" + scale);
             }
+            context.runOnClient(client -> HudElementRegistry.replaceElement(hud, previous -> {
+                originalHud.set(previous);
+                return HudLayoutChecks.renderWith(customLayout);
+            }));
+            frameAge.set(300);
+            for (int scale : new int[] {1, 2}) {
+                context.runOnClient(client -> client.options.guiScale().set(scale));
+                context.waitFor(client -> client.getWindow().getGuiScale() == scale);
+                context.takeScreenshot("token-glow-custom-layout-scale-" + scale);
+            }
         } finally {
             context.runOnClient(client -> {
+                if (originalHud.get() != null) HudElementRegistry.replaceElement(hud, ignored -> originalHud.get());
                 HudElementRegistry.removeElement(fixture);
                 client.options.guiScale().set(originalScale);
             });
