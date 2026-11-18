@@ -38,6 +38,7 @@ public final class TokenEngine {
     private final Map<UUID, Long> health = new HashMap<>();
     private final TokenScheduler scheduler = new TokenScheduler();
     private final OwnedEffects owned = new OwnedEffects();
+    private final SubstituteTargets substitutes = new SubstituteTargets();
     private final Predicate<ServerPlayer> eligible;
     private final Function<UUID, ServerPlayer> resolve;
     private final Map<UUID, Object> generations = new HashMap<>();
@@ -90,12 +91,15 @@ public final class TokenEngine {
         return game.getRules().running() && !clearingRound && !clearing.contains(player.getUUID()) && eligible.test(player);
     }
 
+    SubstituteTargets substitutes() { return substitutes; }
+
     public Boost melee(ServerPlayer player, float amount) {
         return melee(player, null, amount);
     }
 
     public Boost melee(ServerPlayer player, LivingEntity target, float amount) {
-        if (!eligible(player) || amount <= 0 || !player.isAlive() || target instanceof Player) return new Boost(0, List.of());
+        if (!eligible(player) || amount <= 0 || !player.isAlive() || target instanceof Player
+                || target instanceof SubstituteMannequin) return new Boost(0, List.of());
         float bonus = 0;
         var applied = new ArrayList<Identifier>();
         for (var id : players.get(player.getUUID()).equipped()) {
@@ -124,7 +128,8 @@ public final class TokenEngine {
     public void dispatch(TokenEvent event) {
         if (!eligible(event.player()) || (event.kind() != TokenEvent.Kind.HEALTH && !event.player().isAlive())
                 || event.source() != null && event.source().is(TOKEN_DAMAGE)) return;
-        if (event.target() instanceof Player && event.target() != event.player()) return;
+        if (event.target() instanceof SubstituteMannequin
+                || event.target() instanceof Player && event.target() != event.player()) return;
         for (var id : players.get(event.player().getUUID()).equipped()) {
             if (!eligible(event.player())) break;
             var definition = registry.get(id);
@@ -242,7 +247,10 @@ public final class TokenEngine {
         }
         private boolean currentGeneration() { return round == roundGeneration && generations.get(player.getUUID()) == generation; }
         public boolean canHeal(ServerPlayer target) { return valid() && eligible(target) && target.isAlive() && !target.isSpectator(); }
-        public boolean canHarm(LivingEntity target) { return valid() && target != null && !(target instanceof Player) && target.isAlive(); }
+        public boolean canHarm(LivingEntity target) {
+            return valid() && target != null && !(target instanceof Player) && !(target instanceof SubstituteMannequin)
+                    && target.isAlive();
+        }
         public LivingEntity meleeTarget() { return meleeTarget; }
         public long tick() { return clock.getAsLong(); }
         public void flash() { if (valid()) flash.accept(player(), token); }
@@ -257,6 +265,22 @@ public final class TokenEngine {
                 scheduler.cancel(key);
                 remove.run();
             });
+        }
+
+        public boolean summonSubstitute(String name, Runnable ended) {
+            if (!valid()) return false;
+            var owner = player();
+            var level = owner.level();
+            var model = new SubstituteMannequin(owner);
+            if (!level.addFreshEntity(model) || !model.isAlive()) return false;
+            substitutes.add(level, model);
+            model.onEnd(ended);
+            replaceEffect(name, () -> {
+                substitutes.remove(level, model);
+                model.onEnd(null);
+                if (model.isAlive()) model.discard();
+            });
+            return !model.isRemoved();
         }
 
         public void at(String effect, long tick, Runnable action) {

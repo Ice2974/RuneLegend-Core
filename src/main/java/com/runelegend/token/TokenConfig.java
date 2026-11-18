@@ -26,13 +26,15 @@ public record TokenConfig(
         VernalTideSettings vernalTide,
         ArroganceSettings arrogance,
         ExecutionEchoSettings executionEcho,
-        RetributionSettings retribution) {
+        RetributionSettings retribution,
+        SubstituteSettings substitute) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
-            "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution");
+            "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution",
+            "runelegend:substitute");
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -322,6 +324,29 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
+    public record SubstituteSettings(float healthThreshold, int cooldownSeconds) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        public static final SubstituteSettings DEFAULT = new SubstituteSettings(0.5F, 40);
+        public static final Codec<SubstituteSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
+                        .forGetter(SubstituteSettings::healthThreshold),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(SubstituteSettings::cooldownSeconds)
+        ).apply(instance, SubstituteSettings::new));
+
+        public SubstituteSettings {
+            TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            if (healthThreshold < 0 || healthThreshold > 1) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
+            }
+            if (cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("cooldown_seconds must be non-negative and fit in ticks");
+            }
+        }
+
+        public int cooldownTicks() { return cooldownSeconds * 20; }
+    }
+
     // JsonOps' integer codec would silently truncate fractional input.
     private static Codec<Integer> wholeNumber(int min, int max) {
         return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
@@ -333,7 +358,7 @@ public record TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
-            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT);
+            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
         warnAboutUnknownTokens(tokens);
@@ -349,7 +374,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:vernal_tide", VernalTideSettings.CODEC, VernalTideSettings.DEFAULT),
                 section(tokens, "runelegend:arrogance", ArroganceSettings.CODEC, ArroganceSettings.DEFAULT),
                 section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT),
-                section(tokens, "runelegend:retribution", RetributionSettings.CODEC, RetributionSettings.DEFAULT));
+                section(tokens, "runelegend:retribution", RetributionSettings.CODEC, RetributionSettings.DEFAULT),
+                section(tokens, "runelegend:substitute", SubstituteSettings.CODEC, SubstituteSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -365,6 +391,7 @@ public record TokenConfig(
         tokens.add("runelegend:arrogance", encode(ArroganceSettings.CODEC, arrogance));
         tokens.add("runelegend:execution_echo", encode(ExecutionEchoSettings.CODEC, executionEcho));
         tokens.add("runelegend:retribution", encode(RetributionSettings.CODEC, retribution));
+        tokens.add("runelegend:substitute", encode(SubstituteSettings.CODEC, substitute));
         return tokens;
     }
 

@@ -35,7 +35,7 @@ public final class TokenRegistry {
                 .add("asura_form", new AsuraFormEffect(config.asuraForm()), KILL, MELEE)
                 .add("resonance_healing", new ResonanceHealingEffect(config.resonanceHealing()), GUARD_SUCCESS)
                 .add("vernal_tide", new VernalTideEffect(config.vernalTide()), MELEE)
-                .addNoEffect("substitute")
+                .add("substitute", new SubstituteEffect(config.substitute()), HEALTH)
                 .addNoEffect("fountain_of_life")
                 .addNoEffect("full_blessing")
                 .add("retribution", new RetributionEffect(config.retribution()), HURT, MELEE)

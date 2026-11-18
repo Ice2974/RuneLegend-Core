@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(11, tokens.size());
+        assertEquals(12, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -58,6 +58,10 @@ class TokenConfigTest {
         assertEquals(2, retribution.size());
         assertEquals(5, retribution.get("duration_seconds").getAsInt());
         assertEquals(10, retribution.get("cooldown_seconds").getAsInt());
+        var substitute = tokens.getAsJsonObject("runelegend:substitute");
+        assertEquals(2, substitute.size());
+        assertEquals(0.5F, substitute.get("health_threshold").getAsFloat());
+        assertEquals(40, substitute.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -72,8 +76,23 @@ class TokenConfigTest {
                 new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F),
                 new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F),
                 new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13),
-                new TokenConfig.RetributionSettings(7, 0));
+                new TokenConfig.RetributionSettings(7, 0),
+                new TokenConfig.SubstituteSettings(0.4F, 7));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
+    }
+
+    @Test void substituteUsesDefaultFieldsAndRejectsInvalidSections() {
+        var tokens = new JsonObject();
+        assertEquals(TokenConfig.SubstituteSettings.DEFAULT, TokenConfig.fromJson(tokens).substitute());
+        for (var invalid : new String[]{
+                "[]", "{\"health_threshold\":-0.1,\"cooldown_seconds\":7}", "{\"health_threshold\":1.01}",
+                "{\"health_threshold\":\"half\"}", "{\"cooldown_seconds\":-1}", "{\"cooldown_seconds\":0.5}",
+                "{\"cooldown_seconds\":107374183}", "{\"cooldown_seconds\":\"fast\"}"}) {
+            tokens.add("runelegend:substitute", JsonParser.parseString(invalid));
+            assertEquals(TokenConfig.SubstituteSettings.DEFAULT, TokenConfig.fromJson(tokens).substitute(), invalid);
+        }
+        tokens.add("runelegend:substitute", JsonParser.parseString("{\"cooldown_seconds\":0}"));
+        assertEquals(new TokenConfig.SubstituteSettings(0.5F, 0), TokenConfig.fromJson(tokens).substitute());
     }
 
     @Test void missingAndInvalidRetributionSettingsUseDefaults() {

@@ -8,6 +8,7 @@ import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
 import com.runelegend.token.effect.ResonanceHealingEffect;
 import com.runelegend.token.effect.RetributionEffect;
+import com.runelegend.token.effect.SubstituteEffect;
 import com.runelegend.token.effect.VenomousTipEffect;
 import com.runelegend.token.effect.ArroganceEffect;
 import com.runelegend.token.effect.VernalTideEffect;
@@ -21,6 +22,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Player-visible token descriptions report durations in seconds, never raw server ticks. */
 class TokenDescriptionTest {
+    @Test void substituteDescriptionsUseConfiguredThresholdAndCooldown() throws IOException {
+        var args = new SubstituteEffect(new TokenConfig.SubstituteSettings(0.35F, 27)).descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.substitute.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                assertTrue(description.contains("35%") && description.contains("27"), description);
+            }
+        }
+    }
+
     @Test void echoDescriptionArgumentsAreSeconds() {
         var arguments = new EchoEffect(TokenConfig.EchoSettings.DEFAULT).descriptionArguments();
         assertEquals("8", arguments[3], "Default 160-tick duration is 8 seconds");

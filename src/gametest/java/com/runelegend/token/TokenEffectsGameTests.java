@@ -115,7 +115,8 @@ public final class TokenEffectsGameTests {
                 TokenConfig.VernalTideSettings.DEFAULT,
                 TokenConfig.ArroganceSettings.DEFAULT,
                 TokenConfig.ExecutionEchoSettings.DEFAULT,
-                TokenConfig.RetributionSettings.DEFAULT);
+                TokenConfig.RetributionSettings.DEFAULT,
+                TokenConfig.SubstituteSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);

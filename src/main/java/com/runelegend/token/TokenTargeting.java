@@ -20,7 +20,7 @@ public final class TokenTargeting {
     public static boolean boss(Entity entity) { return inTag(entity, BOSSES); }
 
     public static boolean enemy(Entity entity) {
-        if (entity == null || entity instanceof Player) return false;
+        if (entity == null || entity instanceof Player || entity instanceof SubstituteMannequin) return false;
         var configured = BuiltInRegistries.ENTITY_TYPE.get(ENEMY_TYPES);
         if (configured.isPresent() && configured.get().size() > 0) {
             return BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(entity.getType()).is(ENEMY_TYPES);

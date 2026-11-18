@@ -302,7 +302,7 @@ public final class ExecutionEchoGameTests {
         return TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(), defaults.vernalTide(), defaults.arrogance(),
-                settings, defaults.retribution()));
+                settings, defaults.retribution(), defaults.substitute()));
     }
 
     private record Local(GameController game, PlayerTokenService players, TokenEngine engine) {}
