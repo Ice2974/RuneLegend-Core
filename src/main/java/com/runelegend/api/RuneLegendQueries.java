@@ -34,17 +34,8 @@ public final class RuneLegendQueries {
                 if (server.registry().get(id) != null) cooldowns.put(id, server.tokens().cooldownTicks(player, id));
             }
         }
-        return new PlayerSnapshot(playerId, rules, Optional.ofNullable(state).map(RuneLegendQueries::identity),
+        return new PlayerSnapshot(playerId, rules, Optional.ofNullable(state).map(PlayerState::identity),
                 player != null, equipped,
                 player == null ? OptionalInt.empty() : OptionalInt.of(server.stamina().stamina(player)), cooldowns);
-    }
-
-    private static PlayerSnapshot.Identity identity(PlayerState state) {
-        return switch (state) {
-            case ALIVE -> PlayerSnapshot.Identity.ALIVE;
-            case DOWNED -> PlayerSnapshot.Identity.DOWNED;
-            case ELIMINATED -> PlayerSnapshot.Identity.ELIMINATED;
-            case SPECTATOR -> PlayerSnapshot.Identity.SPECTATOR;
-        };
     }
 }

@@ -34,7 +34,10 @@ public final class RuneLegendCommands {
                             .then(literal("start").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(ctx -> changeRules(ctx, instance(ctx).game().startGame())))
                             .then(literal("stop").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
-                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame()))));
+                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame())))
+                            .then(literal("finish").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
+                                    .then(argument("outcome_id", IdentifierArgument.id()).executes(ctx -> changeRules(ctx,
+                                            instance(ctx).game().finishGame(IdentifierArgument.getId(ctx, "outcome_id")))))));
             var token = literal("token")
                     .then(literal("list").executes(RuneLegendCommands::list))
                     .then(literal("info").then(tokenArg().executes(RuneLegendCommands::info)));

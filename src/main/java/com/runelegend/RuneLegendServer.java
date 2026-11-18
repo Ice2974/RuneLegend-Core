@@ -1,9 +1,11 @@
 package com.runelegend;
 
 import com.runelegend.api.RuleSnapshot;
+import com.runelegend.api.RoundSummary;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
+import com.runelegend.game.RoundNotifications;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.*;
 import com.runelegend.token.TokenEngine;
@@ -11,12 +13,14 @@ import com.runelegend.token.TokenRegistry;
 import com.runelegend.token.effect.SoulSiphonEffect;
 import com.runelegend.token.effect.AsuraHealth;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -260,7 +264,7 @@ public final class RuneLegendServer {
         }
         online.forEach(stamina::tick);
         tokens.tick(online);
-        if (game.getRules().running() && !playerStates.hasAlive()) game.stopGame();
+        if (game.getRules().running() && !playerStates.hasAlive()) game.endWithoutSurvivors();
         var current = online();
         sync.refreshTab(current);
         current.forEach(sync::update);
@@ -275,24 +279,29 @@ public final class RuneLegendServer {
         transports.clear();
     }
 
-    private void rulesChanged(RuleSnapshot before, RuleSnapshot after) {
+    private void rulesChanged(RuleSnapshot before, RuleSnapshot after, RoundSummary.Reason reason, Identifier outcomeId) {
+        var summary = after.running() ? null : new RoundSummary(before.round(), reason,
+                Optional.ofNullable(outcomeId), playerStates.snapshotRound());
         var online = online();
-        if (before.state() != after.state()) {
-            downed.clearRound();
-            if (after.running()) playerStates.beginRound(online.stream().map(ServerPlayer::getUUID).toList());
-            else playerStates.clearRound();
-            tokens.clearRound();
-            if (!after.running()) online.forEach(SoulSiphonEffect::clearBonus);
-            online.forEach(this::applyIdentity);
-            online.forEach(stamina::resetRound);
-        }
+        downed.clearRound();
+        if (after.running()) playerStates.beginRound(online.stream().map(ServerPlayer::getUUID).toList());
+        else playerStates.clearRound();
+        tokens.clearRound();
+        if (!after.running()) online.forEach(SoulSiphonEffect::clearBonus);
+        online.forEach(this::applyIdentity);
+        online.forEach(stamina::resetRound);
         var current = online();
         sync.refreshTab(current);
         current.forEach(sync::rules);
         current.forEach(sync::update);
         // Run after the rules/state sync so a cross-dimension spawn check does not
         // make the client reject a delta that arrives before the new rules packet.
-        if (!after.running()) online().forEach(this::teleportToWorldSpawn);
+        if (summary != null) {
+            online().forEach(this::teleportToWorldSpawn);
+            RoundNotifications.ended(minecraft, summary);
+        } else {
+            RoundNotifications.started(minecraft, after.round(), playerStates.snapshotRound());
+        }
     }
 
     private void checkThread() {

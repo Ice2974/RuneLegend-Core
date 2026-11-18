@@ -1,6 +1,7 @@
 package com.runelegend.api;
 
 import com.runelegend.RuneLegendServer;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 
 /** Map integration. Call on the logical server thread after server startup. */
@@ -12,6 +13,11 @@ public interface RuneLegendApi {
     /** Returns the read-only game and player queries for this server session. */
     static RuneLegendQueries queries(MinecraftServer server) {
         return new RuneLegendQueries(requireServer(server));
+    }
+
+    /** Ends the active round with a map-defined outcome. Returns false in WAITING or during a round notification. */
+    static boolean finishGame(MinecraftServer server, Identifier outcomeId) {
+        return requireServer(server).game().finishGame(outcomeId);
     }
 
     private static RuneLegendServer requireServer(MinecraftServer server) {

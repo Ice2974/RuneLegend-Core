@@ -7,10 +7,10 @@
 1. 服务端与所有客户端安装本模组和 Fabric API。配置阶段握手会拒绝未安装模组或协议不匹配的客户端，不存在缺模组的部分功能模式。
 2. 玩家在等待状态用 `/runelegend token equip` 配置令牌，或由管理员用 `/runelegend admin` 统一配装。
 3. 等待时可用 `/runelegend player spectate true` 选择只观战下一局。用 `/runelegend game start` 开局（可直接放进命令方块），参与者进入冒险模式，观战者进入旁观模式；只有 `RUNNING + ALIVE` 可触发令牌，运行时禁改装备和观战选择。
-4. 关卡结束时用 `/runelegend game stop` 停止；没有 ALIVE 玩家时也会自动停止。本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家统一传送到世界出生点并变回冒险模式，生命、饥饿和体力回满。等待状态登录同样在世界出生点上线，世界出生点就是等待区，可用 `/setworldspawn` 设置，详见[玩家状态](player-states.md)。
+4. 关卡达成结局时执行 `/runelegend game finish mymap:victory`，管理员可执行 `/runelegend game stop` 手动停局。没有 `ALIVE` 玩家时也会自动结算。本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家统一传送到世界出生点并变回冒险模式，生命、饥饿和体力回满。等待状态登录同样在世界出生点上线，世界出生点就是等待区，可用 `/setworldspawn` 设置，详见[玩家状态](player-states.md)。
 
 - 游戏状态不持久化：服务器重启或单人世界重新载入后回到 `WAITING`、回合 0，关卡需要重新执行 `game start`。
-- `game start` / `game stop` 只在状态确实改变时生效，重复执行不会推进回合或重复清理运行态。
+- `game start`、`game stop` 和 `game finish` 共用 `runelegend:game` 权限（默认等级 2）。状态发生变化时命令返回 `1`，重复调用或通知回调期间调用时返回 `0`。
 - 只有 `RUNNING + ALIVE` 会触发令牌效果和令牌格挡成功事件；`WAITING` 下可以自由格挡和配装，适合作为准备区。等待区固定使用世界出生点，停局和等待期上线都会把玩家送回该点。
 
 ## 在数据包中查询对局和玩家
@@ -38,6 +38,39 @@ execute store result score #alive rl_map run runelegend query game alive_count
 execute if score #alive rl_map matches 1.. run function mymap:round/with_survivors
 execute as @a store result score @s rl_map run runelegend test player @s alive
 ```
+
+## 订阅回合开局和结算
+
+每次进入 `RUNNING` 后，Core 在身份和游戏模式初始化完成时发布一次 `round_started`。结算时，Core 先保存包含离线玩家的最终身份，再清空回合运行态并执行回世界出生点的流程，完成后发布一次 `round_ended`。此时实时查询返回 `WAITING`、当前存活人数 `0` 和空身份，结算参数仍保留清理前的身份。
+
+| 触发方式 | 结束原因 `reason` | 结局 `outcome_id` |
+| --- | --- | --- |
+| `runelegend game finish <outcome_id>` | `finish` | 关卡定义的资源 ID，例如 `mymap:victory`。省略命名空间时使用 `minecraft` |
+| `runelegend game stop` | `manual_stop` | 空字符串 |
+| 服务端 tick 检查到没有 `ALIVE` 玩家 | `no_alive` | 空字符串 |
+
+全员观战时也会先收到开局通知，随后在服务端 tick 检查时收到 `no_alive` 结算。末位存活者断线时，结算身份包含该 UUID 的 `ELIMINATED` 记录。关服直接清理本次会话，重新加载时回到回合 0。
+
+### 数据包函数标签
+
+在数据包内的 `data/runelegend/tags/function/round_started.json` 或 `data/runelegend/tags/function/round_ended.json` 中添加函数。标签随数据包重载。下例是结束标签的内容。
+
+```json
+{
+  "replace": false,
+  "values": ["mymap:round/settle"]
+}
+```
+
+标签内可以使用普通函数，也可以在宏行中读取本次参数。两个标签都接收 `round`（NBT long）和 `identities`（以 UUID 字符串为键、身份名为值的 NBT compound）。身份名为 `ALIVE`、`DOWNED`、`ELIMINATED` 或 `SPECTATOR`。结束标签额外接收上表中的 `reason` 和 `outcome_id`。下面的 `data/mymap/function/round/settle.mcfunction` 将摘要复制到地图自己的存储，供后续逻辑使用。
+
+```mcfunction
+$data modify storage mymap:round last set value {round:$(round)L,reason:"$(reason)",outcome_id:"$(outcome_id)",identities:$(identities)}
+```
+
+参数随本次函数调用传入，由 Core 在派发时确定。若要在后续函数或 `schedule` 任务中使用这些值，请在回调内保存或显式传递。函数沿用原版 `#minecraft:tick` 的服务器执行源，位于世界出生点及其维度（维度不可用时回退主世界），以权限等级 2 运行，`@s` 初始为空。可用 `execute in` 或 `execute as` 指定关卡自己的维度或执行者。
+
+Java 通知先于对应函数标签同步执行。回调可以查询状态。回调直接或通过嵌套函数调用 `start`、`stop` 或 `finish` 时返回 `0`，Java 返回 `false`。若要在结算后重新开局，可将开局命令放入之后执行的函数。
 
 ## 调整战斗参数
 
@@ -129,6 +162,18 @@ long round = api.getRules().round();
 ```
 
 `RuneLegendApi.get(server)` 只能在服务器线程、且服务器已经启动后调用；其他线程或模组未激活时抛出 `IllegalStateException`。`startGame()` / `stopGame()` 返回状态是否发生了改变。
+
+`RuneLegendApi.finishGame(server, outcomeId)` 对应 `game finish`，返回状态是否改变。在服务端模组初始化时可注册 `RoundEvents.STARTED` 与 `RoundEvents.ENDED`。回调在服务器线程运行。开局回调收到回合号及不可变身份表。结束回调收到不可变 `RoundSummary`，包含回合号、`FINISH` / `MANUAL_STOP` / `NO_ALIVE`、可选结局 ID 和最终身份表。可以保留摘要，供之后的结算逻辑使用。
+
+```java
+RoundEvents.ENDED.register((server, summary) -> {
+    if (summary.reason() == RoundSummary.Reason.FINISH) {
+        var outcome = summary.outcomeId().orElseThrow();
+        var finalIdentities = summary.identities();
+        // 根据关卡结局 ID 和最终身份计算奖励
+    }
+});
+```
 
 在服务器线程调用 `RuneLegendApi.queries(server)` 可获取只读查询入口。`aliveCount()` 与命令使用同一存活人数口径，`player(uuid)` 始终返回一个不可变的 `PlayerSnapshot`，记录查询时的规则、连接状态、身份与装备。后续状态变化需要重新查询。
 

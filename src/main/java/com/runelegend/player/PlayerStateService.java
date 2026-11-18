@@ -1,5 +1,6 @@
 package com.runelegend.player;
 
+import com.runelegend.api.PlayerSnapshot;
 import com.runelegend.game.GameController;
 import java.util.Collection;
 import java.util.HashMap;
@@ -67,6 +68,14 @@ public final class PlayerStateService {
         return count;
     }
 
+
+    /** Captures even offline identities during the transition, before clearRound(). */
+    public Map<UUID, PlayerSnapshot.Identity> snapshotRound() {
+        game.getRules();
+        var identities = new HashMap<UUID, PlayerSnapshot.Identity>();
+        states.forEach((uuid, state) -> identities.put(uuid, state.identity()));
+        return Map.copyOf(identities);
+    }
 
     public void clearRound() {
         game.getRules();
