@@ -18,7 +18,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -26,6 +29,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +37,7 @@ import java.util.UUID;
 
 public final class PlayerStateEventGameTests {
     private static final Identifier STORAGE = Identifier.parse("runelegend_test:player_probe");
+    private static final Identifier MAP_REASON = Identifier.parse("test_map:trapdoor");
     private static Probe active;
 
     static {
@@ -135,7 +140,8 @@ public final class PlayerStateEventGameTests {
             target.die(target.damageSources().genericKill());
             var next = server.downed().get(target.getUUID());
             test.assertTrue(next.sequence() > record.sequence(), "A new downing has a fresh sequence");
-            test.assertTrue(server.revive(target.getUUID(), next.sequence()), "The unattributed completion follows the same commit path");
+            var handle = RuneLegendApi.queries(probe.minecraft).downedHandle(target.getUUID()).orElseThrow();
+            test.assertTrue(RuneLegendApi.tryRevive(probe.minecraft, handle), "A map rescue follows the same commit path");
             probe.assertCount(4);
             test.assertValueEqual(probe.javaEvents.get(3), new Revived(next.round(), target.getUUID(), anchor(next), Optional.empty()),
                     "No rescuer is attributed to a direct completion");
@@ -162,6 +168,7 @@ public final class PlayerStateEventGameTests {
             helper.setPos(target.position());
             target.die(target.damageSources().genericKill());
             var record = server.downed().get(target.getUUID());
+            var handle = RuneLegendApi.queries(probe.minecraft).downedHandle(target.getUUID()).orElseThrow();
             long start = record.expiresAtTick() - server.playerStateConfig().reviveTicks();
             advanceTo(server, start - 1);
             PlayerStateFixtures.sneak(helper, true);
@@ -171,8 +178,65 @@ public final class PlayerStateEventGameTests {
             advanceTo(server, record.expiresAtTick() - 1);
             probe.assertCount(1);
             server.endTick();
+            test.assertFalse(RuneLegendApi.tryRevive(probe.minecraft, handle), "A downing that reached its deadline cannot be revived");
+            test.assertTrue(RuneLegendApi.queries(probe.minecraft).downedHandle(target.getUUID()).isEmpty(), "Expired handle is no longer queryable");
             probe.assertCount(2);
             probe.assertEliminated(1, record.round(), target.getUUID(), Identity.DOWNED, EliminationReason.TIMEOUT, anchor(record));
+            test.succeed();
+        } finally {
+            probe.close();
+            server.game().stopGame();
+            server.leave(target);
+            server.leave(helper);
+        }
+    }
+
+    @GameTest
+    public void scriptedEliminationCommitsOnceAndClearsRuntime(GameTestHelper test) {
+        var server = runtime(test);
+        var target = join(test, UUID.randomUUID());
+        var helper = join(test, UUID.randomUUID());
+        var probe = new Probe(test);
+        var minecraft = probe.minecraft;
+        try {
+            test.assertFalse(RuneLegendApi.tryEliminate(minecraft, target.getUUID(), server.game().getRules().round(), MAP_REASON),
+                    "Elimination is unavailable while waiting");
+            server.game().startGame();
+            long round = server.game().getRules().round();
+            target.setPos(test.absoluteVec(new Vec3(2.5, 2, 2.5)));
+            helper.setPos(target.position());
+            target.die(target.damageSources().genericKill());
+            var record = server.downed().get(target.getUUID());
+            var handle = RuneLegendApi.queries(minecraft).downedHandle(target.getUUID()).orElseThrow();
+            PlayerStateFixtures.sneak(helper, true);
+            server.endTick();
+            test.assertTrue(server.downed().rescue(target.getUUID()) != null, "A rescue is in progress");
+            var bonus = RuneLegendMod.id("soul_siphon");
+            var health = helper.getAttribute(Attributes.MAX_HEALTH);
+            health.addOrUpdateTransientModifier(new AttributeModifier(bonus, 5, AttributeModifier.Operation.ADD_VALUE));
+
+            var source = minecraft.createCommandSourceStack().withEntity(helper);
+            var command = "runelegend player eliminate @s " + round + " " + MAP_REASON;
+            minecraft.getCommands().performPrefixedCommand(source.withPermission(PermissionSet.NO_PERMISSIONS), command);
+            test.assertTrue(server.tokenEligible(helper), "Elimination requires the game permission");
+            test.assertFalse(RuneLegendApi.tryEliminate(minecraft, helper.getUUID(), round - 1, MAP_REASON),
+                    "An earlier round cannot eliminate a current participant");
+            minecraft.getCommands().performPrefixedCommand(source, command);
+            minecraft.getCommands().performPrefixedCommand(source, command);
+            test.assertTrue(health.getModifier(bonus) == null, "Elimination clears the token-owned health bonus");
+            test.assertTrue(server.downed().rescue(target.getUUID()) == null, "Eliminating the rescuer cancels the rescue");
+            probe.assertCount(2);
+            probe.assertEliminated(1, round, helper.getUUID(), Identity.ALIVE, EliminationReason.SCRIPTED, null, Optional.of(MAP_REASON));
+
+            test.assertTrue(RuneLegendApi.tryEliminate(minecraft, target.getUUID(), round, MAP_REASON), "A downed player can be eliminated");
+            test.assertFalse(RuneLegendApi.tryRevive(minecraft, handle), "Elimination invalidates the downed credential");
+            probe.assertCount(3);
+            probe.assertEliminated(2, round, target.getUUID(), Identity.DOWNED, EliminationReason.SCRIPTED, anchor(record), Optional.of(MAP_REASON));
+            server.endTick();
+            probe.assertCount(4);
+            test.assertValueEqual(probe.javaEvents.getLast(), new RoundSummary(round, RoundSummary.Reason.NO_ALIVE,
+                    Optional.empty(), Map.of(helper.getUUID(), Identity.ELIMINATED, target.getUUID(), Identity.ELIMINATED)),
+                    "The normal last-survivor check settles with the committed eliminations");
             test.succeed();
         } finally {
             probe.close();
@@ -287,15 +351,22 @@ public final class PlayerStateEventGameTests {
         void assertDowned(int index, DownedRecord record) {
             test.assertValueEqual(javaEvents.get(index), new Downed(record.round(), record.playerUuid(), anchor(record)),
                     "Java downed event");
-            assertFunction(index, "downed", record.round(), record.playerUuid(), anchor(record));
+            var function = assertFunction(index, "downed", record.round(), record.playerUuid(), anchor(record));
+            test.assertValueEqual(function.getStringOr("revive_handle", ""), record.handleId().toString(), "Revive handle macro");
         }
 
         void assertEliminated(int index, long round, UUID uuid, Identity previous, EliminationReason reason, DownedAnchor anchor) {
-            test.assertValueEqual(javaEvents.get(index), new Eliminated(round, uuid, previous, reason, Optional.ofNullable(anchor)),
+            assertEliminated(index, round, uuid, previous, reason, anchor, Optional.empty());
+        }
+
+        void assertEliminated(int index, long round, UUID uuid, Identity previous, EliminationReason reason, DownedAnchor anchor,
+                              Optional<Identifier> reasonId) {
+            test.assertValueEqual(javaEvents.get(index), new Eliminated(round, uuid, previous, reason, Optional.ofNullable(anchor), reasonId),
                     "Java elimination event");
             var function = assertFunction(index, "eliminated", round, uuid, anchor);
-            test.assertValueEqual(function.getStringOr("reason", ""), reason == EliminationReason.TIMEOUT ? "timeout" : "disconnect",
+            test.assertValueEqual(function.getStringOr("reason", ""), reason.name().toLowerCase(Locale.ROOT),
                     "Elimination reason macro");
+            test.assertValueEqual(function.getStringOr("reason_id", "missing"), reasonId.map(Identifier::toString).orElse(""), "Map-defined reason macro");
             test.assertValueEqual(function.getStringOr("previous_identity", ""), previous.name(), "Previous identity macro");
         }
 

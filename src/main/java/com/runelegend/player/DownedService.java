@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 /** Tick-driven rescue bookkeeping. Call only on the owning server thread. */
 public final class DownedService {
-    public record DownedRecord(UUID playerUuid, long round, long sequence, ResourceKey<Level> dimension,
+    public record DownedRecord(UUID playerUuid, long round, long sequence, UUID handleId, ResourceKey<Level> dimension,
                                Vec3 position, float yaw, float pitch, long expiresAtTick) {
         public int secondsRemaining(long now) { return (int) Math.max(0, (expiresAtTick - now + 19) / 20); }
     }
@@ -30,7 +30,7 @@ public final class DownedService {
 
     public DownedRecord add(UUID uuid, long round, long now, ResourceKey<Level> dimension, Vec3 position, float yaw, float pitch) {
         cancelRescue(uuid);
-        return downed.computeIfAbsent(uuid, _ -> new DownedRecord(uuid, round, ++sequence, dimension,
+        return downed.computeIfAbsent(uuid, _ -> new DownedRecord(uuid, round, ++sequence, UUID.randomUUID(), dimension,
                 position, yaw, pitch, now + config.downedTicks()));
     }
 

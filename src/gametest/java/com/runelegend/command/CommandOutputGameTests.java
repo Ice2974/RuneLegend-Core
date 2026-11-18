@@ -3,6 +3,7 @@ package com.runelegend.command;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.DownedHandle;
 import com.runelegend.api.GameState;
 import com.runelegend.api.PlayerSnapshot;
 import com.runelegend.api.RuneLegendApi;
@@ -20,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.scores.ScoreAccess;
 import net.minecraft.world.scores.ScoreHolder;
@@ -38,6 +40,7 @@ public final class CommandOutputGameTests {
     private static final String ALIVE_COUNT = "runelegend query game alive_count";
     private static final String STAMINA = "runelegend query player @s stamina";
     private static final String COOLDOWN = "runelegend query player @s cooldown resonance_healing";
+    private static final String DOWNED_HANDLE = "runelegend query player @s downed_handle";
 
     @GameTest
     public void tokenListShowsOnlyDisplayNames(GameTestHelper test) {
@@ -204,6 +207,57 @@ public final class CommandOutputGameTests {
         source.getServer().getCommands().performPrefixedCommand(source,
                 "execute store result score #result " + QUERY_OBJECTIVE + " run " + command);
         test.assertValueEqual(score.get(), expected, command);
+    }
+
+    @GameTest
+    public void reviveRequiresPermissionAndTheExactCurrentDowning(GameTestHelper test) {
+        var minecraft = test.getLevel().getServer();
+        var server = RuneLegendServer.find(minecraft);
+        var queries = RuneLegendApi.queries(minecraft);
+        var scoreboard = minecraft.getScoreboard();
+        var objective = scoreboard.addObjective(QUERY_OBJECTIVE, ObjectiveCriteria.DUMMY,
+                Component.literal(QUERY_OBJECTIVE), ObjectiveCriteria.RenderType.INTEGER, false, null);
+        var score = scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly("#result"), objective);
+        server.game().stopGame();
+        var target = GuardGameTests.fixture(test);
+        var teammate = GuardGameTests.fixture(test);
+        var messages = new ArrayList<String>();
+        var source = capturingSource(target, messages).withPermission(LevelBasedPermissionSet.GAMEMASTER);
+        var uuid = target.getUUID();
+        try {
+            storeResult(test, source, score, DOWNED_HANDLE, 0);
+            server.game().startGame();
+            target.die(target.damageSources().genericKill());
+            var handle = queries.downedHandle(uuid).orElseThrow();
+            storeResult(test, source, score, DOWNED_HANDLE, 1);
+            test.assertTrue(messages.getLast().contains(handle.id().toString()), "The command prints the same credential as Java");
+            var revive = "runelegend player revive @s " + handle.id();
+            minecraft.getCommands().performPrefixedCommand(source.withPermission(PermissionSet.NO_PERMISSIONS), revive);
+            test.assertValueEqual(queries.downedHandle(uuid), Optional.of(handle), "Unprivileged command leaves the downing intact");
+            test.assertFalse(RuneLegendApi.tryRevive(minecraft, new DownedHandle(teammate.getUUID(), handle.id())),
+                    "A credential is bound to its target");
+            storeResult(test, source, score, revive, 1);
+            storeResult(test, source, score, revive, 0);
+            storeResult(test, source, score, DOWNED_HANDLE, 0);
+
+            target.die(target.damageSources().genericKill());
+            var next = queries.downedHandle(uuid).orElseThrow();
+            storeResult(test, source, score, revive, 0);
+            test.assertValueEqual(queries.downedHandle(uuid), Optional.of(next), "A later downing needs its own credential");
+            server.game().stopGame();
+            test.assertFalse(RuneLegendApi.tryRevive(minecraft, next), "Stopping invalidates the credential");
+            server.game().startGame();
+            target.die(target.damageSources().genericKill());
+            storeResult(test, source, score, "runelegend player revive @s " + next.id(), 0);
+            test.assertTrue(RuneLegendApi.tryRevive(minecraft, queries.downedHandle(uuid).orElseThrow()),
+                    "The current round's valid credential still works");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.leave(target);
+            server.leave(teammate);
+            scoreboard.removeObjective(objective);
+        }
     }
 
     private static void run(GameTestHelper test, ServerPlayer player, List<String> messages, String command) {

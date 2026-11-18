@@ -5,8 +5,10 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.DownedHandle;
 import com.runelegend.api.PlayerSnapshot;
 import com.runelegend.api.RuneLegendApi;
 import com.runelegend.player.PlayerTokenService;
@@ -14,6 +16,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.UuidArgument;
 import com.runelegend.RuneLegendText;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -32,7 +35,9 @@ public final class RuneLegendCommands {
                     .then(literal("game")
                             .then(literal("status").executes(RuneLegendCommands::rules))
                             .then(literal("start").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
-                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().startGame())))
+                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().startGame()))
+                                    .then(literal("participants").then(argument("selector", EntityArgument.players())
+                                            .executes(RuneLegendCommands::startWithParticipants))))
                             .then(literal("stop").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame())))
                             .then(literal("finish").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
@@ -46,6 +51,12 @@ public final class RuneLegendCommands {
             root.then(token);
             root.then(literal("player")
                     .then(literal("status").executes(RuneLegendCommands::playerStatus))
+                    .then(literal("revive").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
+                            .then(argument("player", EntityArgument.player()).then(argument("handle", UuidArgument.uuid())
+                                    .executes(RuneLegendCommands::revive))))
+                    .then(literal("eliminate").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
+                            .then(argument("player", EntityArgument.player()).then(argument("round", LongArgumentType.longArg(1))
+                                    .then(argument("reason_id", IdentifierArgument.id()).executes(RuneLegendCommands::eliminate)))))
                     .then(literal("spectate").then(argument("enabled", BoolArgumentType.bool()).executes(ctx -> {
                         var player = ctx.getSource().getPlayerOrException();
                         var server = instance(ctx);
@@ -69,12 +80,52 @@ public final class RuneLegendCommands {
                     .then(literal("player").then(argument("player", EntityArgument.player())
                             .then(literal("stamina").executes(ctx -> queryPlayer(ctx).stamina().orElseThrow()))
                             .then(literal("cooldown").then(tokenArg().executes(ctx ->
-                                    queryPlayer(ctx).cooldownTicks(tokenId(ctx)).orElse(0)))))));
+                                    queryPlayer(ctx).cooldownTicks(tokenId(ctx)).orElse(0))))
+                            .then(literal("downed_handle").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
+                                    .executes(RuneLegendCommands::downedHandle)))));
             dispatcher.register(root);
         });
     }
 
     private interface Target { ServerPlayer get(CommandContext<CommandSourceStack> context) throws CommandSyntaxException; }
+
+    private static int startWithParticipants(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var participants = EntityArgument.getOptionalPlayers(ctx, "selector").stream().map(ServerPlayer::getUUID).toList();
+        return changeRules(ctx, RuneLegendApi.startGame(ctx.getSource().getServer(), participants));
+    }
+
+    private static int downedHandle(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = EntityArgument.getPlayer(ctx, "player");
+        var handle = RuneLegendApi.queries(ctx.getSource().getServer()).downedHandle(player.getUUID());
+        if (handle.isEmpty()) {
+            ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.player.downed_handle.none", player.getDisplayName()), false);
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.player.downed_handle.found",
+                player.getDisplayName(), handle.orElseThrow().id().toString()), false);
+        return 1;
+    }
+
+    private static int revive(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = EntityArgument.getPlayer(ctx, "player");
+        var handle = new DownedHandle(player.getUUID(), UuidArgument.getUuid(ctx, "handle"));
+        boolean changed = RuneLegendApi.tryRevive(ctx.getSource().getServer(), handle);
+        return playerChange(ctx, player, changed, "runelegend.player.revive");
+    }
+
+    private static int eliminate(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var player = EntityArgument.getPlayer(ctx, "player");
+        boolean changed = RuneLegendApi.tryEliminate(ctx.getSource().getServer(), player.getUUID(),
+                LongArgumentType.getLong(ctx, "round"), IdentifierArgument.getId(ctx, "reason_id"));
+        return playerChange(ctx, player, changed, "runelegend.player.eliminate");
+    }
+
+    private static int playerChange(CommandContext<CommandSourceStack> ctx, ServerPlayer player, boolean changed, String key) {
+        var message = RuneLegendText.message(key + (changed ? ".changed" : ".rejected"), player.getDisplayName());
+        if (changed) ctx.getSource().sendSuccess(() -> message, false);
+        else ctx.getSource().sendFailure(message);
+        return changed ? 1 : 0;
+    }
 
     private static PlayerSnapshot queryPlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         var target = EntityArgument.getPlayer(ctx, "player");

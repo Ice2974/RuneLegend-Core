@@ -134,6 +134,71 @@ public final class RoundLifecycleGameTests {
         }
     }
 
+    @GameTest
+    public void participantListsHonorSpectatorChoiceAndApplyOnlyAtStart(GameTestHelper test) {
+        var minecraft = test.getLevel().getServer();
+        var server = RuneLegendServer.find(minecraft);
+        var queries = RuneLegendApi.queries(minecraft);
+        server.game().stopGame();
+        var included = join(test);
+        var excluded = join(test);
+        var optOut = join(test);
+        var lateId = UUID.randomUUID();
+        ServerPlayer late = null;
+        ServerPlayer rejoined = null;
+        var probe = new Probe(test);
+        var source = minecraft.createCommandSourceStack().withEntity(included);
+        var start = "runelegend game start participants @s";
+        try {
+            minecraft.getCommands().performPrefixedCommand(source.withPermission(PermissionSet.NO_PERMISSIONS), start);
+            test.assertFalse(server.game().getRules().running(), "Participant selection requires the game permission");
+            server.playerStates().selectSpectator(optOut.getUUID(), true);
+            test.assertTrue(RuneLegendApi.startGame(minecraft, List.of(included.getUUID(), optOut.getUUID(), lateId)),
+                    "The explicit online candidates start a round");
+            long round = server.game().getRules().round();
+            var identities = Map.of(included.getUUID(), Identity.ALIVE, excluded.getUUID(), Identity.SPECTATOR,
+                    optOut.getUUID(), Identity.SPECTATOR);
+            test.assertValueEqual(probe.initialIdentities.getFirst(), identities, "The initial roster honors both the list and the opt-out");
+            probe.assertMacroSnapshot("started", round, identities);
+            test.assertTrue(included.gameMode() == GameType.ADVENTURE && excluded.isSpectator() && optOut.isSpectator(),
+                    "Initial game modes reflect assigned identities");
+            probe.storeResult(source.withEntity(excluded), start, 0);
+            test.assertValueEqual(queries.player(excluded.getUUID()).identity(), Optional.of(Identity.SPECTATOR),
+                    "A rejected start does not change the roster");
+
+            late = PlayerStateFixtures.join(minecraft, test.getLevel(), lateId);
+            test.assertTrue(late.isSpectator() && queries.player(lateId).identity().orElseThrow() == Identity.SPECTATOR,
+                    "A listed player arriving late still spectates");
+            server.leave(included);
+            rejoined = PlayerStateFixtures.join(minecraft, test.getLevel(), included.getUUID());
+            test.assertTrue(rejoined.isSpectator() && queries.player(included.getUUID()).identity().orElseThrow() == Identity.ELIMINATED,
+                    "Rejoining does not restore a disconnected participant");
+            server.endTick();
+            probe.assertEnd(1, round, RoundSummary.Reason.NO_ALIVE, Optional.empty(), Map.of(included.getUUID(), Identity.ELIMINATED,
+                    excluded.getUUID(), Identity.SPECTATOR, optOut.getUUID(), Identity.SPECTATOR, lateId, Identity.SPECTATOR));
+
+            probe.storeResult(source.withEntity(excluded), start, 1);
+            test.assertValueEqual(queries.aliveCount(), 1, "The selector's only match is the only participant");
+            test.assertTrue(queries.player(excluded.getUUID()).alive(), "The command selected its executing player");
+            server.game().stopGame();
+            probe.storeResult(source, "runelegend game start participants @a[tag=rl_probe_no_match]", 1);
+            test.assertValueEqual(queries.aliveCount(), 0, "An empty selector starts with all players spectating");
+            server.endTick();
+
+            probe.storeResult(source, "runelegend game start", 1);
+            test.assertValueEqual(queries.aliveCount(), 4, "Plain start uses all online players and the old opt-out has been consumed");
+            test.succeed();
+        } finally {
+            probe.close();
+            server.game().stopGame();
+            server.leave(included);
+            server.leave(excluded);
+            server.leave(optOut);
+            if (late != null) server.leave(late);
+            if (rejoined != null) server.leave(rejoined);
+        }
+    }
+
     private static ServerPlayer join(GameTestHelper test) {
         return PlayerStateFixtures.join(test.getLevel().getServer(), test.getLevel(), UUID.randomUUID());
     }

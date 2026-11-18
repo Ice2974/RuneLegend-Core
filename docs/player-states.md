@@ -5,7 +5,7 @@
 ## 开始与结束
 
 - 等待时用 `/runelegend player spectate true` 选择下一局观战，用 `false` 取消；`/runelegend player status` 查询。选择在等待阶段断线后仍保留，开局时消费，运行中无法调整。
-- 开局为全部在线玩家统一分配身份：参与者 ALIVE／冒险模式，观战者 SPECTATOR／旁观模式。中途首次加入为 SPECTATOR，并沿用原版保存位置上线；只有 WAITING 登录会传送到世界出生点。
+- 开局为全部在线玩家分配身份。参赛者进入 ALIVE 和冒险模式，观战者进入 SPECTATOR 和旁观模式。关卡可用 `game start participants <selector>` 限定参赛名单，保留玩家的观战选择。中途首次加入为 SPECTATOR，并沿用原版保存位置上线。WAITING 登录会传送到世界出生点。
 - ALIVE 或 DOWNED 断线直接转 ELIMINATED，身份保留到本局结束；重连保持阵亡，原观战者仍观战，不能通过重连复活。
 - 没有 ALIVE 参与者时，在服务端 tick 汇总阶段以 `no_alive` 自动结算。最后一人倒地和全员观战都会在该检查点结束本局。
 - 关卡结局、手动停局和自动结算都回到 WAITING，清空包含离线玩家的本局身份、倒地记录、计时、救援关系和观战选择。在线玩家统一传送到世界出生点，改冒险模式，生命、饥饿、体力回满。WAITING 登录同样初始化并在世界出生点上线，忽略上次退出时的位置。世界出生点由服务器的世界出生数据决定，通常用 `/setworldspawn` 设置。关卡可订阅[结算通知](level-development.md#订阅回合开局和结算)读取清理前的最终身份。
@@ -53,6 +53,6 @@
 
 ## 扩展与验证
 
-`RuneLegendServer` 组合 `PlayerStateService`、`DownedService` 和 `RevivePositionResolver`。未来救援令牌可以查询不可变倒地记录，使用 `RuneLegendServer.revive(UUID, downedSequence)` 进入统一完成路径；本次没有救援令牌，也没有绕过 ALIVE 目标检查的通用开关。普通令牌在调度和执行时均验证当前连接、身份、回合和运行态代次；清理可重复调用，不删除已佩戴令牌或装备数据。
+`RuneLegendServer` 组合 `PlayerStateService`、`DownedService` 和 `RevivePositionResolver`。关卡机关可以查询一次倒地的凭据，并在该凭据有效时调用 `RuneLegendApi.tryRevive`。机关和玩家救援共用服务端完成路径，只有玩家救援事件包含救援者 UUID。关卡也可以在指定回合淘汰在线参赛者。操作条件与命令见[关卡开发指南](level-development.md#限定参赛名单与关卡机关)。普通令牌在调度和执行时均验证当前连接、身份、回合和运行态代次，清理可重复调用并保留已佩戴令牌及装备数据。
 
 验证入口为 `gradlew.bat test`、`gradlew.bat build runClientGameTest`。相关覆盖包括配置回退、身份生命周期、一对一连续救援、超时优先、图腾与物品保留、重连、原地兜底、停局与等待期世界出生点传送（含跨维度）、网络增量和客户端标记清理。与其他模组同时拦截死亡时，需要针对其回调顺序另行做兼容验证。

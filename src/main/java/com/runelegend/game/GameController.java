@@ -4,14 +4,19 @@ import com.runelegend.api.*;
 import net.minecraft.resources.Identifier;
 
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 /** Publishes the new rule gate before applying teardown on the same thread. */
 public final class GameController implements RuneLegendApi {
     @FunctionalInterface
     public interface TransitionListener {
-        void changed(RuleSnapshot before, RuleSnapshot after, RoundSummary.Reason reason, Identifier outcomeId);
+        void changed(RuleSnapshot before, RuleSnapshot after, RoundSummary.Reason reason, Identifier outcomeId,
+                     Predicate<UUID> participates);
     }
 
     private final Runnable checkThread;
@@ -22,7 +27,7 @@ public final class GameController implements RuneLegendApi {
     private boolean deferringNotifications;
 
     public GameController(Runnable checkThread, BiConsumer<RuleSnapshot, RuleSnapshot> onChange) {
-        this(checkThread, (before, after, reason, outcomeId) -> onChange.accept(before, after));
+        this(checkThread, (before, after, reason, outcomeId, participates) -> onChange.accept(before, after));
         Objects.requireNonNull(onChange);
     }
 
@@ -32,15 +37,19 @@ public final class GameController implements RuneLegendApi {
     }
 
     @Override public RuleSnapshot getRules() { checkThread.run(); return rules; }
-    @Override public boolean startGame() { return update(GameState.RUNNING, null, null); }
-    @Override public boolean stopGame() { return update(GameState.WAITING, RoundSummary.Reason.MANUAL_STOP, null); }
+    @Override public boolean startGame() { return update(GameState.RUNNING, null, null, _ -> true); }
+    @Override public boolean stopGame() { return update(GameState.WAITING, RoundSummary.Reason.MANUAL_STOP, null, null); }
+
+    public boolean startGame(Collection<UUID> participants) {
+        return update(GameState.RUNNING, null, null, Set.copyOf(participants)::contains);
+    }
 
     public boolean finishGame(Identifier outcomeId) {
-        return update(GameState.WAITING, RoundSummary.Reason.FINISH, Objects.requireNonNull(outcomeId));
+        return update(GameState.WAITING, RoundSummary.Reason.FINISH, Objects.requireNonNull(outcomeId), null);
     }
 
     public boolean endWithoutSurvivors() {
-        return update(GameState.WAITING, RoundSummary.Reason.NO_ALIVE, null);
+        return update(GameState.WAITING, RoundSummary.Reason.NO_ALIVE, null, null);
     }
 
     public void publishNotification(Runnable notification) {
@@ -64,7 +73,7 @@ public final class GameController implements RuneLegendApi {
         }
     }
 
-    private boolean update(GameState state, RoundSummary.Reason reason, Identifier outcomeId) {
+    private boolean update(GameState state, RoundSummary.Reason reason, Identifier outcomeId, Predicate<UUID> participates) {
         checkThread.run();
         var previous = rules;
         if (transitioning || deferringNotifications || state == previous.state()) return false;
@@ -72,7 +81,7 @@ public final class GameController implements RuneLegendApi {
         rules = new RuleSnapshot(state, round, previous.revision() + 1);
         transitioning = true;
         try {
-            onChange.changed(previous, rules, reason, outcomeId);
+            onChange.changed(previous, rules, reason, outcomeId, participates);
             return true;
         } finally {
             transitioning = false;

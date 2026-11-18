@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /** Server-thread, save-session-only round identities. Never stored with token equipment. */
 public final class PlayerStateService {
@@ -29,9 +30,15 @@ public final class PlayerStateService {
     }
 
     public void beginRound(Collection<UUID> online) {
+        beginRound(online, _ -> true);
+    }
+
+    public void beginRound(Collection<UUID> online, Predicate<UUID> participates) {
         if (!game.getRules().running()) throw new IllegalStateException("Round has not started");
         states.clear();
-        for (var uuid : online) states.put(uuid, spectateNextRound.contains(uuid) ? PlayerState.SPECTATOR : PlayerState.ALIVE);
+        for (var uuid : online) {
+            states.put(uuid, participates.test(uuid) && !spectateNextRound.contains(uuid) ? PlayerState.ALIVE : PlayerState.SPECTATOR);
+        }
         spectateNextRound.clear();
     }
 

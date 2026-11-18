@@ -16,9 +16,12 @@ public final class PlayerStateNotifications {
 
     private PlayerStateNotifications() {}
 
-    public static void downed(MinecraftServer server, PlayerStateEvents.Downed event) {
-        FunctionNotifications.publish(server, DOWNED, () -> PlayerStateEvents.DOWNED.invoker().onDowned(server, event),
-                () -> arguments(event.round(), event.playerId(), event.anchor()));
+    public static void downed(MinecraftServer server, PlayerStateEvents.Downed event, UUID handleId) {
+        FunctionNotifications.publish(server, DOWNED, () -> PlayerStateEvents.DOWNED.invoker().onDowned(server, event), () -> {
+            var args = arguments(event.round(), event.playerId(), event.anchor());
+            args.putString("revive_handle", handleId.toString());
+            return args;
+        });
     }
 
     public static void revived(MinecraftServer server, PlayerStateEvents.Revived event) {
@@ -33,6 +36,7 @@ public final class PlayerStateNotifications {
         FunctionNotifications.publish(server, ELIMINATED, () -> PlayerStateEvents.ELIMINATED.invoker().onEliminated(server, event), () -> {
             var args = arguments(event.round(), event.playerId(), event.anchor().orElse(null));
             args.putString("reason", event.reason().name().toLowerCase(Locale.ROOT));
+            args.putString("reason_id", event.reasonId().map(Identifier::toString).orElse(""));
             args.putString("previous_identity", event.previousIdentity().name());
             return args;
         });

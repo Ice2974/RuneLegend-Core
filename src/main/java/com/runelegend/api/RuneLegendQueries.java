@@ -22,6 +22,11 @@ public final class RuneLegendQueries {
         return server.playerStates().aliveCount();
     }
 
+    /** Captures the credential for a connected player with a current, unexpired downing. */
+    public Optional<DownedHandle> downedHandle(UUID playerId) {
+        return server.downedHandle(playerId);
+    }
+
     /** Captures the UUID's state, including stored equipment when the player is offline. */
     public PlayerSnapshot player(UUID playerId) {
         var rules = server.game().getRules();

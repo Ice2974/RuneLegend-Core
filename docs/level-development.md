@@ -10,7 +10,7 @@
 4. 关卡达成结局时执行 `/runelegend game finish mymap:victory`，管理员可执行 `/runelegend game stop` 手动停局。没有 `ALIVE` 玩家时也会自动结算。本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家统一传送到世界出生点并变回冒险模式，生命、饥饿和体力回满。等待状态登录同样在世界出生点上线，世界出生点就是等待区，可用 `/setworldspawn` 设置，详见[玩家状态](player-states.md)。
 
 - 游戏状态不持久化：服务器重启或单人世界重新载入后回到 `WAITING`、回合 0，关卡需要重新执行 `game start`。
-- `game start`、`game stop` 和 `game finish` 共用 `runelegend:game` 权限（默认等级 2）。状态发生变化时命令返回 `1`，重复调用或通知回调期间调用时返回 `0`。
+- `game start`（含名单版本）、`game stop` 和 `game finish` 共用 `runelegend:game` 权限（默认等级 2）。状态发生变化时命令返回 `1`，重复调用或通知回调期间调用时返回 `0`。
 - 只有 `RUNNING + ALIVE` 会触发令牌效果和令牌格挡成功事件；`WAITING` 下可以自由格挡和配装，适合作为准备区。等待区固定使用世界出生点，停局和等待期上线都会把玩家送回该点。
 
 ## 在数据包中查询对局和玩家
@@ -38,6 +38,36 @@ execute store result score #alive rl_map run runelegend query game alive_count
 execute if score #alive rl_map matches 1.. run function mymap:round/with_survivors
 execute as @a store result score @s rl_map run runelegend test player @s alive
 ```
+
+## 限定参赛名单与关卡机关
+
+下列命令均需要 `runelegend:game` 权限（默认等级 2）。成功开局、查得凭据或完成人员变更时返回 `1`，条件不满足时返回 `0`。`<player>` 使用原版单玩家选择器或在线玩家名。
+
+| 命令 | 行为 |
+| --- | --- |
+| `runelegend game start participants <selector>` | 在等待期按原版玩家选择器的结果开局。只有开局此刻在线、匹配选择器且未选择观战的玩家成为 `ALIVE`，其他在线玩家成为 `SPECTATOR` |
+| `runelegend query player <player> downed_handle` | 有效倒地时，在命令输出中显示这次倒地的 UUID 凭据。数据包可从 `#runelegend:player_downed` 的 `revive_handle` 参数读取同一凭据 |
+| `runelegend player revive <player> <handle>` | 用凭据扶起对应玩家。当前回合、连接、身份和倒地截止时间必须有效，且传送到原死亡维度成功后才恢复 `ALIVE` |
+| `runelegend player eliminate <player> <round> <reason_id>` | 指定当前回合号，将在线 `ALIVE` 或 `DOWNED` 玩家转为 `ELIMINATED`，取消相关救援并清理令牌运行态。原因用资源 ID，例如 `mymap:trapdoor`。省略命名空间时使用 `minecraft` |
+
+例如 `runelegend game start participants @a[tag=ready]` 仅让带 `ready` 标签且未选择观战的在线玩家参战。选择器没有匹配时，全员观战，随后按无存活者规则自动结算。观战选择随开局消费。首次中途加入的玩家仍为观战，即使其 UUID 在关卡预先准备的名单中。参赛者断线后重连仍为阵亡。无参数开局会考虑所有在线玩家。
+
+扶起凭据绑定玩家和单次倒地。扶起、超时、淘汰、断线或停局都会使原凭据失效，再次倒地会生成新凭据。传送失败时，倒地记录保留至原截止时间。机关扶起采用与玩家救援相同的安全落点与生命恢复规则，扶起事件的 `rescuer_uuid` 为空。阵亡玩家无法通过扶起命令返场。淘汰命令保留玩家装备用于后续回合，末位存活者被淘汰后仍由服务端 tick 自动结算。
+
+在倒地标签的宏函数中保存这次倒地的凭据，供机关之后读取。多人关卡应为每次待处理的倒地保存各自的参数。下例使用一个存储条目演示一次机关救援。
+
+```mcfunction
+# #runelegend:player_downed 的宏函数
+$data modify storage mymap:round pending_rescue set value {player_uuid:"$(player_uuid)",revive_handle:"$(revive_handle)"}
+```
+
+```mcfunction
+# 机关触发时调用 function mymap:rescue with storage mymap:round pending_rescue
+# mymap:rescue 的内容
+$execute as $(player_uuid) run runelegend player revive @s $(revive_handle)
+```
+
+延迟淘汰时应使用原任务记录的回合号，避免影响后来开启的回合。服务器重启后回合号会从零重新计数，关卡加载时应清理存储中的旧任务。
 
 ## 订阅回合开局和结算
 
@@ -80,7 +110,7 @@ Java 通知先于对应函数标签同步执行。回调可以查询状态。回
 | --- | --- | --- |
 | `PlayerStateEvents.DOWNED` | `#runelegend:player_downed` | 玩家进入 `DOWNED` 并生成倒地记录。图腾生效时没有通知 |
 | `PlayerStateEvents.REVIVED` | `#runelegend:player_revived` | 传送成功、恢复 `ALIVE` 并清除倒地记录后。玩家救援会携带实际救援者 UUID |
-| `PlayerStateEvents.ELIMINATED` | `#runelegend:player_eliminated` | `ALIVE` 或 `DOWNED` 转为 `ELIMINATED` 并完成清理后。原因是倒地超时（`timeout`）、断线（`disconnect`）或原版死亡回调确实提交了淘汰（`death`） |
+| `PlayerStateEvents.ELIMINATED` | `#runelegend:player_eliminated` | `ALIVE` 或 `DOWNED` 转为 `ELIMINATED` 并完成清理后。原因包括倒地超时（`timeout`）、断线（`disconnect`）、原版死亡回调提交淘汰（`death`）和关卡操作（`scripted`） |
 
 救援完成与倒地超时落在同一 tick 时，只发布超时淘汰。传送失败时保留倒地记录，且没有扶起通知。断线回调发出时，Core 已将该 UUID 标记为离线；玩家重连或旧连接再次断开时，原有淘汰记录不会再发布。末位玩家倒地或断线导致自动停局时，身份通知先于 `round_ended`。
 
@@ -93,8 +123,10 @@ Java 通知先于对应函数标签同步执行。回调可以查询状态。回
 | `round` | NBT long，本次身份变更所属的回合 |
 | `player_uuid` | UUID 字符串，倒地、被扶起或被淘汰的玩家 |
 | `anchor` | NBT compound。包含倒地 `sequence`（long）、`dimension`（资源 ID 字符串）、`x`、`y`、`z`（double）和 `yaw`、`pitch`（float）。无倒地记录的淘汰传入 `{}` |
-| `rescuer_uuid` | 仅扶起事件提供。匹配到的救援者 UUID 字符串，无归属的扶起传入空字符串 |
+| `revive_handle` | 仅倒地事件提供。对应这次倒地的 UUID 凭据字符串 |
+| `rescuer_uuid` | 仅扶起事件提供。匹配到的救援者 UUID 字符串，机关扶起传入空字符串 |
 | `reason`、`previous_identity` | 仅淘汰事件提供。原因见上表，先前身份为 `ALIVE` 或 `DOWNED` |
+| `reason_id` | 仅淘汰事件提供。关卡操作传入自定义原因 ID 字符串，其他原因传入空字符串 |
 
 锚点属于倒地发生时的维度，位置和朝向取自原始倒地记录。使用锚点坐标前先在其 `dimension` 中执行，再用 `positioned` 指定绝对坐标。同一次倒地及其后续扶起或淘汰可用回合、玩家 UUID 和倒地序号关联；服务器重启会重新开始计数。以下宏可记录淘汰，即使玩家已离线。
 
@@ -236,5 +268,7 @@ boolean connected = player.connected();
 | 阵亡后重连 | `RUNNING` | `ELIMINATED` | `true` |
 
 `equippedTokens()` 按槽位顺序提供已保存的装备 ID，离线时也可读取，无装备时列表为空。`stamina()` 对离线玩家返回 `OptionalInt.empty()`。`cooldownTicks(tokenId)` 对离线玩家、未装备或无注册定义的令牌返回 `OptionalInt.empty()`，对已装备且有定义的在线玩家令牌返回剩余 tick 或 `0`。
+
+`RuneLegendApi.startGame(server, candidateUuids)` 接收 UUID 集合，按开局时的在线玩家和观战选择分配身份。`queries.downedHandle(playerUuid)` 返回不可变的 `Optional<DownedHandle>`，只有当前回合在线且倒地未到期的玩家有凭据。关卡可以保留凭据并在机关触发时调用 `RuneLegendApi.tryRevive(server, handle)`，由 Core 在写入前重新校验。`RuneLegendApi.tryEliminate(server, playerUuid, round, reasonId)` 执行指定回合的淘汰。两项写操作完成时返回 `true`，条件不满足时返回 `false`。关卡淘汰事件的 `reason()` 为 `SCRIPTED`，`reasonId()` 提供调用者传入的资源 ID。
 
 令牌框架本身也可以扩展：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。新增令牌的全部可调数值需要放进 `TokenConfig` 并在 `server.json` 的 `tokens` 段暴露；当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。事件类型、`TokenEvent` 语义与伤害通道见[令牌文档](tokens.md#扩展令牌)。

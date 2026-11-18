@@ -3,6 +3,7 @@ package com.runelegend.api;
 import com.runelegend.RuneLegendMod;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
@@ -66,13 +67,18 @@ public final class PlayerStateEvents {
 
     public record Downed(long round, UUID playerId, DownedAnchor anchor) {}
 
-    /** The player rescue path supplies the matched rescuer. Unattributed completions have an empty rescuerId. */
+    /** Player rescues supply the matched rescuer. Map rescues have an empty rescuerId. */
     public record Revived(long round, UUID playerId, DownedAnchor anchor, Optional<UUID> rescuerId) {}
 
     public record Eliminated(long round, UUID playerId, PlayerSnapshot.Identity previousIdentity,
-                             EliminationReason reason, Optional<DownedAnchor> anchor) {}
+                             EliminationReason reason, Optional<DownedAnchor> anchor, Optional<Identifier> reasonId) {
+        public Eliminated(long round, UUID playerId, PlayerSnapshot.Identity previousIdentity,
+                          EliminationReason reason, Optional<DownedAnchor> anchor) {
+            this(round, playerId, previousIdentity, reason, anchor, Optional.empty());
+        }
+    }
 
-    public enum EliminationReason { TIMEOUT, DISCONNECT, DEATH }
+    public enum EliminationReason { TIMEOUT, DISCONNECT, DEATH, SCRIPTED }
 
     private PlayerStateEvents() {}
 }
