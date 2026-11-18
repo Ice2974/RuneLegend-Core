@@ -1,17 +1,14 @@
 package com.runelegend.token;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
-        var root = TokenConfig.DEFAULT.toJson();
-        var tokens = root.getAsJsonObject("tokens");
+        var tokens = TokenConfig.DEFAULT.toJson();
         assertEquals(9, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
@@ -64,38 +61,24 @@ class TokenConfigTest {
                 new TokenConfig.ResonanceHealingSettings(0.4F, 6.5, 4.5F, 11),
                 new TokenConfig.VernalTideSettings(0.25F, 4.5, 2.0F),
                 new TokenConfig.ArroganceSettings(0.7F, 3, 1.5F, 4.25F));
-        var encoded = TokenConfig.DEFAULT.toJson();
-        // Encode each section through its typed codec to prove all fields survive a round trip.
-        var tokens = encoded.getAsJsonObject("tokens");
-        tokens.add("runelegend:soul_siphon", encode(TokenConfig.SoulSiphonSettings.CODEC, config.soulSiphon()));
-        tokens.add("runelegend:echo", encode(TokenConfig.EchoSettings.CODEC, config.echo()));
-        tokens.add("runelegend:immediate_counter", encode(TokenConfig.ImmediateCounterSettings.CODEC, config.immediateCounter()));
-        tokens.add("runelegend:venomous_tip", encode(TokenConfig.VenomousTipSettings.CODEC, config.venomousTip()));
-        tokens.add("runelegend:poisoned_arrow", encode(TokenConfig.PoisonedArrowSettings.CODEC, config.poisonedArrow()));
-        tokens.add("runelegend:asura_form", config.toJson().getAsJsonObject("tokens").get("runelegend:asura_form"));
-        tokens.add("runelegend:resonance_healing",
-                encode(TokenConfig.ResonanceHealingSettings.CODEC, config.resonanceHealing()));
-        tokens.add("runelegend:vernal_tide", encode(TokenConfig.VernalTideSettings.CODEC, config.vernalTide()));
-        tokens.add("runelegend:arrogance", config.toJson().getAsJsonObject("tokens").get("runelegend:arrogance"));
-        assertEquals(config, TokenConfig.fromJson(encoded));
+        assertEquals(config, TokenConfig.fromJson(config.toJson()));
     }
 
     @Test void missingOrInvalidArroganceSettingsPreserveOtherTokens() {
-        var root = JsonParser.parseString("""
-                {"schemaVersion":1,"tokens":{"runelegend:soul_siphon":{"chance":0.2}}}
+        var tokens = JsonParser.parseString("""
+                {"runelegend:soul_siphon":{"chance":0.2}}
                 """).getAsJsonObject();
-        var oldConfig = TokenConfig.fromJson(root);
+        var oldConfig = TokenConfig.fromJson(tokens);
         assertEquals(TokenConfig.ArroganceSettings.DEFAULT, oldConfig.arrogance());
-        var tokens = root.getAsJsonObject("tokens");
         for (var invalid : new String[]{
                 "\"health_threshold\":1.1", "\"kills_per_increase\":0", "\"kills_per_increase\":2.5",
                 "\"kills_per_increase\":2147483648", "\"damage_per_increase\":0",
                 "\"damage_per_increase\":\"garbage\"", "\"max_bonus_damage\":-1", "\"max_bonus_damage\":1e50"}) {
             tokens.add("runelegend:arrogance", JsonParser.parseString("{\"health_threshold\":0.8," + invalid + "}"));
-            assertEquals(oldConfig, TokenConfig.fromJson(root), invalid);
+            assertEquals(oldConfig, TokenConfig.fromJson(tokens), invalid);
         }
         tokens.add("runelegend:arrogance", JsonParser.parseString("{\"damage_per_increase\":0.5}"));
-        assertEquals(new TokenConfig.ArroganceSettings(0.6F, 1, 0.5F, 5.0F), TokenConfig.fromJson(root).arrogance());
+        assertEquals(new TokenConfig.ArroganceSettings(0.6F, 1, 0.5F, 5.0F), TokenConfig.fromJson(tokens).arrogance());
     }
 
     @Test void boundedSettingsRejectInvalidValues() {
@@ -147,86 +130,73 @@ class TokenConfigTest {
     }
 
     @Test void venomousTipIgnoresRemovedLevelSetting() {
-        var root = TokenConfig.DEFAULT.toJson();
-        root.getAsJsonObject("tokens").add("runelegend:venomous_tip",
+        var tokens = TokenConfig.DEFAULT.toJson();
+        tokens.add("runelegend:venomous_tip",
                 JsonParser.parseString("{\"chance\":0.4,\"duration_seconds\":8,\"level\":3}"));
-        assertEquals(new TokenConfig.VenomousTipSettings(0.4F, 8), TokenConfig.fromJson(root).venomousTip());
+        assertEquals(new TokenConfig.VenomousTipSettings(0.4F, 8), TokenConfig.fromJson(tokens).venomousTip());
     }
 
     @Test void poisonedArrowIgnoresRemovedLevelSetting() {
-        var root = TokenConfig.DEFAULT.toJson();
-        root.getAsJsonObject("tokens").add("runelegend:poisoned_arrow",
+        var tokens = TokenConfig.DEFAULT.toJson();
+        tokens.add("runelegend:poisoned_arrow",
                 JsonParser.parseString("{\"chance\":0.4,\"duration_seconds\":8,\"level\":3}"));
-        assertEquals(new TokenConfig.PoisonedArrowSettings(0.4F, 8), TokenConfig.fromJson(root).poisonedArrow());
+        assertEquals(new TokenConfig.PoisonedArrowSettings(0.4F, 8), TokenConfig.fromJson(tokens).poisonedArrow());
     }
 
-    @Test void invalidRootUsesAllDefaultsAndInvalidTokenUsesOnlyThatDefault() {
+    @Test void emptyTokensUseDefaultsAndInvalidTokenUsesOnlyThatDefault() {
         assertEquals(TokenConfig.DEFAULT, TokenConfig.fromJson(new JsonObject()));
 
-        var root = TokenConfig.DEFAULT.toJson();
-        root.addProperty("schemaVersion", 99);
-        assertEquals(TokenConfig.DEFAULT, TokenConfig.fromJson(root));
-
-        root.addProperty("schemaVersion", 1);
-        root.getAsJsonObject("tokens").add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":2}"));
-        var parsed = TokenConfig.fromJson(root);
+        var tokens = TokenConfig.DEFAULT.toJson();
+        tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":2}"));
+        var parsed = TokenConfig.fromJson(tokens);
         assertEquals(TokenConfig.SoulSiphonSettings.DEFAULT, parsed.soulSiphon());
         assertEquals(TokenConfig.EchoSettings.DEFAULT, parsed.echo());
     }
 
     @Test void knownTokenMayOmitFields() {
-        var root = new JsonObject();
-        root.addProperty("schemaVersion", 1);
-        root.add("tokens", JsonParser.parseString("{\"runelegend:soul_siphon\":{\"chance\":1}}").getAsJsonObject());
-        var parsed = TokenConfig.fromJson(root);
+        var tokens = JsonParser.parseString("{\"runelegend:soul_siphon\":{\"chance\":1}}").getAsJsonObject();
+        var parsed = TokenConfig.fromJson(tokens);
         assertEquals(new TokenConfig.SoulSiphonSettings(1, 2), parsed.soulSiphon());
         assertEquals(TokenConfig.AsuraFormSettings.DEFAULT, parsed.asuraForm());
     }
 
     @Test void invalidAsuraSettingsFallBackWithoutDiscardingOtherTokens() {
-        var root = TokenConfig.DEFAULT.toJson();
-        var tokens = root.getAsJsonObject("tokens");
+        var tokens = TokenConfig.DEFAULT.toJson();
         tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
         for (String invalid : new String[]{"\"required_kills\":1.5", "\"required_kills\":0",
                 "\"duration_seconds\":107374183", "\"duration_seconds\":0", "\"bonus_damage\":1e300",
                 "\"bonus_damage\":-1", "\"speed_level\":0", "\"temporary_health\":0.5",
                 "\"temporary_health\":1025", "\"cooldown_seconds\":-1"}) {
             tokens.add("runelegend:asura_form", JsonParser.parseString("{" + invalid + "}"));
-            var parsed = TokenConfig.fromJson(root);
+            var parsed = TokenConfig.fromJson(tokens);
             assertEquals(TokenConfig.AsuraFormSettings.DEFAULT, parsed.asuraForm(), invalid);
             assertEquals(1F, parsed.soulSiphon().chance());
         }
     }
 
     @Test void invalidResonanceSettingsFallBackWithoutDiscardingOtherTokens() {
-        var root = TokenConfig.DEFAULT.toJson();
-        var tokens = root.getAsJsonObject("tokens");
+        var tokens = TokenConfig.DEFAULT.toJson();
         tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
         for (String invalid : new String[]{"\"health_threshold\":1.5",
                 "\"radius\":0", "\"radius\":-1", "\"heal_amount\":-1",
                 "\"cooldown_seconds\":-1", "\"cooldown_seconds\":1.5",
                 "\"cooldown_seconds\":" + (Integer.MAX_VALUE / 20 + 1)}) {
             tokens.add("runelegend:resonance_healing", JsonParser.parseString("{" + invalid + "}"));
-            var parsed = TokenConfig.fromJson(root);
+            var parsed = TokenConfig.fromJson(tokens);
             assertEquals(TokenConfig.ResonanceHealingSettings.DEFAULT, parsed.resonanceHealing(), invalid);
             assertEquals(1F, parsed.soulSiphon().chance());
         }
     }
 
     @Test void invalidVernalTideSettingsFallBackWithoutDiscardingOtherTokens() {
-        var root = TokenConfig.DEFAULT.toJson();
-        var tokens = root.getAsJsonObject("tokens");
+        var tokens = TokenConfig.DEFAULT.toJson();
         tokens.add("runelegend:soul_siphon", JsonParser.parseString("{\"chance\":1}"));
         for (String invalid : new String[]{"\"chance\":1.5", "\"chance\":-0.1",
                 "\"radius\":0", "\"radius\":-1", "\"damage\":-1"}) {
             tokens.add("runelegend:vernal_tide", JsonParser.parseString("{" + invalid + "}"));
-            var parsed = TokenConfig.fromJson(root);
+            var parsed = TokenConfig.fromJson(tokens);
             assertEquals(TokenConfig.VernalTideSettings.DEFAULT, parsed.vernalTide(), invalid);
             assertEquals(1F, parsed.soulSiphon().chance());
         }
-    }
-
-    private static <T> JsonElement encode(com.mojang.serialization.Codec<T> codec, T value) {
-        return codec.encodeStart(JsonOps.INSTANCE, value).result().orElseThrow();
     }
 }

@@ -33,21 +33,23 @@
 
 ## 配置
 
-路径：`<游戏实例>/config/runelegend-core/player_states.json`。逻辑服务器启动时读取一次，不提供热重载；单人世界共用实例配置，但状态互不共享。
+在 `<游戏实例>/config/runelegend-core/server.json` 的 `player_states` 段调整。逻辑服务器启动时读取一次，单人世界共用实例配置，本局状态按存档会话隔离。
 
 ```json
 {
   "schemaVersion": 1,
-  "revive_distance": 2.0,
-  "revive_duration_seconds": 2.0,
-  "downed_duration_seconds": 15,
-  "revive_health_percent": 50
+  "player_states": {
+    "revive_distance": 2.0,
+    "revive_duration_seconds": 2.0,
+    "downed_duration_seconds": 15,
+    "revive_health_percent": 50
+  }
 }
 ```
 
-距离必须为有限正数且平方有限；持续时间支持正小数秒，以 `ceil(秒数 × 20)` 换算 tick，最多 `Integer.MAX_VALUE` tick；生命比例须为有限数且在 `(0, 100]` 内；schemaVersion 必须为整数 1。不要求救援时长短于倒地时长。计时随服务器 tick 推进，低 TPS 会延长实际耗时，服务器暂停不推进。
+距离必须为有限正数且平方有限；持续时间支持正小数秒，以 `ceil(秒数 × 20)` 换算 tick，最多 `Integer.MAX_VALUE` tick；生命比例须为有限数且在 `(0, 100]` 内。不要求救援时长短于倒地时长。计时随服务器 tick 推进，低 TPS 会延长实际耗时，服务器暂停不推进。
 
-文件缺失时生成默认配置，缺字段使用该字段默认值。非法 JSON、类型、版本或数值使整份配置回退默认值并记录错误，不覆盖原文件。默认文件写入失败时仍使用内存默认配置。
+缺字段时使用该字段的默认值。分组类型或字段值非法时，`player_states` 整段回退默认值并记录错误。文件生成和顶层校验规则见[关卡开发指南](level-development.md#调整战斗参数)。
 
 ## 扩展与验证
 

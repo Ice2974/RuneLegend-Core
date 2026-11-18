@@ -1,28 +1,20 @@
 package com.runelegend.token;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.runelegend.RuneLegendMod;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Set;
 
-/** Server-wide numeric tuning for built-in tokens. Values are read once per server process. */
+/** Server-wide numeric tuning for built-in tokens. */
 public record TokenConfig(
         SoulSiphonSettings soulSiphon,
         EchoSettings echo,
@@ -33,14 +25,12 @@ public record TokenConfig(
         ResonanceHealingSettings resonanceHealing,
         VernalTideSettings vernalTide,
         ArroganceSettings arrogance) {
-    private static final int VERSION = 1;
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
             "runelegend:vernal_tide", "runelegend:arrogance");
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -280,36 +270,7 @@ public record TokenConfig(
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT);
 
-    public static Path defaultPath() {
-        return FabricLoader.getInstance().getConfigDir().resolve("runelegend-core/tokens.json");
-    }
-
-    public static TokenConfig loadOrGenerate(Path path) {
-        if (Files.notExists(path)) {
-            writeDefault(path);
-            return DEFAULT;
-        }
-        try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            return fromJson(JsonParser.parseReader(reader).getAsJsonObject());
-        } catch (IOException | RuntimeException error) {
-            RuneLegendMod.LOGGER.error("Could not read RuneLegend token config {}; using defaults", path, error);
-            return DEFAULT;
-        }
-    }
-
-    public static TokenConfig fromJson(JsonObject root) {
-        if (!root.has("schemaVersion") || !root.get("schemaVersion").isJsonPrimitive()
-                || root.get("schemaVersion").getAsInt() != VERSION) {
-            RuneLegendMod.LOGGER.error("Invalid RuneLegend token config schema; expected schemaVersion {}", VERSION);
-            return DEFAULT;
-        }
-        var tokenElement = root.get("tokens");
-        if (tokenElement == null) return DEFAULT;
-        if (!tokenElement.isJsonObject()) {
-            RuneLegendMod.LOGGER.error("Invalid RuneLegend token config: tokens must be an object");
-            return DEFAULT;
-        }
-        var tokens = tokenElement.getAsJsonObject();
+    public static TokenConfig fromJson(JsonObject tokens) {
         warnAboutUnknownTokens(tokens);
         return new TokenConfig(
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
@@ -335,19 +296,7 @@ public record TokenConfig(
         tokens.add("runelegend:resonance_healing", encode(ResonanceHealingSettings.CODEC, resonanceHealing));
         tokens.add("runelegend:vernal_tide", encode(VernalTideSettings.CODEC, vernalTide));
         tokens.add("runelegend:arrogance", encode(ArroganceSettings.CODEC, arrogance));
-        var root = new JsonObject();
-        root.addProperty("schemaVersion", VERSION);
-        root.add("tokens", tokens);
-        return root;
-    }
-
-    private static void writeDefault(Path path) {
-        try {
-            Files.createDirectories(path.getParent());
-            Files.writeString(path, GSON.toJson(DEFAULT.toJson()), StandardCharsets.UTF_8);
-        } catch (IOException error) {
-            RuneLegendMod.LOGGER.error("Could not write default RuneLegend token config {}", path, error);
-        }
+        return tokens;
     }
 
     private static void warnAboutUnknownTokens(JsonObject tokens) {
@@ -365,10 +314,15 @@ public record TokenConfig(
     private static <T> T section(JsonObject tokens, String id, Codec<T> codec, T fallback) {
         var element = tokens.get(id);
         if (element == null || !element.isJsonObject()) return fallback;
-        return codec.parse(JsonOps.INSTANCE, element).result().orElseGet(() -> {
-            RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; using defaults", id);
+        try {
+            return codec.parse(JsonOps.INSTANCE, element).result().orElseGet(() -> {
+                RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; using defaults", id);
+                return fallback;
+            });
+        } catch (IllegalArgumentException error) {
+            RuneLegendMod.LOGGER.error("Invalid RuneLegend config for token {}; using defaults", id, error);
             return fallback;
-        });
+        }
     }
 
     private static <T> JsonElement encode(Codec<T> codec, T value) {

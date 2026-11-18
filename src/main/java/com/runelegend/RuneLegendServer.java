@@ -1,14 +1,12 @@
 package com.runelegend;
 
 import com.runelegend.api.RuleSnapshot;
-import com.runelegend.combat.GuardConfig;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.*;
 import com.runelegend.token.TokenEngine;
-import com.runelegend.token.TokenConfig;
 import com.runelegend.token.TokenRegistry;
 import com.runelegend.token.effect.SoulSiphonEffect;
 import com.runelegend.token.effect.AsuraHealth;
@@ -43,16 +41,16 @@ public final class RuneLegendServer {
 
     private RuneLegendServer(MinecraftServer minecraft) {
         this.minecraft = minecraft;
-        var guard = GuardConfig.loadOrGenerate(GuardConfig.defaultPath());
+        var config = ServerConfig.load();
         game = new GameController(this::checkThread, this::rulesChanged);
-        playerStateConfig = PlayerStateConfig.loadOrGenerate(PlayerStateConfig.defaultPath());
+        playerStateConfig = config.playerStates();
         playerStates = new PlayerStateService(game);
         downed = new DownedService(playerStateConfig);
-        registry = TokenRegistry.builtIn(TokenConfig.loadOrGenerate(TokenConfig.defaultPath()));
+        registry = TokenRegistry.builtIn(config.tokens());
         players = new PlayerTokenService(game, PlayerTokenStore.load(PlayerTokenStore.defaultPath()), registry);
         sync = new PlayerStateSync(this);
         tokens = new TokenEngine(game, players, registry, this::tick, sync::flash, this::tokenEligible, this::currentPlayer);
-        stamina = new GuardStaminaService(game, this::tick, guard);
+        stamina = new GuardStaminaService(game, this::tick, config.guard());
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }

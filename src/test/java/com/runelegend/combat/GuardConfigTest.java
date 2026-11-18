@@ -8,8 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GuardConfigTest {
     @Test void defaultJsonContainsEverySetting() {
         var root = GuardConfig.DEFAULT.toJson();
-        assertEquals(6, root.size());
-        assertEquals(1, root.get("schemaVersion").getAsInt());
+        assertEquals(5, root.size());
         assertEquals(20000, root.get("max").getAsInt());
         assertEquals(2000, root.get("min_to_start").getAsInt());
         assertEquals(125, root.get("drain_per_tick").getAsInt());
@@ -38,20 +37,13 @@ class GuardConfigTest {
 
     @Test void missingFieldsUseDefaults() {
         var root = new JsonObject();
-        root.addProperty("schemaVersion", 1);
         assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(root));
 
         root.addProperty("max", 30000);
         assertEquals(new GuardConfig(30000, 2000, 125, 100, 10), GuardConfig.fromJson(root));
     }
 
-    @Test void invalidRootUsesAllDefaults() {
-        assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(new JsonObject()));
-
-        var wrongSchema = GuardConfig.DEFAULT.toJson();
-        wrongSchema.addProperty("schemaVersion", 2);
-        assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(wrongSchema));
-
+    @Test void invalidSettingsUseAllGuardDefaults() {
         var badValue = GuardConfig.DEFAULT.toJson();
         badValue.addProperty("max", 0);
         assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(badValue));
@@ -65,7 +57,6 @@ class GuardConfigTest {
         assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(crossed));
 
         var fallbackCrossesMax = new JsonObject();
-        fallbackCrossesMax.addProperty("schemaVersion", 1);
         fallbackCrossesMax.addProperty("max", 1000);
         assertEquals(GuardConfig.DEFAULT, GuardConfig.fromJson(fallbackCrossesMax));
 

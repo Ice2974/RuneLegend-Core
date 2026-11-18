@@ -15,18 +15,21 @@
 
 ## 调整战斗参数
 
-服务器第一次启动时会在配置目录生成以下文件：
+战斗参数位于 `config/runelegend-core/server.json`，分为以下三组。
 
-| 文件 | 用途 | 是否可手工修改 |
-| --- | --- | --- |
-| `config/runelegend-core/guard.json` | 格挡体力 | 可，重启生效 |
-| `config/runelegend-core/tokens.json` | 内置令牌数值 | 可，重启生效，字段见[令牌文档](tokens.md#令牌配置) |
-| `config/runelegend-core/player_states.json` | 倒地、扶起距离、时长和生命比例 | 可，重启生效，字段见[玩家状态文档](player-states.md) |
-| `config/runelegend-core/players.json` | 玩家令牌装备 | 由模组管理，不建议手工修改 |
+| 段 | 用途 |
+| --- | --- |
+| `guard` | 格挡体力 |
+| `player_states` | 倒地时长、扶起距离、时长和生命比例，字段见[玩家状态文档](player-states.md#配置) |
+| `tokens` | 内置令牌数值，字段见[令牌文档](tokens.md#令牌配置) |
 
-单人游戏中的 `config` 指该 Minecraft 实例的配置目录，独立服务器指服务端目录下的 `config`。`guard.json`、`tokens.json` 与 `player_states.json` 只在逻辑服务器启动时读取，修改后需要重启服务器或重新载入单人世界。配置跨存档共用，玩家状态按存档会话隔离且不写盘。
+玩家令牌装备由模组写入同目录的 `players.json`。
 
-`guard.json` 控制格挡体力（1 tick = 1/20 秒）：
+单人游戏中的 `config` 指该 Minecraft 实例的配置目录，独立服务器指服务端目录下的 `config`。`server.json` 在逻辑服务器启动时读取一次，缺失时自动生成，修改后需要重启服务器或重新载入单人世界。配置跨存档共用，玩家状态按存档会话隔离且不写盘。
+
+保留顶层的整数 `"schemaVersion": 1`。文件读不到、顶层不是合法的 JSON 对象或版本无效时，三组都使用默认值并记录错误。分组缺失或类型错误时，只有对应分组使用默认值。读取已有配置时保留原文件。
+
+`guard` 段控制格挡体力（1 tick = 1/20 秒）：
 
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -36,7 +39,7 @@
 | `regen_per_tick` | 100 | 恢复期间每刻恢复的体力 |
 | `regen_delay_ticks` | 10 | 停止格挡后到开始恢复的延迟刻数 |
 
-字段缺省时取默认值；出现非法值（类型错误、越界或 `min_to_start` 大于 `max`）时整套配置回退默认值，并在服务器日志中记录错误。非法文件不会被改写，修正后重启即可生效。
+字段缺省时取默认值。出现非法值（类型错误、越界或 `min_to_start` 大于 `max`）时，`guard` 整段回退默认值并记录错误。
 
 ## 通过数据包定制
 
@@ -101,4 +104,4 @@ long round = api.getRules().round();
 
 `RuneLegendApi.get(server)` 只能在服务器线程、且服务器已经启动后调用；其他线程或模组未激活时抛出 `IllegalStateException`。`startGame()` / `stopGame()` 返回状态是否发生了改变。
 
-令牌框架本身也可以扩展：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。新增令牌的全部可调数值需要放进 `TokenConfig` 并在 `tokens.json` 中暴露；当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。事件类型、`TokenEvent` 语义与伤害通道见[令牌文档](tokens.md#扩展令牌)。
+令牌框架本身也可以扩展：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。新增令牌的全部可调数值需要放进 `TokenConfig` 并在 `server.json` 的 `tokens` 段暴露；当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。事件类型、`TokenEvent` 语义与伤害通道见[令牌文档](tokens.md#扩展令牌)。
