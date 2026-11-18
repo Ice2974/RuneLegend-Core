@@ -89,9 +89,11 @@ public final class PlayerStateEventGameTests {
             test.assertValueEqual(probe.data().getIntOr("blocked_finish", -1), 0, "A function cannot settle during an event");
 
             server.endTick();
+            probe.assertCount(2);
+            server.game().stopGame();
             probe.assertCount(3);
             var identities = Map.of(first.getUUID(), Identity.DOWNED, last.getUUID(), Identity.DOWNED);
-            test.assertValueEqual(probe.javaEvents.get(2), new RoundSummary(lastRecord.round(), RoundSummary.Reason.NO_ALIVE,
+            test.assertValueEqual(probe.javaEvents.get(2), new RoundSummary(lastRecord.round(), RoundSummary.Reason.MANUAL_STOP,
                     Optional.empty(), identities, Map.of(
                     first.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.DOWNS, 1.0, RoundMetric.HITS_TAKEN, 1.0,
                             RoundMetric.DAMAGE_TAKEN, 20.0, RoundMetric.UNATTRIBUTED_HITS_TAKEN, 1.0,
@@ -101,7 +103,7 @@ public final class PlayerStateEventGameTests {
             var ended = probe.functionEvent(2);
             test.assertValueEqual(ended.getStringOr("type", ""), "round_ended", "Function settlement follows both downs");
             test.assertValueEqual(ended.getLongOr("round", -1), lastRecord.round(), "Settlement round");
-            test.assertValueEqual(ended.getStringOr("reason", ""), "no_alive", "Settlement reason");
+            test.assertValueEqual(ended.getStringOr("reason", ""), "manual_stop", "Settlement reason");
             test.assertValueEqual(ended.getCompoundOrEmpty("identities").getStringOr(last.getUUID().toString(), ""),
                     "DOWNED", "Function settlement includes the last downed player");
             test.succeed();
@@ -243,12 +245,14 @@ public final class PlayerStateEventGameTests {
             probe.assertCount(3);
             probe.assertEliminated(2, round, target.getUUID(), Identity.DOWNED, EliminationReason.SCRIPTED, anchor(record), Optional.of(MAP_REASON));
             server.endTick();
+            probe.assertCount(3);
+            server.game().stopGame();
             probe.assertCount(4);
-            test.assertValueEqual(probe.javaEvents.getLast(), new RoundSummary(round, RoundSummary.Reason.NO_ALIVE,
+            test.assertValueEqual(probe.javaEvents.getLast(), new RoundSummary(round, RoundSummary.Reason.MANUAL_STOP,
                     Optional.empty(), Map.of(helper.getUUID(), Identity.ELIMINATED, target.getUUID(), Identity.ELIMINATED),
                     Map.of(helper.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.ELIMINATIONS, 1.0)),
                             target.getUUID(), new PlayerRoundStats(Map.of(RoundMetric.DOWNS, 1.0, RoundMetric.ELIMINATIONS, 1.0)))),
-                    "The normal last-survivor check settles with the committed eliminations");
+                    "Explicit settlement includes the committed eliminations");
             test.succeed();
         } finally {
             probe.close();

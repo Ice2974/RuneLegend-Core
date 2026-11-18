@@ -117,6 +117,7 @@ public final class TokenEventBridge {
         var tokens = server.tokens();
         var victim = hit.victim;
         var source = hit.source;
+        boolean killedByHit = !victim.isAlive();
         if (victim instanceof ServerPlayer player && tokens.eligible(player) && player.isAlive()) {
             if (acceptedDamage) tokens.dispatch(event(TokenEvent.Kind.HURT, player, victim, level, hit));
             if (hit.blocked > 0) tokens.dispatch(event(TokenEvent.Kind.GUARD_SUCCESS, player, victim, level, hit));
@@ -128,7 +129,7 @@ public final class TokenEventBridge {
         } else if (source.getDirectEntity() instanceof AbstractArrow) {
             tokens.dispatch(event(TokenEvent.Kind.ARROW, player, victim, level, hit));
         }
-        if (!victim.isAlive()) tokens.dispatch(event(TokenEvent.Kind.KILL, player, victim, level, hit));
+        if (killedByHit) tokens.dispatch(event(TokenEvent.Kind.KILL, player, victim, level, hit));
     }
 
     private static TokenEvent event(TokenEvent.Kind kind, ServerPlayer player, LivingEntity victim, ServerLevel level, Hit hit) {

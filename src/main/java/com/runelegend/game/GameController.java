@@ -48,10 +48,6 @@ public final class GameController implements RuneLegendApi {
         return update(GameState.WAITING, RoundSummary.Reason.FINISH, Objects.requireNonNull(outcomeId), null);
     }
 
-    public boolean endWithoutSurvivors() {
-        return update(GameState.WAITING, RoundSummary.Reason.NO_ALIVE, null, null);
-    }
-
     public void publishNotification(Runnable notification) {
         withDeferredNotifications(() -> pendingNotifications.addLast(notification));
     }

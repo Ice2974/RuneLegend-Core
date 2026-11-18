@@ -3,12 +3,14 @@ package com.runelegend.token;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.api.token.TokenContext;
 import com.runelegend.api.token.TokenEffect;
+import com.runelegend.token.effect.AsuraHealth;
 import com.runelegend.api.token.TokenTrigger;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -153,9 +155,11 @@ final class ExtensionTokenEffect implements TokenEffectHandler {
             checkScope();
             if (target == null || !Float.isFinite(amount) || amount <= 0
                     || target.level() != context.player().level() || !context.canHeal(target)) return false;
+            var form = AsuraHealth.on(target.getAttribute(Attributes.MAX_HEALTH));
+            float normalBefore = form == null ? 0 : form.healthForSave();
             float before = target.getHealth();
             target.heal(amount);
-            return target.getHealth() > before;
+            return target.getHealth() > before || form != null && form.healthForSave() > normalBefore;
         }
 
         @Override public void trackEffect(String key, Runnable cleanup) {

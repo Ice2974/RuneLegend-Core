@@ -27,8 +27,9 @@ abstract class DamageStatisticsMixin {
             @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setHealth(F)V")
     }, require = 1, allow = 1)
     private void runelegend$measureHealth(@Coerce LivingEntity victim, float health, Operation<Void> original) {
-        float before = victim.getHealth();
+        DamageStatistics.beginHealthWrite(victim);
         original.call(victim, health);
-        DamageStatistics.healthChanged(victim, before, victim.getHealth());
+        // Covers entity overrides that do not delegate to LivingEntity.setHealth.
+        DamageStatistics.finishHealthWrite(victim);
     }
 }

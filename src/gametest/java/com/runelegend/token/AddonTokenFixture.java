@@ -2,6 +2,7 @@ package com.runelegend.token;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.runelegend.api.RuneLegendApi;
 import com.runelegend.api.token.TokenContext;
 import com.runelegend.api.token.TokenEffect;
 import com.runelegend.api.token.TokenEntrypoint;
@@ -23,6 +24,11 @@ public final class AddonTokenFixture implements TokenEntrypoint {
     static final String DELAYED = "runelegend_test_delayed";
     static final String CLEANED = "runelegend_test_cleaned";
     static final String PENETRATING = "runelegend_test_penetrating";
+    static final String FINISH_ON_CLEANUP = "test_finish_on_cleanup";
+    static final String FINISHER = "test_melee_finisher";
+    static final String HEAL_ON_CHANGE = "test_heal_on_change";
+    static final String HEAL_ON_GUARD = "test_heal_on_guard";
+    static final String HEALED = "test_healed";
     static final String DEBUFF = "runelegend_test_debuff";
     static final Settings DEFAULT = new Settings(4, 60, 20);
     static final Codec<Settings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -35,7 +41,7 @@ public final class AddonTokenFixture implements TokenEntrypoint {
 
     @Override public void registerTokens(Registrar registrar) {
         registrar.register(ID, CODEC, DEFAULT, Set.of(TokenTrigger.Kind.HURT, TokenTrigger.Kind.GUARD_SUCCESS,
-                TokenTrigger.Kind.MELEE, TokenTrigger.Kind.KILL), Effect::new);
+                TokenTrigger.Kind.MELEE, TokenTrigger.Kind.KILL, TokenTrigger.Kind.HEALTH), Effect::new);
         registrar.register(WITHOUT_ICON, CODEC, DEFAULT, Set.of(), _ -> new TokenEffect() {});
     }
 
@@ -49,8 +55,16 @@ public final class AddonTokenFixture implements TokenEntrypoint {
         @Override public void onEvent(TokenContext context, TokenTrigger event) {
             switch (event.kind()) {
                 case HURT -> arm(context);
+                case MELEE -> {
+                    if (event.target().entityTags().contains(FINISHER)) context.damage(event.target(), 32);
+                }
+                case HEALTH -> {
+                    if (context.player().removeTag(HEAL_ON_CHANGE)) context.heal(context.player(), 2);
+                }
                 case GUARD_SUCCESS -> {
-                    if (event.target().entityTags().contains(DEBUFF)) {
+                    if (context.player().entityTags().contains(HEAL_ON_GUARD)) {
+                        if (context.heal(context.player(), 20)) context.player().addTag(HEALED);
+                    } else if (event.target().entityTags().contains(DEBUFF)) {
                         context.applyDebuff(event.target(), new MobEffectInstance(MobEffects.POISON, settings.effectTicks()));
                     } else {
                         context.damage(event.target(), settings.damage());
@@ -90,6 +104,9 @@ public final class AddonTokenFixture implements TokenEntrypoint {
 
         @Override public void onCleanup() {
             if (lastContext == null) return;
+            if (owner.removeTag(FINISH_ON_CLEANUP) && RuneLegendApi.finishGame(owner.level().getServer(), ID)) {
+                throw new AssertionError("Cleanup ended a partially committed downing");
+            }
             try {
                 lastContext.player();
                 throw new AssertionError("A token callback retained a usable context");

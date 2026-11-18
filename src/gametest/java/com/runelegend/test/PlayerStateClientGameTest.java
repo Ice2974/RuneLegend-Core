@@ -32,6 +32,9 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
             try (var connection = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null && cache.view().spectateNextRound());
                 server.runCommand("runelegend game start");
+                context.waitFor(client -> cache.rules() != null && cache.rules().running() && cache.view() != null
+                        && cache.view().playerState() == PlayerState.SPECTATOR);
+                server.runCommand("runelegend game stop");
                 context.waitFor(client -> cache.rules() != null && cache.rules().round() == 1 && !cache.rules().running()
                         && cache.view() != null && !cache.view().spectateNextRound() && cache.view().playerState() == null);
                 var helper = server.computeOnServer(minecraft -> PlayerStateFixtures.join(minecraft,
@@ -90,10 +93,13 @@ public final class PlayerStateClientGameTest implements FabricClientGameTest {
                 context.waitTicks(2);
                 context.takeScreenshot("runelegend-downed-marker-zh");
                 server.runCommand("kill @p");
+                context.waitFor(client -> cache.rules() != null && cache.rules().running() && cache.view() != null
+                        && cache.view().playerState() == PlayerState.DOWNED);
+                server.runCommand("runelegend game finish runelegend_test:defeat");
                 context.waitFor(client -> cache.rules() != null && !cache.rules().running() && cache.view() != null
                         && cache.view().downed().isEmpty() && cache.view().tab().isEmpty() && cache.view().playerState() == null && client.player != null
                         && client.player.isAlive() && !client.player.isSpectator() && client.player.getHealth() == client.player.getMaxHealth());
-                context.takeScreenshot("runelegend-auto-stop-clears-markers");
+                context.takeScreenshot("runelegend-finish-clears-markers");
                 var restore = context.computeOnClient(client -> {
                     client.getLanguageManager().setSelected(originalLanguage);
                     return client.reloadResourcePacks();

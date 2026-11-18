@@ -14,12 +14,18 @@ import java.util.UUID;
 
 public final class RoundNotifications {
     private static final Identifier STARTED = RuneLegendMod.id("round_started");
+    private static final Identifier NO_ALIVE = RuneLegendMod.id("round_no_alive");
     private static final Identifier ENDED = RuneLegendMod.id("round_ended");
 
     private RoundNotifications() {}
 
     public static void started(MinecraftServer server, long round, Map<UUID, PlayerSnapshot.Identity> identities) {
         FunctionNotifications.publish(server, STARTED, () -> RoundEvents.STARTED.invoker().onRoundStarted(server, round, identities),
+                () -> arguments(round, identities));
+    }
+
+    public static void noAlive(MinecraftServer server, long round, Map<UUID, PlayerSnapshot.Identity> identities) {
+        FunctionNotifications.publish(server, NO_ALIVE, () -> RoundEvents.NO_ALIVE.invoker().onRoundNoAlive(server, round, identities),
                 () -> arguments(round, identities));
     }
 

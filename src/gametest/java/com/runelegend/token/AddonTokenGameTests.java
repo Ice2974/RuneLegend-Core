@@ -78,9 +78,11 @@ public final class AddonTokenGameTests {
             test.assertTrue(!hasSpeed(player) && hasSpeed(replacement), "The replacement callback moves the modifier");
             test.assertValueEqual(server.tokens().cooldownTicks(replacement, ID), DEFAULT.cooldownTicks(),
                     "The replacement keeps the cooldown deadline");
+            replacement.addTag(FINISH_ON_CLEANUP);
             replacement.die(replacement.damageSources().genericKill());
             test.assertTrue(!hasSpeed(replacement) && replacement.entityTags().contains(CLEANED),
                     "Downing cleans up the managed modifier and the effect instance");
+            test.assertValueEqual(server.statistics().player(uuid).value(RoundMetric.DOWNS), 1.0, "The downing is committed");
             var downed = server.downed().get(uuid);
             test.assertTrue(server.revive(uuid, downed.sequence()), "The current player can be revived");
             test.assertValueEqual(server.tokens().cooldownTicks(server.currentPlayer(uuid), ID), 0, "Revival has a fresh runtime");
@@ -142,11 +144,54 @@ public final class AddonTokenGameTests {
             test.assertValueEqual(server.tokens().cooldownTicks(attacker, ID), 0, "The addon kill cannot recurse into a token KILL event");
             test.assertValueEqual(server.statistics().player(attacker.getUUID()).value(RoundMetric.HITS_DEALT),
                     hitsBefore + 1, "The addon hit remains attributed in round statistics");
+            var finisherTarget = test.spawnWithNoFreeWill(EntityTypes.PIG, 2, 2, 2);
+            finisherTarget.addTag(FINISHER);
+            hitsBefore = server.statistics().player(attacker.getUUID()).value(RoundMetric.HITS_DEALT);
+            attacker.resetAttackStrengthTicker();
+            attacker.attack(finisherTarget);
+            test.assertFalse(finisherTarget.isAlive(), "The addon finishes a nonlethal swing");
+            test.assertValueEqual(server.tokens().cooldownTicks(attacker, ID), 0, "The outer swing earns no KILL");
+            test.assertValueEqual(server.statistics().player(attacker.getUUID()).value(RoundMetric.HITS_DEALT),
+                    hitsBefore + 2, "The swing and finisher are separate settled hits");
             test.succeed();
         } finally {
             server.game().stopGame();
             server.players().clear(attacker.getUUID());
             server.leave(attacker);
+        }
+    }
+
+    @GameTest
+    public void synchronousHealingAndAsuraReserveAreMeasuredSeparately(GameTestHelper test) {
+        var server = RuneLegendServer.find(test.getLevel().getServer());
+        server.game().stopGame();
+        var player = GuardGameTests.fixture(test);
+        try {
+            server.players().equip(player.getUUID(), ID);
+            server.players().equip(player.getUUID(), RuneLegendMod.id("asura_form"));
+            server.game().startGame();
+            player.setHealth(14);
+            player.addTag(HEAL_ON_CHANGE);
+            player.hurtServer(player.level(), player.damageSources().magic(), 4);
+            closeTo(test, player.getHealth(), 12, "The HEALTH callback already restored two points");
+            test.assertValueEqual(server.statistics().player(player.getUUID()).value(RoundMetric.DAMAGE_TAKEN),
+                    4.0, "The whole hit is credited independently of healing");
+
+            var enemy = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
+            for (int i = 0; i < TokenConfig.AsuraFormSettings.DEFAULT.requiredKills(); i++) {
+                server.tokens().dispatch(new TokenEvent(TokenEvent.Kind.KILL, player, enemy, player.level(), null, 1, 1, 0));
+            }
+            closeTo(test, player.getHealth(), TokenConfig.AsuraFormSettings.DEFAULT.temporaryHealth(), "Full temporary bar");
+            player.addTag(HEAL_ON_GUARD);
+            fireGuard(server.tokens(), player, player);
+            test.assertTrue(player.removeTag(HEALED), "Healing only the reserve succeeds");
+            fireGuard(server.tokens(), player, player);
+            test.assertFalse(player.entityTags().contains(HEALED), "Two full bars report no healing");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.players().clear(player.getUUID());
+            server.leave(player);
         }
     }
 

@@ -37,7 +37,7 @@ public final class SoulSiphonClientGameTest implements FabricClientGameTest {
                 awaitHealth(context, true, 29, 29);
             }
             server.waitFor(minecraft -> minecraft.getPlayerList().getPlayers().isEmpty());
-            server.waitFor(minecraft -> !RuneLegendServer.find(minecraft).game().getRules().running());
+            server.runCommand("runelegend game stop");
             try (var connection = server.connect()) {
                 awaitHealth(context, false, 27, 27);
                 server.runCommand("runelegend game start");

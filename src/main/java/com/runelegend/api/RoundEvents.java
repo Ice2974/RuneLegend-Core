@@ -22,6 +22,18 @@ public final class RoundEvents {
                 }
             });
 
+    /** Fires once per absence of survivors at end of tick. The round remains active. */
+    public static final Event<NoAlive> NO_ALIVE = EventFactory.createArrayBacked(NoAlive.class, listeners ->
+            (server, round, identities) -> {
+                for (var listener : listeners) {
+                    try {
+                        listener.onRoundNoAlive(server, round, identities);
+                    } catch (RuntimeException error) {
+                        RuneLegendMod.LOGGER.error("Round {} no-alive listener failed", round, error);
+                    }
+                }
+            });
+
     /** Fires after round cleanup and the return-to-spawn flow. */
     public static final Event<Ended> ENDED = EventFactory.createArrayBacked(Ended.class, listeners ->
             (server, summary) -> {
@@ -37,6 +49,11 @@ public final class RoundEvents {
     @FunctionalInterface
     public interface Started {
         void onRoundStarted(MinecraftServer server, long round, Map<UUID, PlayerSnapshot.Identity> identities);
+    }
+
+    @FunctionalInterface
+    public interface NoAlive {
+        void onRoundNoAlive(MinecraftServer server, long round, Map<UUID, PlayerSnapshot.Identity> identities);
     }
 
     @FunctionalInterface

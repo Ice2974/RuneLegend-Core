@@ -7,7 +7,7 @@
 1. 服务端与所有客户端安装本模组和 Fabric API。配置阶段握手会拒绝未安装模组或协议不匹配的客户端，不存在缺模组的部分功能模式。
 2. 玩家在等待状态用 `/runelegend token equip` 配置令牌，或由管理员用 `/runelegend admin` 统一配装。
 3. 等待时可用 `/runelegend player spectate true` 选择只观战下一局。用 `/runelegend game start` 开局（可直接放进命令方块），参与者进入冒险模式，观战者进入旁观模式；只有 `RUNNING + ALIVE` 可触发令牌，运行时禁改装备和观战选择。
-4. 关卡达成结局时执行 `/runelegend game finish mymap:victory`，管理员可执行 `/runelegend game stop` 手动停局。没有 `ALIVE` 玩家时也会自动结算。本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家统一传送到世界出生点并变回冒险模式，生命、饥饿和体力回满。等待状态登录同样在世界出生点上线，世界出生点就是等待区，可用 `/setworldspawn` 设置，详见[玩家状态](player-states.md)。
+4. 关卡达成结局时执行 `/runelegend game finish mymap:victory`，管理员可执行 `/runelegend game stop` 手动停局。没有 `ALIVE` 玩家时关卡会收到通知。显式结算或停局后，本局临时状态、倒地记录和救援进度清空，回合计数保留，在线玩家统一传送到世界出生点并变回冒险模式，生命、饥饿和体力回满。等待状态登录同样在世界出生点上线，世界出生点就是等待区，可用 `/setworldspawn` 设置，详见[玩家状态](player-states.md)。
 
 - 游戏状态不持久化：服务器重启或单人世界重新载入后回到 `WAITING`、回合 0，关卡需要重新执行 `game start`。
 - `game start`（含名单版本）、`game stop` 和 `game finish` 共用 `runelegend:game` 权限（默认等级 2）。状态发生变化时命令返回 `1`，重复调用或通知回调期间调用时返回 `0`。
@@ -50,9 +50,9 @@ execute as @a store result score @s rl_map run runelegend test player @s alive
 | `runelegend player revive <player> <handle>` | 用凭据扶起对应玩家。当前回合、连接、身份和倒地截止时间必须有效，且传送到原死亡维度成功后才恢复 `ALIVE` |
 | `runelegend player eliminate <player> <round> <reason_id>` | 指定当前回合号，将在线 `ALIVE` 或 `DOWNED` 玩家转为 `ELIMINATED`，取消相关救援并清理令牌运行态。原因用资源 ID，例如 `mymap:trapdoor`。省略命名空间时使用 `minecraft` |
 
-例如 `runelegend game start participants @a[tag=ready]` 仅让带 `ready` 标签且未选择观战的在线玩家参战。选择器没有匹配时，全员观战，随后按无存活者规则自动结算。观战选择随开局消费。首次中途加入的玩家仍为观战，即使其 UUID 在关卡预先准备的名单中。参赛者断线后重连仍为阵亡。无参数开局会考虑所有在线玩家。
+例如 `runelegend game start participants @a[tag=ready]` 仅让带 `ready` 标签且未选择观战的在线玩家参战。选择器没有匹配时，全员观战，随后收到无人存活通知。观战选择随开局消费。首次中途加入的玩家仍为观战，即使其 UUID 在关卡预先准备的名单中。参赛者断线后重连仍为阵亡。无参数开局会考虑所有在线玩家。
 
-扶起凭据绑定玩家和单次倒地。扶起、超时、淘汰、断线或停局都会使原凭据失效，再次倒地会生成新凭据。传送失败时，倒地记录保留至原截止时间。机关扶起采用与玩家救援相同的安全落点与生命恢复规则，扶起事件的 `rescuer_uuid` 为空。阵亡玩家无法通过扶起命令返场。淘汰命令保留玩家装备用于后续回合，末位存活者被淘汰后仍由服务端 tick 自动结算。
+扶起凭据绑定玩家和单次倒地。扶起、超时、淘汰、断线或停局都会使原凭据失效，再次倒地会生成新凭据。传送失败时，倒地记录保留至原截止时间。机关扶起采用与玩家救援相同的安全落点与生命恢复规则，扶起事件的 `rescuer_uuid` 为空。阵亡玩家无法通过扶起命令返场。淘汰命令保留玩家装备用于后续回合，末位存活者被淘汰后在服务端 tick 末触发无人存活通知。
 
 在倒地标签的宏函数中保存这次倒地的凭据，供机关之后读取。多人关卡应为每次待处理的倒地保存各自的参数。下例使用一个存储条目演示一次机关救援。
 
@@ -77,9 +77,8 @@ $execute as $(player_uuid) run runelegend player revive @s $(revive_handle)
 | --- | --- | --- |
 | `runelegend game finish <outcome_id>` | `finish` | 关卡定义的资源 ID，例如 `mymap:victory`。省略命名空间时使用 `minecraft` |
 | `runelegend game stop` | `manual_stop` | 空字符串 |
-| 服务端 tick 检查到没有 `ALIVE` 玩家 | `no_alive` | 空字符串 |
 
-全员观战时也会先收到开局通知，随后在服务端 tick 检查时收到 `no_alive` 结算。末位存活者断线时，结算身份包含该 UUID 的 `ELIMINATED` 记录。关服直接清理本次会话，重新加载时回到回合 0。
+全员观战时先收到开局通知，再收到无人存活通知，回合保持运行。末位存活者断线时，结算身份包含该 UUID 的 `ELIMINATED` 记录。关服直接清理本次会话，重新加载时回到回合 0。
 
 ### 数据包函数标签
 
@@ -101,6 +100,32 @@ $data modify storage mymap:round last set value {round:$(round)L,reason:"$(reaso
 参数随本次函数调用传入，由 Core 在派发时确定。若要在后续函数或 `schedule` 任务中使用这些值，请在回调内保存或显式传递。函数沿用原版 `#minecraft:tick` 的服务器执行源，位于世界出生点及其维度（维度不可用时回退主世界），以权限等级 2 运行，`@s` 初始为空。可用 `execute in` 或 `execute as` 指定关卡自己的维度或执行者。
 
 Java 通知先于对应函数标签同步执行。回调可以查询状态。回调直接或通过嵌套函数调用 `start`、`stop` 或 `finish` 时返回 `0`，Java 返回 `false`。若要在结算后重新开局，可将开局命令放入之后执行的函数。
+
+### 无人存活时播放失败动画
+
+将函数加入 `data/runelegend/tags/function/round_no_alive.json`，或注册 Java 事件 `RoundEvents.NO_ALIVE`。两者都接收当前回合号 `round` 与身份快照 `identities`，执行源和重入规则同开局通知。服务端在 tick 末检查：全员观战开局、最后一人倒地、淘汰或离开都能触发。连续无人存活只通知一次。机关成功扶起后，再次无人存活可再次触发；新回合独立计数。
+
+通知期间仍为 `RUNNING`，玩家留在场内，倒地时限与统计继续推进。旧地图如果依赖自动停局，需要订阅此标签。`RoundSummary.Reason.NO_ALIVE` 保留供既有 Java 代码引用，Core 的新结算摘要使用地图显式指定的结局或手动停局原因。
+
+下面的函数显示标题，60 tick 后以 `mymap:defeat` 结算。需要尽快结算的地图可把延时改为 `1t`。
+
+```mcfunction
+# mymap:defeat/begin，加入 #runelegend:round_no_alive
+title @a title {"text":"挑战失败"}
+schedule function mymap:defeat/finish 60t replace
+```
+
+```mcfunction
+# mymap:defeat/finish
+runelegend game finish mymap:defeat
+```
+
+将下面的清理函数加入 `#minecraft:load`、`#runelegend:round_started`、`#runelegend:round_ended` 和 `#runelegend:player_revived`。这样提前停局、重开、重载或机关救回最后一人时，旧动画的预约会一并取消。若关卡希望在救回后继续动画，可自行调整。
+
+```mcfunction
+# mymap:defeat/cancel
+schedule clear mymap:defeat/finish
+```
 
 ### 让关卡可以重开
 
@@ -165,7 +190,7 @@ execute in minecraft:overworld run setblock 100 64 100 minecraft:redstone_block
 | `PlayerStateEvents.REVIVED` | `#runelegend:player_revived` | 传送成功、恢复 `ALIVE` 并清除倒地记录后。玩家救援会携带实际救援者 UUID |
 | `PlayerStateEvents.ELIMINATED` | `#runelegend:player_eliminated` | `ALIVE` 或 `DOWNED` 转为 `ELIMINATED` 并完成清理后。原因包括倒地超时（`timeout`）、断线（`disconnect`）、原版死亡回调提交淘汰（`death`）和关卡操作（`scripted`） |
 
-救援完成与倒地超时落在同一 tick 时，只发布超时淘汰。传送失败时保留倒地记录，且没有扶起通知。断线回调发出时，Core 已将该 UUID 标记为离线；玩家重连或旧连接再次断开时，原有淘汰记录不会再发布。末位玩家倒地或断线导致自动停局时，身份通知先于 `round_ended`。
+救援完成与倒地超时落在同一 tick 时，只发布超时淘汰。传送失败时保留倒地记录，且没有扶起通知。断线回调发出时，Core 已将该 UUID 标记为离线；玩家重连或旧连接再次断开时，原有淘汰记录不会再发布。末位玩家倒地或断线时，身份通知先于 tick 末的 `round_no_alive`。
 
 ### 函数参数与执行源
 
@@ -215,10 +240,10 @@ execute store result score @s mymap_damage run runelegend stats get @s damage_de
 ### 命中统计口径
 
 - 对参与者承受的伤害、以及可归因给本轮参与者的生物伤害，原版进入实际减伤与吸收结算后记一次命中。完全格挡、完全吸收和被抗性抵消的已结算命中都计次数。免疫或受击间隔直接拒绝的尝试不计。
-- 格挡量取物品格挡结果，吸收量取该次伤害实际扣除的吸收生命。实际扣血取护甲、防护附魔、抗性和吸收之后从当前生命条扣掉的值，上限为受击前的剩余生命。扣到 0 后图腾补回的生命和倒地时恢复的 1 点生命都属于后续变化。图腾救命仍计本次扣血，但不会增加倒地次数。
+- 格挡量取物品格挡结果，吸收量取该次伤害实际扣除的吸收生命。实际扣血取护甲、防护附魔、抗性和吸收之后从当前生命条扣掉的值，上限为受击前的剩余生命。扣到 0 后图腾补回的生命和倒地时恢复的 1 点生命都属于后续变化。图腾救命仍计本次扣血，但不会增加倒地次数。生命变化回调中产生的治疗也单独处理，本次扣血按治疗前的值统计。
 - 修罗化身期间的扣血计入临时生命条损失，切换或恢复生命条不产生伤害统计。替身承受的伤害不计给本体，替身本身也不计入玩家统计。
 - 同次近战的穿透追加与基础伤害合计为一次。单独结算的令牌伤害各自计一次，并沿用令牌的反递归规则。
-- 攻击者取原版伤害来源的责任实体，命中记录同时区分直接实体（如箭）与伤害类型。持续伤害每次实际结算独立计数。来源能提供本轮参与者时计给该 UUID，即使玩家此时已离线；没有责任实体时记录为未归因，不用上一击、效果施加者或最近攻击者推断。生物自身造成的伤害保留其归因。
+- 攻击者取原版伤害来源的责任实体，命中记录同时区分直接实体（如箭）与伤害类型。持续伤害每次实际结算独立计数。投射物命中时若原版无法解析责任实体，使用投射物保留的所有者 UUID 归因。能确定本轮参与者时计给该 UUID，即使玩家此时已离线；没有责任实体时记录为未归因，不用上一击、效果施加者或最近攻击者推断。生物自身造成的伤害保留其归因。
 
 ## 调整战斗参数
 
@@ -329,7 +354,7 @@ long round = api.getRules().round();
 
 `RuneLegendApi.get(server)` 只能在服务器线程、且服务器已经启动后调用；其他线程或模组未激活时抛出 `IllegalStateException`。`startGame()` / `stopGame()` 返回状态是否发生了改变。
 
-`RuneLegendApi.finishGame(server, outcomeId)` 对应 `game finish`，返回状态是否改变。在服务端模组初始化时可注册 `RoundEvents.STARTED` 与 `RoundEvents.ENDED`。回调在服务器线程运行。开局回调收到回合号及不可变身份表。结束回调收到不可变 `RoundSummary`，包含回合号、`FINISH` / `MANUAL_STOP` / `NO_ALIVE`、可选结局 ID 和最终身份表。可以保留摘要，供之后的结算逻辑使用。
+`RuneLegendApi.finishGame(server, outcomeId)` 对应 `game finish`，返回状态是否改变。在服务端模组初始化时可注册 `RoundEvents.STARTED` 与 `RoundEvents.ENDED`。回调在服务器线程运行。开局回调收到回合号及不可变身份表。结束回调收到不可变 `RoundSummary`，包含回合号、`FINISH` / `MANUAL_STOP`、可选结局 ID 和最终身份表。可以保留摘要，供之后的结算逻辑使用。
 
 ```java
 RoundEvents.ENDED.register((server, summary) -> {

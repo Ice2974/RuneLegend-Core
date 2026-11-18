@@ -38,6 +38,9 @@ public final class RoundLifecycleGameTests {
         RoundEvents.STARTED.register((minecraft, round, identities) -> {
             if (active != null && active.minecraft == minecraft) active.started(round, identities);
         });
+        RoundEvents.NO_ALIVE.register((minecraft, round, identities) -> {
+            if (active != null && active.minecraft == minecraft) active.noAliveRounds.add(round);
+        });
         RoundEvents.ENDED.register((minecraft, summary) -> {
             if (active != null && active.minecraft == minecraft) active.ended(summary);
         });
@@ -71,15 +74,20 @@ public final class RoundLifecycleGameTests {
 
             var arrow = test.spawn(EntityTypes.ARROW, 2, 3, 2);
             var target = test.spawnWithNoFreeWill(EntityTypes.COW, 2, 2, 2);
-            var shot = test.getLevel().damageSources().arrow(arrow, disconnected);
+            arrow.setOwner(disconnected);
+            arrow.setPos(target.position().add(0, 0.5, -0.8));
+            arrow.setDeltaMovement(0, 0, 1);
+            arrow.setBaseDamage(2.5);
             server.leave(disconnected);
             server.leave(disconnected);
-            target.hurtServer(test.getLevel(), shot, 2.5F);
+            disconnected.discard();
+            test.assertTrue(arrow.getOwner() == null, "The shooter entity cannot be resolved at impact");
+            arrow.tick();
             downed.die(downed.damageSources().genericKill());
             var offline = "runelegend stats get " + disconnected.getUUID() + " ";
             probe.storeResult(source, offline + "eliminations", 1);
             probe.storeResult(source, offline + "hits_dealt", 1);
-            probe.storeResult(source, offline + "damage_dealt", 2500);
+            probe.storeResult(source, offline + "damage_dealt", 3000);
             probe.storeResult(source.withEntity(downed), "runelegend stats get @s downs", 1);
             probe.storeResult(source, "runelegend stats get " + UUID.randomUUID() + " downs", 0);
             test.assertTrue(survivor.teleportTo(nether, 0.5, 64, 0.5, java.util.Set.of(), 0, 0, false),
@@ -92,12 +100,12 @@ public final class RoundLifecycleGameTests {
                     Map.of(survivor.getUUID(), Identity.ALIVE, disconnected.getUUID(), Identity.ELIMINATED,
                             downed.getUUID(), Identity.DOWNED));
             var offlineStats = finish.stats().get(disconnected.getUUID());
-            test.assertValueEqual(offlineStats.value(RoundMetric.DAMAGE_DEALT), 2.5, "Java retains offline damage credit");
+            test.assertValueEqual(offlineStats.value(RoundMetric.DAMAGE_DEALT), 3.0, "Java retains offline damage credit");
             var finalStats = probe.assertMacroSnapshot("ended", round, finish.identities()).getCompoundOrEmpty("stats");
             var offlineTag = finalStats.getCompoundOrEmpty(disconnected.getUUID().toString());
             test.assertValueEqual(offlineTag.getLongOr("eliminations", -1L), 1L, "Function receives the offline elimination count");
-            test.assertValueEqual(offlineTag.getDoubleOr("damage_dealt", -1), 2.5, "Function receives unscaled damage");
-            probe.storeResult(source, offline + "damage_dealt", 2500);
+            test.assertValueEqual(offlineTag.getDoubleOr("damage_dealt", -1), 3.0, "Function receives unscaled damage");
+            probe.storeResult(source, offline + "damage_dealt", 3000);
             test.assertValueEqual(probe.score("#alive_on_end"), 0, "The end function queries the cleared round");
             test.assertValueEqual(probe.score("#blocked_start"), 0, "An end function cannot reentrantly start");
             test.assertValueEqual(probe.score("#spawn_dimension"), 1, "Functions use the shared spawn dimension");
@@ -127,26 +135,47 @@ public final class RoundLifecycleGameTests {
     }
 
     @GameTest
-    public void noAliveSettlesSpectatorsAndLastDisconnectOnTheServerTick(GameTestHelper test) {
+    public void noAliveSignalsOnceAndWaitsForMapSettlement(GameTestHelper test) {
         var server = RuneLegendServer.find(test.getLevel().getServer());
         server.game().stopGame();
         var player = join(test);
         var uuid = player.getUUID();
         var probe = new Probe(test);
         try {
+            var minecraft = test.getLevel().getServer();
+            var source = minecraft.getFunctions().getGameLoopSender();
+            minecraft.getCommands().performPrefixedCommand(source, "data modify storage runelegend_test:round_probe animate set value 1b");
+            long finishTick = source.getLevel().getGameTime() + 60;
             test.assertTrue(server.playerStates().selectSpectator(uuid, true), "The player can choose to spectate");
             test.assertTrue(server.game().startGame(), "A round with only spectators still starts");
             long round = server.game().getRules().round();
             probe.assertCounts(1, 0);
             test.assertValueEqual(probe.initialIdentities.getFirst(), Map.of(uuid, Identity.SPECTATOR), "Spectator at start");
             server.endTick();
-            probe.assertEnd(1, round, RoundSummary.Reason.NO_ALIVE, Optional.empty(), Map.of(uuid, Identity.SPECTATOR));
+            server.endTick();
+            probe.assertCounts(1, 0);
+            test.assertValueEqual(probe.noAliveRounds, List.of(round), "A continuous absence signals once");
+            test.assertValueEqual(probe.score("#no_alive"), 1, "The function ran once");
+            probe.assertMacroSnapshot("no_alive", round, Map.of(uuid, Identity.SPECTATOR));
+            minecraft.getScheduledEvents().tick(minecraft, finishTick - 1);
+            probe.assertCounts(1, 0);
+            minecraft.getScheduledEvents().tick(minecraft, finishTick);
+            probe.assertEnd(1, round, RoundSummary.Reason.FINISH, Optional.of(Identifier.parse("test_map:defeat")),
+                    Map.of(uuid, Identity.SPECTATOR));
 
             test.assertTrue(server.game().startGame(), "The spectator choice has been consumed");
+            player.die(player.damageSources().genericKill());
+            server.endTick();
+            var handle = server.downedHandle(uuid).orElseThrow();
+            test.assertTrue(server.tryRevive(handle), "A map can still revive the last downed player");
             server.leave(player);
             probe.assertCounts(2, 1);
             server.endTick();
-            probe.assertEnd(2, round + 1, RoundSummary.Reason.NO_ALIVE, Optional.empty(), Map.of(uuid, Identity.ELIMINATED));
+            test.assertValueEqual(probe.noAliveRounds, List.of(round, round + 1, round + 1), "A revival rearms the signal");
+            test.assertValueEqual(probe.score("#no_alive"), 3, "Java and function signals agree");
+            probe.assertMacroSnapshot("no_alive", round + 1, Map.of(uuid, Identity.ELIMINATED));
+            test.assertTrue(server.game().stopGame(), "The empty server still has its active round");
+            probe.assertEnd(2, round + 1, RoundSummary.Reason.MANUAL_STOP, Optional.empty(), Map.of(uuid, Identity.ELIMINATED));
             server.endTick();
             probe.assertCounts(2, 2);
             test.succeed();
@@ -197,7 +226,8 @@ public final class RoundLifecycleGameTests {
             test.assertTrue(rejoined.isSpectator() && queries.player(included.getUUID()).identity().orElseThrow() == Identity.ELIMINATED,
                     "Rejoining does not restore a disconnected participant");
             server.endTick();
-            probe.assertEnd(1, round, RoundSummary.Reason.NO_ALIVE, Optional.empty(), Map.of(included.getUUID(), Identity.ELIMINATED,
+            server.game().stopGame();
+            probe.assertEnd(1, round, RoundSummary.Reason.MANUAL_STOP, Optional.empty(), Map.of(included.getUUID(), Identity.ELIMINATED,
                     excluded.getUUID(), Identity.SPECTATOR, optOut.getUUID(), Identity.SPECTATOR, lateId, Identity.SPECTATOR));
 
             probe.storeResult(source.withEntity(excluded), start, 1);
@@ -207,6 +237,7 @@ public final class RoundLifecycleGameTests {
             probe.storeResult(source, "runelegend game start participants @a[tag=rl_probe_no_match]", 1);
             test.assertValueEqual(queries.aliveCount(), 0, "An empty selector starts with all players spectating");
             server.endTick();
+            server.game().stopGame();
 
             probe.storeResult(source, "runelegend game start", 1);
             test.assertValueEqual(queries.aliveCount(), 4, "Plain start uses all online players and the old opt-out has been consumed");
@@ -229,6 +260,7 @@ public final class RoundLifecycleGameTests {
     private static final class Probe {
         private final GameTestHelper test;
         private final MinecraftServer minecraft;
+        private final List<Long> noAliveRounds = new ArrayList<>();
         private final List<Long> startRounds = new ArrayList<>();
         private final List<Map<UUID, Identity>> initialIdentities = new ArrayList<>();
         private final List<RoundSummary> summaries = new ArrayList<>();

@@ -2,6 +2,7 @@ package com.runelegend.game;
 
 import com.runelegend.RuneLegendServer;
 import com.runelegend.player.PlayerState;
+import com.runelegend.mixin.ProjectileOwnerAccessor;
 import com.runelegend.token.TokenTargeting;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,10 +25,8 @@ public final class DamageStatistics {
 
     public static boolean track(RuneLegendServer server, LivingEntity victim, DamageSource source, BooleanSupplier original) {
         var previous = CURRENT.get();
-        var attacker = source.getEntity();
-        // Some projectile sources use the ownerless projectile itself as the causing entity.
-        if (attacker instanceof Projectile && attacker == source.getDirectEntity()) attacker = null;
-        var identity = attacker instanceof ServerPlayer ? server.playerStates().state(attacker.getUUID()) : null;
+        var attacker = attackerId(source);
+        var identity = attacker == null ? null : server.playerStates().state(attacker);
         boolean creditAttacker = identity != null && identity != PlayerState.SPECTATOR;
         boolean creditTarget = victim instanceof ServerPlayer player && server.tokenEligible(player);
         var hit = (creditAttacker || creditTarget) && victim.isAlive() && !TokenTargeting.substitute(victim)
@@ -39,6 +38,16 @@ public final class DamageStatistics {
             if (previous == null) CURRENT.remove();
             else CURRENT.set(previous);
         }
+    }
+
+    private static UUID attackerId(DamageSource source) {
+        var cause = source.getEntity();
+        if (source.getDirectEntity() instanceof Projectile projectile && (cause == null || cause == projectile)) {
+            // Vanilla can no longer resolve an offline shooter, but the projectile retains its owner reference.
+            var owner = ((ProjectileOwnerAccessor) projectile).runelegend$owner();
+            return owner == null ? null : owner.getUUID();
+        }
+        return uuid(cause);
     }
 
     public static void blocked(LivingEntity victim, DamageSource source, float blocked) {
@@ -54,16 +63,28 @@ public final class DamageStatistics {
         }
     }
 
-    public static void healthChanged(LivingEntity victim, float before, float after) {
+    public static void beginHealthWrite(LivingEntity victim) {
         var hit = CURRENT.get();
-        if (hit != null && hit.victim == victim) hit.healthLost = loss(before, after);
+        if (hit != null && hit.victim == victim) {
+            hit.healthBefore = victim.getHealth();
+            hit.measuringHealth = true;
+        }
+    }
+
+    /** Consume the damage write before HEALTH listeners can heal or cause another hit. */
+    public static void finishHealthWrite(LivingEntity victim) {
+        var hit = CURRENT.get();
+        if (hit != null && hit.victim == victim && hit.measuringHealth) {
+            hit.measuringHealth = false;
+            hit.healthLost = loss(hit.healthBefore, victim.getHealth());
+        }
     }
 
     public static void settled(LivingEntity victim, DamageSource source) {
         var hit = CURRENT.get();
         if (hit == null || !hit.matches(victim, source) || !hit.reachedAbsorption) return;
         var damageType = source.typeHolder().unwrapKey().map(key -> key.identifier()).orElse(null);
-        var settled = new SettledHit(hit.round, uuid(hit.attacker), victim.getUUID(), uuid(source.getDirectEntity()),
+        var settled = new SettledHit(hit.round, hit.attacker, victim.getUUID(), uuid(source.getDirectEntity()),
                 damageType, hit.blocked, hit.absorbed, hit.healthLost);
         hit.server.statistics().record(settled, hit.creditAttacker, hit.creditTarget);
     }
@@ -82,15 +103,17 @@ public final class DamageStatistics {
         private final long round;
         private final LivingEntity victim;
         private final DamageSource source;
-        private final Entity attacker;
+        private final UUID attacker;
         private final boolean creditAttacker;
         private final boolean creditTarget;
         private float blocked;
         private float absorbed;
+        private float healthBefore;
+        private boolean measuringHealth;
         private float healthLost;
         private boolean reachedAbsorption;
 
-        private PendingHit(RuneLegendServer server, LivingEntity victim, DamageSource source, Entity attacker,
+        private PendingHit(RuneLegendServer server, LivingEntity victim, DamageSource source, UUID attacker,
                            boolean creditAttacker, boolean creditTarget) {
             this.server = server;
             this.round = server.game().getRules().round();
