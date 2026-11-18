@@ -149,13 +149,26 @@ public final class TokenEngine {
             int flags = (definition.effect().ready(player, state, tick) ? READY : 0)
                     | (tick < state.triggeredUntil ? TRIGGERED : 0)
                     | (tick < state.activeUntil ? ACTIVE : 0)
-                    | (tick < state.cooldownUntil && tick >= state.activeUntil ? COOLDOWN : 0)
+                    | (isCoolingDown(state, tick) ? COOLDOWN : 0)
                     | (definition.effect().preparing(player, state, tick) ? PREPARING : 0);
             return new View(id, flags,
                     (flags & TRIGGERED) != 0 ? state.triggeredUntil : 0,
                     (flags & ACTIVE) != 0 ? state.activeUntil : 0,
                     (flags & COOLDOWN) != 0 ? state.cooldownUntil : 0);
         }).toList();
+    }
+
+    /** Reads the cooldown phase for an equipped token without creating runtime state. */
+    public int cooldownTicks(ServerPlayer player, Identifier id) {
+        if (!eligible(player) || !player.isAlive()) return 0;
+        var runtime = states.get(player.getUUID());
+        var state = runtime == null ? null : runtime.get(id);
+        long tick = clock.getAsLong();
+        return state != null && isCoolingDown(state, tick) ? Math.toIntExact(state.cooldownUntil - tick) : 0;
+    }
+
+    private static boolean isCoolingDown(TokenRuntimeState state, long tick) {
+        return tick < state.cooldownUntil && tick >= state.activeUntil;
     }
 
     public void tick(Iterable<ServerPlayer> online) {

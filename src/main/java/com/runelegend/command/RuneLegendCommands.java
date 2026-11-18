@@ -7,6 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.api.PlayerSnapshot;
+import com.runelegend.api.RuneLegendApi;
 import com.runelegend.player.PlayerTokenService;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
@@ -54,11 +56,29 @@ public final class RuneLegendCommands {
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
             root.then(literal("admin").requires(PermissionPredicates.require(RuneLegendMod.id("admin"), PermissionLevel.ADMINS)).then(admin));
+            root.then(literal("test").then(literal("player").then(argument("player", EntityArgument.player())
+                    .then(literal("alive").executes(ctx -> queryPlayer(ctx).alive() ? 1 : 0))
+                    .then(literal("equipped").then(tokenArg().executes(ctx ->
+                            queryPlayer(ctx).equippedTokens().contains(tokenId(ctx)) ? 1 : 0))))));
+            root.then(literal("query")
+                    .then(literal("game").then(literal("alive_count")
+                            .executes(ctx -> RuneLegendApi.queries(ctx.getSource().getServer()).aliveCount())))
+                    .then(literal("player").then(argument("player", EntityArgument.player())
+                            .then(literal("stamina").executes(ctx -> queryPlayer(ctx).stamina().orElseThrow()))
+                            .then(literal("cooldown").then(tokenArg().executes(ctx ->
+                                    queryPlayer(ctx).cooldownTicks(tokenId(ctx)).orElse(0)))))));
             dispatcher.register(root);
         });
     }
 
     private interface Target { ServerPlayer get(CommandContext<CommandSourceStack> context) throws CommandSyntaxException; }
+
+    private static PlayerSnapshot queryPlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var target = EntityArgument.getPlayer(ctx, "player");
+        var player = RuneLegendApi.queries(ctx.getSource().getServer()).player(target.getUUID());
+        if (!player.connected()) throw EntityArgument.NO_PLAYERS_FOUND.create();
+        return player;
+    }
 
     private static int playerStatus(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         var player = ctx.getSource().getPlayerOrException();

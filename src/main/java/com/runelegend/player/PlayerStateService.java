@@ -58,6 +58,16 @@ public final class PlayerStateService {
 
     public boolean hasAlive() { game.getRules(); return states.containsValue(PlayerState.ALIVE); }
 
+    public int aliveCount() {
+        if (!game.getRules().running()) return 0;
+        int count = 0;
+        for (var state : states.values()) {
+            if (state == PlayerState.ALIVE) count++;
+        }
+        return count;
+    }
+
+
     public void clearRound() {
         game.getRules();
         states.clear();

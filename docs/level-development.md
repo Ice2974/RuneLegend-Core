@@ -13,6 +13,32 @@
 - `game start` / `game stop` 只在状态确实改变时生效，重复执行不会推进回合或重复清理运行态。
 - 只有 `RUNNING + ALIVE` 会触发令牌效果和令牌格挡成功事件；`WAITING` 下可以自由格挡和配装，适合作为准备区。等待区固定使用世界出生点，停局和等待期上线都会把玩家送回该点。
 
+## 在数据包中查询对局和玩家
+
+查询通过命令结果返回整数，可用 `execute store result` 写入计分板。`game status`、`player status` 和 `token status` 继续提供原有的文本与返回值。
+
+| 命令 | 返回值 |
+| --- | --- |
+| `runelegend test player <player> alive` | 本局身份为 `ALIVE` 时返回 `1`，其余情况返回 `0` |
+| `runelegend query game alive_count` | 当前回合 `ALIVE` 身份的玩家数，等待时为 `0` |
+| `runelegend test player <player> equipped <token_id>` | 装备槽中有该 ID 时返回 `1`，否则返回 `0`。已保存的 ID 即使没有已注册的令牌定义，仍计为已装备 |
+| `runelegend query player <player> stamina` | 当前格挡体力的整数原值，范围为 `0` 到 `guard.max` |
+| `runelegend query player <player> cooldown <token_id>` | 冷却阶段剩余的服务器 tick。未装备、定义不可用、效果仍在生效或当前无冷却时返回 `0` |
+
+存活测试与人数依据本局身份，管理员调整原版生命值或游戏模式时仍以身份为准。体力可查询任意身份的在线玩家。冷却随服务器 tick 推进（正常速度每秒 20 tick）；生效结束后才开始的冷却，从冷却阶段开始计入。令牌 ID 和配装命令使用同一写法，例如 `runelegend:echo` 或 `echo`。
+
+`<player>` 须解析为一名在线玩家，使用原版玩家名或单玩家选择器。找不到在线目标时命令以原版错误失败，`execute store result` 写入 `0`。如需区分「有效查询得到 `0`」和「目标缺失」，可同时用 `execute store success` 记录成功标志。
+
+```mcfunction
+# 初始化函数中创建目标
+scoreboard objectives add rl_map dummy
+
+# 在关卡函数中读取并按人数触发逻辑
+execute store result score #alive rl_map run runelegend query game alive_count
+execute if score #alive rl_map matches 1.. run function mymap:round/with_survivors
+execute as @a store result score @s rl_map run runelegend test player @s alive
+```
+
 ## 调整战斗参数
 
 战斗参数位于 `config/runelegend-core/server.json`，分为以下三组。
@@ -103,5 +129,24 @@ long round = api.getRules().round();
 ```
 
 `RuneLegendApi.get(server)` 只能在服务器线程、且服务器已经启动后调用；其他线程或模组未激活时抛出 `IllegalStateException`。`startGame()` / `stopGame()` 返回状态是否发生了改变。
+
+在服务器线程调用 `RuneLegendApi.queries(server)` 可获取只读查询入口。`aliveCount()` 与命令使用同一存活人数口径，`player(uuid)` 始终返回一个不可变的 `PlayerSnapshot`，记录查询时的规则、连接状态、身份与装备。后续状态变化需要重新查询。
+
+```java
+var queries = RuneLegendApi.queries(server);
+var player = queries.player(playerUuid);
+boolean alive = player.alive();
+boolean hasRoundRecord = player.identity().isPresent();
+boolean connected = player.connected();
+```
+
+| UUID 所处情况 | `rules().state()` | `identity()` | `connected()` |
+| --- | --- | --- | --- |
+| 等待中的在线玩家 | `WAITING` | 空 | `true` |
+| 本轮无记录的 UUID | `RUNNING` | 空 | `false` |
+| 断线阵亡且本轮仍在运行 | `RUNNING` | `ELIMINATED` | `false` |
+| 阵亡后重连 | `RUNNING` | `ELIMINATED` | `true` |
+
+`equippedTokens()` 按槽位顺序提供已保存的装备 ID，离线时也可读取，无装备时列表为空。`stamina()` 对离线玩家返回 `OptionalInt.empty()`。`cooldownTicks(tokenId)` 对离线玩家、未装备或无注册定义的令牌返回 `OptionalInt.empty()`，对已装备且有定义的在线玩家令牌返回剩余 tick 或 `0`。
 
 令牌框架本身也可以扩展：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。新增令牌的全部可调数值需要放进 `TokenConfig` 并在 `server.json` 的 `tokens` 段暴露；当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。事件类型、`TokenEvent` 语义与伤害通道见[令牌文档](tokens.md#扩展令牌)。
