@@ -78,19 +78,19 @@ public final class ResonanceHealingGameTests {
             var view = tokens.views(healer).getFirst();
             test.assertValueEqual(view.flags(), TokenEngine.TRIGGERED | TokenEngine.COOLDOWN,
                     "A successful trigger flashes and starts the cooldown");
-            test.assertValueEqual(view.cooldownUntil(), 400L,
-                    "The default 15-second cooldown is 300 ticks");
+            test.assertValueEqual(view.cooldownUntil(), 300L,
+                    "The default 10-second cooldown is 200 ticks");
 
             nearAlly.setHealth(10);
             tokens.dispatch(guard(healer, level));
             test.assertValueEqual(nearAlly.getHealth(), 10F,
                     "A second block during the cooldown does not heal");
 
-            clock.set(400);
+            clock.set(300);
             healer.setHealth(10);
             test.assertValueEqual(tokens.views(healer).getFirst().flags(),
                     TokenEngine.READY | TokenEngine.PREPARING,
-                    "The cooldown expires after 300 ticks");
+                    "The cooldown expires after 200 ticks");
             tokens.dispatch(guard(healer, level));
             test.assertValueEqual(healer.getHealth(), 16F,
                     "The token triggers again after the cooldown expires");

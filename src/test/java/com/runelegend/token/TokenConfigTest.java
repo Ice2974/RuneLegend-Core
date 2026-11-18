@@ -36,7 +36,7 @@ class TokenConfigTest {
         assertEquals(0.5F, resonance.get("health_threshold").getAsFloat());
         assertEquals(5.0, resonance.get("radius").getAsDouble());
         assertEquals(6.0F, resonance.get("heal_amount").getAsFloat());
-        assertEquals(15, resonance.get("cooldown_seconds").getAsInt());
+        assertEquals(10, resonance.get("cooldown_seconds").getAsInt());
         var vernal = tokens.getAsJsonObject("runelegend:vernal_tide");
         assertEquals(3, vernal.size());
         assertEquals(0.5F, vernal.get("chance").getAsFloat());

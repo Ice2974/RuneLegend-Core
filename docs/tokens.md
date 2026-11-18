@@ -25,7 +25,7 @@
 | `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 6 秒中毒 II |
 | `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 12 秒中毒 II |
 | `runelegend:asura_form` | 修罗化身 | 击杀敌对目标 | 累计击杀 3 只后变身 12 秒：近战追加 4 HP 令牌伤害、移动速度 +40%、临时血条 16 HP；结束后恢复原血条并冷却 9 秒 |
-| `runelegend:resonance_healing` | 共鸣疗愈 | 成功格挡 | 自身生命不高于 50% 时，治疗自身周围 5 格内所有玩家 6 HP；冷却 15 秒 |
+| `runelegend:resonance_healing` | 共鸣疗愈 | 成功格挡 | 自身生命不高于 50% 时，治疗自身周围 5 格内所有玩家 6 HP；冷却 10 秒 |
 | `runelegend:vernal_tide` | 回春怒涛 | 近战命中 | 自身处于生命恢复状态时，50% 概率使本次命中追加 3 HP 真伤，并对以自身为中心半径 5 格内的其他敌人各造成 3 HP 令牌伤害 |
 | `runelegend:arrogance` | 狂妄 | 生命值高于 60% 时，首次击杀敌对目标 | 直接近战对非玩家生物的追加真伤从 1 HP 开始，之后每击杀 1 个敌对目标再增加 1 HP，最多 5 HP；生命降至 60% 或以下时清空进度，无冷却 |
 | `runelegend:execution_echo` | 斩杀回响 | 近战击杀敌对目标 | 记录该次攻击结算全部令牌追加伤害后的伤害（向上取整，最多 10 HP）；之后每次近战攻击追加该记录值的真伤，每秒衰减 1 HP，衰减到 0 时结束；结束后冷却 10 秒 |
@@ -127,7 +127,7 @@
 | `health_threshold` | 0–1 | `0.5` | 触发所需的生命比例上限（按最大生命的比例） |
 | `radius` | > 0 | `5.0` | 治疗半径（格） |
 | `heal_amount` | ≥ 0 | `6.0` | 对每名受治疗玩家恢复的生命 |
-| `cooldown_seconds` | ≥ 0 的整数 | `15` | 触发后的冷却（秒） |
+| `cooldown_seconds` | ≥ 0 的整数 | `10` | 触发后的冷却（秒） |
 
 ### `runelegend:vernal_tide`
 

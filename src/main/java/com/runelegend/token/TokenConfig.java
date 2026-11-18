@@ -173,7 +173,7 @@ public record TokenConfig(
 
     public record ResonanceHealingSettings(float healthThreshold, double radius, float healAmount, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
-        public static final ResonanceHealingSettings DEFAULT = new ResonanceHealingSettings(0.5F, 5.0, 6.0F, 15);
+        public static final ResonanceHealingSettings DEFAULT = new ResonanceHealingSettings(0.5F, 5.0, 6.0F, 10);
         public static final Codec<ResonanceHealingSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(ResonanceHealingSettings::healthThreshold),
