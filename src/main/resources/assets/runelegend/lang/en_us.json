@@ -43,7 +43,7 @@
   "token.runelegend.poisoned_arrow": "Poisoned Arrow",
   "token.runelegend.poisoned_arrow.description": "Arrow hits have a %1$s chance to inflict Poison Ⅱ for %2$s seconds",
   "token.runelegend.fountain_of_life": "Fountain of Life",
-  "token.runelegend.fountain_of_life.description": "This token's effect is not implemented yet",
+  "token.runelegend.fountain_of_life.description": "At %1$s health or less, create a fountain at your feet with a %2$s-block radius for %3$s seconds. Living players inside receive Regeneration %4$s and Resistance %5$s. On leaving or when the fountain expires, the effects linger for %6$s and %7$s seconds respectively. When the fountain expires, it starts a %8$s-second cooldown.",
   "token.runelegend.full_blessing": "Full Blessing",
   "token.runelegend.full_blessing.description": "At %1$s health or less, bless all living players %2$s times immediately. Each blessing heals %3$s HP at or below that threshold. Above it, players can store up to %4$s blessings that automatically heal them when they reach the threshold. Cooldown: %5$s seconds.",
   "token.runelegend.retribution": "Retribution",

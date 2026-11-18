@@ -27,11 +27,15 @@ public final class PlayerStateFixtures {
         return join(minecraft, level, uuid, "state-fixture", savedPosition);
     }
     static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid, String name, Vec3 savedPosition) {
+        return join(minecraft, level, uuid, name, savedPosition, new Connection(PacketFlow.SERVERBOUND));
+    }
+    static ServerPlayer join(MinecraftServer minecraft, ServerLevel level, UUID uuid, String name, Vec3 savedPosition,
+                             Connection connection) {
         var player = new ServerPlayer(minecraft, level, new GameProfile(uuid, name), ClientInformation.createDefault()) {
             @Override public boolean isClientAuthoritative() { return false; }
         };
         if (savedPosition != null) player.setPos(savedPosition);
-        new ServerGamePacketListenerImpl(minecraft, new Connection(PacketFlow.SERVERBOUND), player,
+        new ServerGamePacketListenerImpl(minecraft, connection, player,
                 CommonListenerCookie.createInitial(player.getGameProfile(), false));
         player.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
         player.initInventoryMenu();

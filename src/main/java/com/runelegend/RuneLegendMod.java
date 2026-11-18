@@ -3,6 +3,7 @@ package com.runelegend;
 import com.runelegend.command.RuneLegendCommands;
 import com.runelegend.network.RuneLegendPayloads;
 import com.runelegend.network.ServerNetworking;
+import com.runelegend.particle.RuneLegendParticles;
 import com.runelegend.token.TokenExtensions;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -22,6 +23,7 @@ public final class RuneLegendMod implements ModInitializer {
     public static Identifier id(String path) { return Identifier.fromNamespaceAndPath(MOD_ID, path); }
 
     @Override public void onInitialize() {
+        RuneLegendParticles.register();
         RuneLegendPayloads.register();
         ServerNetworking.register();
         RuneLegendCommands.register();

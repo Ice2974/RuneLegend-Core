@@ -154,7 +154,7 @@ public final class ArroganceGameTests {
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(), defaults.vernalTide(),
                 new TokenConfig.ArroganceSettings(0.7F, 3, 2, 5), defaults.executionEcho(), defaults.retribution(),
-                defaults.substitute(), defaults.fullBlessing()));
+                defaults.substitute(), defaults.fullBlessing(), defaults.fountainOfLife()));
         var game = new GameController(() -> {}, (before, after) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var flashes = new ArrayList<net.minecraft.resources.Identifier>();

@@ -22,6 +22,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Player-visible token descriptions report durations in seconds, never raw server ticks. */
 class TokenDescriptionTest {
+    @Test void fountainDescriptionsUseEveryConfiguredValue() throws IOException {
+        var settings = new TokenConfig.FountainSettings(0.35F, 4.5, 3, 6, 7, 8, 12, 21);
+        var args = new FountainOfLifeEffect(settings).descriptionArguments();
+        for (var language : new String[]{"zh_cn", "en_us"}) {
+            try (var reader = new InputStreamReader(getClass().getResourceAsStream(
+                    "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
+                var format = JsonParser.parseReader(reader).getAsJsonObject()
+                        .get("token.runelegend.fountain_of_life.description").getAsString();
+                var description = String.format(java.util.Locale.ROOT, format, args);
+                for (var value : new String[]{"35%", "4.5", " 3", " 6", " 7", " 8", " 12", " 21"}) {
+                    assertTrue(description.contains(value), description);
+                }
+            }
+        }
+    }
+
     @Test void fullBlessingDescriptionsUseEveryConfiguredValue() throws IOException {
         var settings = new TokenConfig.FullBlessingSettings(5, 0.65F, 3.25F, 8, 17);
         var args = new FullBlessingEffect(settings).descriptionArguments();

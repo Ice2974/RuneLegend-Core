@@ -119,7 +119,7 @@ public final class ResonanceHealingGameTests {
                 defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), new TokenConfig.ResonanceHealingSettings(0.6F, 3.0, 4.0F, 2),
                 defaults.vernalTide(), defaults.arrogance(), defaults.executionEcho(), defaults.retribution(),
-                defaults.substitute(), defaults.fullBlessing()));
+                defaults.substitute(), defaults.fullBlessing(), defaults.fountainOfLife()));
         var service = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
         var tokens = TokenTestEngine.forPlayers(healer, nearAlly, farAlly).create(game, service, registry, clock::get);
         var players = List.of(healer, nearAlly, farAlly);

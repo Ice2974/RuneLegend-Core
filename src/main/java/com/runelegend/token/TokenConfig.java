@@ -10,6 +10,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.runelegend.RuneLegendMod;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.effect.MobEffectInstance;
 
 import java.util.Locale;
 import java.util.Set;
@@ -28,14 +29,15 @@ public record TokenConfig(
         ExecutionEchoSettings executionEcho,
         RetributionSettings retribution,
         SubstituteSettings substitute,
-        FullBlessingSettings fullBlessing) {
+        FullBlessingSettings fullBlessing,
+        FountainSettings fountainOfLife) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
             "runelegend:echo", "runelegend:immediate_counter",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
             "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution",
-            "runelegend:substitute", "runelegend:full_blessing");
+            "runelegend:substitute", "runelegend:full_blessing", "runelegend:fountain_of_life");
 
     public record SoulSiphonSettings(float chance, float maxHealthBonus) {
         public static final SoulSiphonSettings DEFAULT = new SoulSiphonSettings(0.05F, 2.0F);
@@ -393,6 +395,55 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
+    public record FountainSettings(float healthThreshold, double radius, int regenerationLevel, int resistanceLevel,
+                                   int regenerationLingerSeconds, int resistanceLingerSeconds,
+                                   int durationSeconds, int cooldownSeconds) {
+        private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
+        private static final int MAX_LEVEL = MobEffectInstance.MAX_AMPLIFIER + 1;
+        public static final FountainSettings DEFAULT = new FountainSettings(0.4F, 3.0, 2, 2, 1, 5, 10, 10);
+        public static final Codec<FountainSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
+                        .forGetter(FountainSettings::healthThreshold),
+                field(Codec.DOUBLE.validate(value -> Double.isFinite(value) && value > 0
+                        ? DataResult.success(value) : DataResult.error(() -> "radius must be positive and finite")),
+                        "radius", DEFAULT.radius()).forGetter(FountainSettings::radius),
+                field(wholeNumber(1, MAX_LEVEL), "regeneration_level", DEFAULT.regenerationLevel())
+                        .forGetter(FountainSettings::regenerationLevel),
+                field(wholeNumber(1, MAX_LEVEL), "resistance_level", DEFAULT.resistanceLevel())
+                        .forGetter(FountainSettings::resistanceLevel),
+                field(wholeNumber(0, MAX_SECONDS), "regeneration_linger_seconds", DEFAULT.regenerationLingerSeconds())
+                        .forGetter(FountainSettings::regenerationLingerSeconds),
+                field(wholeNumber(0, MAX_SECONDS), "resistance_linger_seconds", DEFAULT.resistanceLingerSeconds())
+                        .forGetter(FountainSettings::resistanceLingerSeconds),
+                field(wholeNumber(1, MAX_SECONDS), "duration_seconds", DEFAULT.durationSeconds())
+                        .forGetter(FountainSettings::durationSeconds),
+                field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
+                        .forGetter(FountainSettings::cooldownSeconds)
+        ).apply(instance, FountainSettings::new));
+
+        public FountainSettings {
+            TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            if (healthThreshold < 0 || healthThreshold > 1 || !Double.isFinite(radius) || radius <= 0) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1 and radius must be positive and finite");
+            }
+            if (regenerationLevel < 1 || regenerationLevel > MAX_LEVEL || resistanceLevel < 1 || resistanceLevel > MAX_LEVEL) {
+                throw TokenSettingValidation.invalid("effect levels must be between 1 and " + MAX_LEVEL);
+            }
+            if (durationSeconds < 1 || durationSeconds > MAX_SECONDS || cooldownSeconds < 0 || cooldownSeconds > MAX_SECONDS
+                    || regenerationLingerSeconds < 0 || regenerationLingerSeconds > MAX_SECONDS
+                    || resistanceLingerSeconds < 0 || resistanceLingerSeconds > MAX_SECONDS) {
+                throw TokenSettingValidation.invalid("durations must fit in ticks and duration_seconds must be positive");
+            }
+        }
+
+        int regenerationLingerTicks() { return regenerationLingerSeconds * 20; }
+        int resistanceLingerTicks() { return resistanceLingerSeconds * 20; }
+        int durationTicks() { return durationSeconds * 20; }
+        int cooldownTicks() { return cooldownSeconds * 20; }
+
+        int maxLingerTicks() { return Math.max(regenerationLingerTicks(), resistanceLingerTicks()); }
+    }
+
     // JsonOps' integer codec would silently truncate fractional input.
     private static Codec<Integer> wholeNumber(int min, int max) {
         return Codec.DOUBLE.validate(value -> value >= min && value <= max && value == Math.rint(value)
@@ -404,7 +455,8 @@ public record TokenConfig(
             SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
-            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT, FullBlessingSettings.DEFAULT);
+            ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT, FullBlessingSettings.DEFAULT,
+            FountainSettings.DEFAULT);
 
     public static TokenConfig fromJson(JsonObject tokens) {
         return fromJson(tokens, TokenExtensions.EMPTY);
@@ -426,7 +478,8 @@ public record TokenConfig(
                 section(tokens, "runelegend:execution_echo", ExecutionEchoSettings.CODEC, ExecutionEchoSettings.DEFAULT),
                 section(tokens, "runelegend:retribution", RetributionSettings.CODEC, RetributionSettings.DEFAULT),
                 section(tokens, "runelegend:substitute", SubstituteSettings.CODEC, SubstituteSettings.DEFAULT),
-                section(tokens, "runelegend:full_blessing", FullBlessingSettings.CODEC, FullBlessingSettings.DEFAULT));
+                section(tokens, "runelegend:full_blessing", FullBlessingSettings.CODEC, FullBlessingSettings.DEFAULT),
+                section(tokens, "runelegend:fountain_of_life", FountainSettings.CODEC, FountainSettings.DEFAULT));
     }
 
     public JsonObject toJson() {
@@ -444,6 +497,7 @@ public record TokenConfig(
         tokens.add("runelegend:retribution", encode(RetributionSettings.CODEC, retribution));
         tokens.add("runelegend:substitute", encode(SubstituteSettings.CODEC, substitute));
         tokens.add("runelegend:full_blessing", encode(FullBlessingSettings.CODEC, fullBlessing));
+        tokens.add("runelegend:fountain_of_life", encode(FountainSettings.CODEC, fountainOfLife));
         return tokens;
     }
 

@@ -10,33 +10,19 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TokenRegistryTest {
-    private static final List<String> IMPLEMENTED = List.of(
+    private static final List<String> BUILT_INS = List.of(
             "soul_siphon", "echo", "immediate_counter", "venomous_tip",
             "poisoned_arrow", "asura_form", "resonance_healing", "vernal_tide", "arrogance", "execution_echo", "retribution",
-            "substitute", "full_blessing");
-    private static final List<String> REGISTERED_ONLY = List.of(
-            "fountain_of_life");
+            "substitute", "full_blessing", "fountain_of_life");
 
     @Test void builtInRegistryContainsEveryTokenWithAUniqueId() {
         var registry = TokenRegistry.builtIn();
         var ids = new LinkedHashSet<Identifier>();
         registry.all().forEach(definition -> ids.add(definition.id()));
-        assertEquals(IMPLEMENTED.size() + REGISTERED_ONLY.size(), ids.size(), "Built-in token IDs are unique");
+        assertEquals(BUILT_INS.size(), ids.size(), "Built-in token IDs are unique");
         assertEquals(registry.all().size(), ids.size(), "Every registered token has a distinct ID");
-        for (String path : IMPLEMENTED) {
-            assertNotNull(registry.get(id(path)), path + " is still registered");
-        }
-        for (String path : REGISTERED_ONLY) {
+        for (String path : BUILT_INS) {
             assertNotNull(registry.get(id(path)), path + " is registered");
-        }
-    }
-
-    @Test void registeredOnlyTokensHaveNoEventListeners() {
-        var registry = TokenRegistry.builtIn();
-        for (String path : REGISTERED_ONLY) {
-            var definition = registry.get(id(path));
-            assertNotNull(definition.effect(), path + " has a no-op effect handler");
-            assertEquals(Set.of(), definition.events(), path + " subscribes to no token events");
         }
     }
 
@@ -57,6 +43,7 @@ class TokenRegistryTest {
         assertEquals(Set.of(TokenEvent.Kind.HURT, TokenEvent.Kind.MELEE), registry.get(id("retribution")).events());
         assertEquals(Set.of(TokenEvent.Kind.HEALTH), registry.get(id("substitute")).events());
         assertEquals(Set.of(TokenEvent.Kind.HEALTH), registry.get(id("full_blessing")).events());
+        assertEquals(Set.of(TokenEvent.Kind.HEALTH), registry.get(id("fountain_of_life")).events());
     }
 
     private static Identifier id(String path) {

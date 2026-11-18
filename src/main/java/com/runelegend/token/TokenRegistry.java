@@ -14,8 +14,6 @@ import java.util.Set;
 import static com.runelegend.token.TokenEvent.Kind.*;
 
 public final class TokenRegistry {
-    /** Shared handler for tokens that are registered but whose effects are intentionally not implemented yet. */
-    private static final TokenEffectHandler NO_EFFECT = new TokenEffectHandler() {};
     private final Map<Identifier, TokenDefinition> definitions;
 
     private TokenRegistry(Map<Identifier, TokenDefinition> definitions) {
@@ -47,7 +45,7 @@ public final class TokenRegistry {
                 .add("resonance_healing", new ResonanceHealingEffect(config.resonanceHealing()), GUARD_SUCCESS)
                 .add("vernal_tide", new VernalTideEffect(config.vernalTide()), MELEE)
                 .add("substitute", new SubstituteEffect(config.substitute()), HEALTH)
-                .addNoEffect("fountain_of_life")
+                .add("fountain_of_life", new FountainOfLifeEffect(config.fountainOfLife()), HEALTH)
                 .add("full_blessing", new FullBlessingEffect(config.fullBlessing()), HEALTH)
                 .add("retribution", new RetributionEffect(config.retribution()), HURT, MELEE)
                 .add("execution_echo", new ExecutionEchoEffect(config.executionEcho()), MELEE)
@@ -71,10 +69,6 @@ public final class TokenRegistry {
 
         private Builder add(String id, TokenEffectHandler effect, TokenEvent.Kind... events) {
             return register(new TokenDefinition(RuneLegendMod.id(id), Set.of(events), effect));
-        }
-
-        private Builder addNoEffect(String id) {
-            return register(new TokenDefinition(RuneLegendMod.id(id), Set.of(), NO_EFFECT));
         }
 
         public TokenRegistry build() {

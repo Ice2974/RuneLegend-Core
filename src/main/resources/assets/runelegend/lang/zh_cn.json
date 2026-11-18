@@ -43,7 +43,7 @@
   "token.runelegend.poisoned_arrow": "淬毒之箭",
   "token.runelegend.poisoned_arrow.description": "弓箭命中有 %1$s 概率赋予敌人 %2$s 秒中毒Ⅱ效果",
   "token.runelegend.fountain_of_life": "生命之泉",
-  "token.runelegend.fountain_of_life.description": "该令牌的效果尚未实现",
+  "token.runelegend.fountain_of_life.description": "生命值不高于 %1$s 时，在脚下留下半径 %2$s 格的生命之泉，持续 %3$s 秒。泉内的存活玩家获得生命恢复 %4$s 和抗性提升 %5$s。离泉或泉到期后，两种效果分别保留 %6$s 秒和 %7$s 秒。泉到期后冷却 %8$s 秒。",
   "token.runelegend.full_blessing": "全域祝福",
   "token.runelegend.full_blessing.description": "自身生命不高于 %1$s 时，立即祝福所有存活玩家 %2$s 次。受祝福者生命不高于该阈值时，每次恢复 %3$s HP。生命高于阈值时，每人最多储存 %4$s 次，生命达到阈值或以下时自动消耗。冷却 %5$s 秒。",
   "token.runelegend.retribution": "奉还",

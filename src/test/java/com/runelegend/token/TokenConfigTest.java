@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(13, tokens.size());
+        assertEquals(14, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
@@ -70,6 +70,16 @@ class TokenConfigTest {
         assertEquals(4.0F, fullBlessing.get("heal_amount").getAsFloat());
         assertEquals(6, fullBlessing.get("max_stored_blessings").getAsInt());
         assertEquals(20, fullBlessing.get("cooldown_seconds").getAsInt());
+        var fountain = tokens.getAsJsonObject("runelegend:fountain_of_life");
+        assertEquals(8, fountain.size());
+        assertEquals(0.4F, fountain.get("health_threshold").getAsFloat());
+        assertEquals(3.0, fountain.get("radius").getAsDouble());
+        assertEquals(2, fountain.get("regeneration_level").getAsInt());
+        assertEquals(2, fountain.get("resistance_level").getAsInt());
+        assertEquals(1, fountain.get("regeneration_linger_seconds").getAsInt());
+        assertEquals(5, fountain.get("resistance_linger_seconds").getAsInt());
+        assertEquals(10, fountain.get("duration_seconds").getAsInt());
+        assertEquals(10, fountain.get("cooldown_seconds").getAsInt());
     }
 
     @Test void codecRoundTripsEverySetting() {
@@ -86,8 +96,23 @@ class TokenConfigTest {
                 new TokenConfig.ExecutionEchoSettings(0.75F, 2, 7, 13),
                 new TokenConfig.RetributionSettings(7, 0),
                 new TokenConfig.SubstituteSettings(0.4F, 12, 7),
-                new TokenConfig.FullBlessingSettings(5, 0.6F, 2.5F, 0, 11));
+                new TokenConfig.FullBlessingSettings(5, 0.6F, 2.5F, 0, 11),
+                new TokenConfig.FountainSettings(0.3F, 6.5, 3, 4, 0, 8, 19, 0));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
+    }
+
+    @Test void fountainUsesDefaultsForAnAbsentOrInvalidSection() {
+        var tokens = new JsonObject();
+        var defaults = TokenConfig.FountainSettings.DEFAULT;
+        assertEquals(defaults, TokenConfig.fromJson(tokens).fountainOfLife());
+        tokens.add("runelegend:fountain_of_life", JsonParser.parseString("{\"radius\":7,\"resistance_linger_seconds\":0}"));
+        assertEquals(new TokenConfig.FountainSettings(0.4F, 7, 2, 2, 1, 0, 10, 10), TokenConfig.fromJson(tokens).fountainOfLife());
+        for (var invalid : new String[]{"\"regeneration_level\":0", "\"resistance_level\":2.5", "\"resistance_level\":257",
+                "\"radius\":0", "\"health_threshold\":1.1", "\"duration_seconds\":0",
+                "\"regeneration_linger_seconds\":107374183", "\"resistance_linger_seconds\":-1", "\"cooldown_seconds\":-1"}) {
+            tokens.add("runelegend:fountain_of_life", JsonParser.parseString("{\"unused\":true," + invalid + "}"));
+            assertEquals(defaults, TokenConfig.fromJson(tokens).fountainOfLife(), invalid);
+        }
     }
 
     @Test void fullBlessingUsesDefaultFieldsAndRejectsInvalidSections() {

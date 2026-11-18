@@ -4,11 +4,13 @@ import com.runelegend.client.hud.RuneLegendHud;
 import com.runelegend.client.input.GuardInputController;
 import com.runelegend.client.network.ClientNetworking;
 import com.runelegend.client.network.ClientStateCache;
+import com.runelegend.client.render.FountainBubbleParticle;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 public final class RuneLegendClient implements ClientModInitializer {
     @Override public void onInitializeClient() {
+        FountainBubbleParticle.register();
         ClientNetworking.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientNetworking.tick();

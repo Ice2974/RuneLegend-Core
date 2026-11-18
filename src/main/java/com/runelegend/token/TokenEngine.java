@@ -39,6 +39,7 @@ public final class TokenEngine {
     private final TokenScheduler scheduler = new TokenScheduler();
     private final OwnedEffects owned = new OwnedEffects();
     private final SubstituteTargets substitutes = new SubstituteTargets();
+    private final FountainEffects fountains;
     private final Predicate<ServerPlayer> eligible;
     private final Function<UUID, ServerPlayer> resolve;
     private final FullBlessingEffect fullBlessing;
@@ -84,6 +85,7 @@ public final class TokenEngine {
         this.players = players;
         this.registry = registry;
         this.clock = clock;
+        this.fountains = new FountainEffects(clock);
         this.random = random;
         this.flash = flash;
         this.eligible = eligible;
@@ -185,6 +187,7 @@ public final class TokenEngine {
         for (var player : online) {
             if (player.isAlive()) updateHealth(player);
         }
+        fountains.tick(clock.getAsLong(), online, this::eligible);
     }
 
     public void updateHealth(ServerPlayer player) {
@@ -207,6 +210,7 @@ public final class TokenEngine {
         try {
             owned.removePlayer(uuid);
         } finally {
+            fountains.clear(uuid);
             scheduler.cancelPlayer(uuid);
             health.remove(uuid);
             blessingChecks.remove(uuid);
@@ -233,6 +237,7 @@ public final class TokenEngine {
         roundGeneration = new Object();
         try { owned.clear(); }
         finally {
+            fountains.clear();
             scheduler.clear();
             try {
                 for (var runtime : List.copyOf(states.values())) cleanup(runtime);
@@ -333,6 +338,7 @@ public final class TokenEngine {
         }
         public LivingEntity meleeTarget() { return meleeTarget; }
         public long tick() { return clock.getAsLong(); }
+        FountainEffects fountains() { return fountains; }
         public void flash() { if (valid()) flash.accept(player(), token); }
         public boolean roll(double chance) { return valid() && TokenEngine.roll(chance, () -> random.applyAsDouble(player())); }
 

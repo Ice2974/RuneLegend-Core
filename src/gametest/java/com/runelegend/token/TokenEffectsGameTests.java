@@ -117,7 +117,8 @@ public final class TokenEffectsGameTests {
                 TokenConfig.ExecutionEchoSettings.DEFAULT,
                 TokenConfig.RetributionSettings.DEFAULT,
                 TokenConfig.SubstituteSettings.DEFAULT,
-                TokenConfig.FullBlessingSettings.DEFAULT);
+                TokenConfig.FullBlessingSettings.DEFAULT,
+                TokenConfig.FountainSettings.DEFAULT);
         var registry = TokenRegistry.builtIn(config);
         var game = new GameController(() -> {}, (previous, current) -> {});
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
