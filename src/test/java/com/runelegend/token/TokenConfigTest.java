@@ -74,7 +74,7 @@ class TokenConfigTest {
         assertEquals(20, fullBlessing.get("cooldown_seconds").getAsInt());
         var fountain = tokens.getAsJsonObject("runelegend:fountain_of_life");
         assertEquals(8, fountain.size());
-        assertEquals(0.4F, fountain.get("health_threshold").getAsFloat());
+        assertEquals(0.5F, fountain.get("health_threshold").getAsFloat());
         assertEquals(3.0, fountain.get("radius").getAsDouble());
         assertEquals(2, fountain.get("regeneration_level").getAsInt());
         assertEquals(2, fountain.get("resistance_level").getAsInt());
@@ -108,7 +108,7 @@ class TokenConfigTest {
         var defaults = TokenConfig.FountainSettings.DEFAULT;
         assertEquals(defaults, TokenConfig.fromJson(tokens).fountainOfLife());
         tokens.add("runelegend:fountain_of_life", JsonParser.parseString("{\"radius\":7,\"resistance_linger_seconds\":0}"));
-        assertEquals(new TokenConfig.FountainSettings(0.4F, 7, 2, 2, 1, 0, 10, 10), TokenConfig.fromJson(tokens).fountainOfLife());
+        assertEquals(new TokenConfig.FountainSettings(0.5F, 7, 2, 2, 1, 0, 10, 10), TokenConfig.fromJson(tokens).fountainOfLife());
         for (var invalid : new String[]{"\"regeneration_level\":0", "\"resistance_level\":2.5", "\"resistance_level\":257",
                 "\"radius\":0", "\"health_threshold\":1.1", "\"duration_seconds\":0",
                 "\"regeneration_linger_seconds\":107374183", "\"resistance_linger_seconds\":-1", "\"cooldown_seconds\":-1"}) {

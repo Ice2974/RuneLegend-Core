@@ -411,7 +411,7 @@ public record TokenConfig(
                                    int durationSeconds, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
         private static final int MAX_LEVEL = MobEffectInstance.MAX_AMPLIFIER + 1;
-        public static final FountainSettings DEFAULT = new FountainSettings(0.4F, 3.0, 2, 2, 1, 5, 10, 10);
+        public static final FountainSettings DEFAULT = new FountainSettings(0.5F, 3.0, 2, 2, 1, 5, 10, 10);
         public static final Codec<FountainSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(FountainSettings::healthThreshold),

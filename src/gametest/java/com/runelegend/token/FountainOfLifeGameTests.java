@@ -42,12 +42,12 @@ public final class FountainOfLifeGameTests {
             var nether = caster.level().getServer().getLevel(Level.NETHER);
             var center = caster.position();
             test.assertTrue(remote.teleportTo(nether, center.x(), center.y(), center.z(), Set.of(), 0, 0, false), "Enter Nether");
-            caster.setHealth(8.01F);
+            caster.setHealth(10.01F);
             fixture.tick(100);
-            test.assertValueEqual(fixture.view(caster).flags(), TokenEngine.READY, "Above 40 percent");
-            caster.setHealth(8F);
+            test.assertValueEqual(fixture.view(caster).flags(), TokenEngine.READY, "Above 50 percent");
+            caster.setHealth(10F);
             fixture.tick(101);
-            test.assertValueEqual(fixture.view(caster).flags(), TokenEngine.TRIGGERED | TokenEngine.ACTIVE, "Exactly 40 percent");
+            test.assertValueEqual(fixture.view(caster).flags(), TokenEngine.TRIGGERED | TokenEngine.ACTIVE, "Exactly 50 percent");
             amplifier(test, caster, MobEffects.REGENERATION, 1);
             amplifier(test, ally, MobEffects.REGENERATION, 1);
             amplifier(test, ally, MobEffects.RESISTANCE, 1);
