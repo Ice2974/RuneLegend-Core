@@ -19,7 +19,6 @@ import java.util.Set;
 public record TokenConfig(
         SoulSiphonSettings soulSiphon,
         EchoSettings echo,
-        ImmediateCounterSettings immediateCounter,
         VenomousTipSettings venomousTip,
         PoisonedArrowSettings poisonedArrow,
         AsuraFormSettings asuraForm,
@@ -33,7 +32,7 @@ public record TokenConfig(
         FountainSettings fountainOfLife) {
     private static final Set<String> KNOWN_IDS = Set.of(
             "runelegend:soul_siphon",
-            "runelegend:echo", "runelegend:immediate_counter",
+            "runelegend:echo",
             "runelegend:venomous_tip", "runelegend:poisoned_arrow",
             "runelegend:asura_form", "runelegend:resonance_healing",
             "runelegend:vernal_tide", "runelegend:arrogance", "runelegend:execution_echo", "runelegend:retribution",
@@ -81,23 +80,6 @@ public record TokenConfig(
         private static DataResult<Integer> validInterval(int value) {
             return value >= MIN_INTERVAL_TICKS ? DataResult.success(value)
                     : DataResult.error(() -> "interval_ticks must be at least " + MIN_INTERVAL_TICKS);
-        }
-    }
-
-    public record ImmediateCounterSettings(float bonusDamage, int durationTicks, int cooldownAfterEffectTicks) {
-        public static final ImmediateCounterSettings DEFAULT = new ImmediateCounterSettings(4.0F, 160, 160);
-        public static final Codec<ImmediateCounterSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                field(ExtraCodecs.NON_NEGATIVE_FLOAT, "bonus_damage", DEFAULT.bonusDamage()).forGetter(ImmediateCounterSettings::bonusDamage),
-                field(ExtraCodecs.NON_NEGATIVE_INT, "duration_ticks", DEFAULT.durationTicks()).forGetter(ImmediateCounterSettings::durationTicks),
-                field(ExtraCodecs.NON_NEGATIVE_INT, "cooldown_after_effect_ticks", DEFAULT.cooldownAfterEffectTicks())
-                        .forGetter(ImmediateCounterSettings::cooldownAfterEffectTicks)
-        ).apply(instance, ImmediateCounterSettings::new));
-
-        public ImmediateCounterSettings {
-            TokenSettingValidation.requireFinite(bonusDamage, "bonus_damage");
-            if (bonusDamage < 0.0F) throw TokenSettingValidation.invalid("bonus_damage must be non-negative");
-            if (durationTicks < 0) throw TokenSettingValidation.invalid("duration_ticks must be non-negative");
-            if (cooldownAfterEffectTicks < 0) throw TokenSettingValidation.invalid("cooldown_after_effect_ticks must be non-negative");
         }
     }
 
@@ -466,7 +448,7 @@ public record TokenConfig(
     }
 
     public static final TokenConfig DEFAULT = new TokenConfig(
-            SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT, ImmediateCounterSettings.DEFAULT,
+            SoulSiphonSettings.DEFAULT, EchoSettings.DEFAULT,
             VenomousTipSettings.DEFAULT, PoisonedArrowSettings.DEFAULT, AsuraFormSettings.DEFAULT,
             ResonanceHealingSettings.DEFAULT, VernalTideSettings.DEFAULT, ArroganceSettings.DEFAULT,
             ExecutionEchoSettings.DEFAULT, RetributionSettings.DEFAULT, SubstituteSettings.DEFAULT, FullBlessingSettings.DEFAULT,
@@ -481,7 +463,6 @@ public record TokenConfig(
         return new TokenConfig(
                 section(tokens, "runelegend:soul_siphon", SoulSiphonSettings.CODEC, SoulSiphonSettings.DEFAULT),
                 section(tokens, "runelegend:echo", EchoSettings.CODEC, EchoSettings.DEFAULT),
-                section(tokens, "runelegend:immediate_counter", ImmediateCounterSettings.CODEC, ImmediateCounterSettings.DEFAULT),
                 section(tokens, "runelegend:venomous_tip", VenomousTipSettings.CODEC, VenomousTipSettings.DEFAULT),
                 section(tokens, "runelegend:poisoned_arrow", PoisonedArrowSettings.CODEC, PoisonedArrowSettings.DEFAULT),
                 section(tokens, "runelegend:asura_form", AsuraFormSettings.CODEC, AsuraFormSettings.DEFAULT),
@@ -500,7 +481,6 @@ public record TokenConfig(
         var tokens = new JsonObject();
         tokens.add("runelegend:soul_siphon", encode(SoulSiphonSettings.CODEC, soulSiphon));
         tokens.add("runelegend:echo", encode(EchoSettings.CODEC, echo));
-        tokens.add("runelegend:immediate_counter", encode(ImmediateCounterSettings.CODEC, immediateCounter));
         tokens.add("runelegend:venomous_tip", encode(VenomousTipSettings.CODEC, venomousTip));
         tokens.add("runelegend:poisoned_arrow", encode(PoisonedArrowSettings.CODEC, poisonedArrow));
         tokens.add("runelegend:asura_form", encode(AsuraFormSettings.CODEC, asuraForm));

@@ -300,7 +300,7 @@ public final class ExecutionEchoGameTests {
     private static TokenRegistry registry(TokenConfig.ExecutionEchoSettings settings) {
         var defaults = TokenConfig.DEFAULT;
         return TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
-                defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
+                defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(), defaults.vernalTide(), defaults.arrogance(),
                 settings, defaults.retribution(), defaults.substitute(), defaults.fullBlessing(), defaults.fountainOfLife()));
     }

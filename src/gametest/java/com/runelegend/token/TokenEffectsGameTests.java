@@ -37,8 +37,8 @@ public final class TokenEffectsGameTests {
         var targets = List.of(zombie, defender);
         try {
             server.game().stopGame();
-            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("immediate_counter")),
-                    PlayerTokenService.Result.CHANGED, "Equip Immediate Counter");
+            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("retribution")),
+                    PlayerTokenService.Result.CHANGED, "Equip Retribution");
             float[] normal = new float[targets.size()];
             for (int i = 0; i < targets.size(); i++) {
                 var target = targets.get(i);
@@ -63,14 +63,16 @@ public final class TokenEffectsGameTests {
             }
 
             server.game().startGame();
-            server.tokens().dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS, attacker, attacker, level, null, 6, 3, 3));
+            // A recorded hostile attack makes every later direct melee hit add 6 HP of true damage.
+            var attack = attacker.damageSources().mobAttack(zombie);
+            server.tokens().dispatch(new TokenEvent(TokenEvent.Kind.HURT, attacker, attacker, level, attack, 6, 6, 0));
             for (int i = 0; i < targets.size(); i++) {
                 var target = targets.get(i);
                 float boosted = hit(target, () -> {
                     attacker.resetAttackStrengthTicker();
                     attacker.attack(target);
                 });
-                near(test, boosted, normal[i] + (target instanceof net.minecraft.world.entity.player.Player ? 0 : 3.2F),
+                near(test, boosted, normal[i] + (target instanceof net.minecraft.world.entity.player.Player ? 0 : 4.8F),
                         "Only monsters receive the token bonus; base player damage is unchanged");
             }
             test.succeed();
@@ -107,7 +109,6 @@ public final class TokenEffectsGameTests {
         var config = new TokenConfig(
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(1.0F, 4.0F, 40, 20),
-                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.25F, 3),
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4),
                 TokenConfig.AsuraFormSettings.DEFAULT,
@@ -156,22 +157,6 @@ public final class TokenEffectsGameTests {
             nearSpider.damageCooldownTime = 0;
             tokens.tick(List.of(player));
             test.assertValueEqual(nearSpider.getHealth(), nearHealth - 8.0F, "Configured duration stops after two pulses");
-
-            game.stopGame();
-            players.clear(player.getUUID());
-            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("immediate_counter")),
-                    PlayerTokenService.Result.CHANGED, "Equip configured Immediate Counter");
-            game.startGame();
-            clock.set(180);
-            tokens.dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS, player, player, test.getLevel(), null, 6, 3, 3));
-            clock.set(190);
-            test.assertValueEqual(tokens.melee(player, 6).bonusDamage(), 5.0F, "Configured damage drives Immediate Counter");
-            test.assertTrue((tokens.views(player).getFirst().flags() & TokenEngine.ACTIVE) != 0,
-                    "Configured duration drives Immediate Counter");
-            clock.set(200);
-            var view = tokens.views(player).getFirst();
-            test.assertTrue((view.flags() & TokenEngine.COOLDOWN) != 0 && view.cooldownUntil() == 230,
-                    "Configured cooldown starts when the configured effect ends");
 
             game.stopGame();
             players.clear(player.getUUID());

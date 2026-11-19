@@ -34,8 +34,6 @@
   "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命，可叠加",
   "token.runelegend.echo": "残响",
   "token.runelegend.echo.description": "击杀敌对怪物时有 %1$s 概率留下半径 %2$s 格的区域，持续 %4$s 秒，每 %5$s 秒对敌对目标造成 %3$s HP 真伤",
-  "token.runelegend.immediate_counter": "即刻反击",
-  "token.runelegend.immediate_counter.description": "成功格挡后的 %2$s 秒内直接近战每击追加 %1$s HP 真伤；冷却 %3$s 秒",
   "token.runelegend.venomous_tip": "刃尖毒发",
   "token.runelegend.venomous_tip.description": "近战攻击有 %s 概率赋予敌人 %s 秒中毒Ⅱ效果",
   "token.runelegend.substitute": "替身",

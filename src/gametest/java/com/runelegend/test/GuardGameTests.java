@@ -156,39 +156,38 @@ public final class GuardGameTests {
         var mob = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 3);
         try {
             server.game().stopGame();
-            test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id("immediate_counter")),
-                    PlayerTokenService.Result.CHANGED, "Equip Immediate Counter");
+            test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id("resonance_healing")),
+                    PlayerTokenService.Result.CHANGED, "Equip Resonance Healing");
             start(test, player, SWORD);
             reset(player, origin, 20);
             mob.setPos(origin.add(0, 0, 1));
             hit(test, player, player.damageSources().mobAttack(mob), 17, "Guard in WAITING");
-            test.assertTrue(!counterActive(server, player), "WAITING does not dispatch GUARD_SUCCESS");
+            test.assertTrue(!resonanceTriggered(server, player), "WAITING does not dispatch GUARD_SUCCESS");
 
             server.game().startGame();
             test.assertTrue(player.isBlocking(), "Starting a game does not stop vanilla item use");
-            reset(player, origin, 20);
+            // Resonance Healing only listens while the player is at or below its health threshold.
+            reset(player, origin, 8);
             mob.setPos(origin.add(0, 0, -1));
             var source = player.damageSources().mobAttack(mob);
-            hit(test, player, source, 14, "Rear hit");
-            test.assertTrue(!counterActive(server, player), "A zero block cannot activate the token");
+            hit(test, player, source, 2, "Rear hit");
+            test.assertTrue(!resonanceTriggered(server, player), "A zero block cannot activate the token");
             mob.setPos(origin.add(0, 0, 1));
             test.assertTrue(!player.hurtServer(level, source, 6), "A weaker hit in vanilla cooldown is ignored");
-            test.assertTrue(!counterActive(server, player), "An unsettled hit cannot activate the token");
-            reset(player, origin, 20);
-            hit(test, player, source, 17, "Front half block");
-            test.assertTrue(counterActive(server, player), "Partial vanilla block activates Immediate Counter");
-            test.assertValueEqual(server.tokens().melee(player, 6).bonusDamage(), 4F, "Counter adds 4 HP to melee");
+            test.assertTrue(!resonanceTriggered(server, player), "An unsettled hit cannot activate the token");
+            reset(player, origin, 8);
+            test.assertTrue(player.hurtServer(level, source, 6), "A settled front hit passes partial damage through the block");
+            test.assertTrue(resonanceTriggered(server, player), "A settled partial block activates Resonance Healing");
 
             server.game().stopGame();
             test.assertTrue(player.isBlocking(), "Stopping a game does not lower a valid block");
-            test.assertTrue(!counterActive(server, player), "Stopping clears the token");
+            test.assertTrue(!resonanceTriggered(server, player), "Stopping clears the token");
             release(player);
             start(test, player, FULL_SWORD);
             server.game().startGame();
-            reset(player, origin, 20);
+            reset(player, origin, 8);
             test.assertTrue(!player.hurtServer(level, source, 6), "Vanilla returns false for a full block");
-            test.assertValueEqual(player.getHealth(), 20F, "Full block removes all incoming damage");
-            test.assertTrue(counterActive(server, player), "A settled full block can activate the token");
+            test.assertTrue(resonanceTriggered(server, player), "A settled full block can activate the token");
             test.succeed();
         } finally {
             level.getServer().setDifficulty(difficulty, true);
@@ -363,8 +362,9 @@ public final class GuardGameTests {
         return player;
     }
 
-    private static boolean counterActive(RuneLegendServer server, ServerPlayer player) {
-        return server.tokens().views(player).stream().anyMatch(token -> (token.flags() & TokenEngine.ACTIVE) != 0);
+    /** The probed token only flashes TRIGGERED; checking ACTIVE would miss tokens without an active window. */
+    private static boolean resonanceTriggered(RuneLegendServer server, ServerPlayer player) {
+        return server.tokens().views(player).stream().anyMatch(token -> (token.flags() & TokenEngine.TRIGGERED) != 0);
     }
 
     private static void start(GameTestHelper test, ServerPlayer player, String item) {

@@ -151,7 +151,7 @@ public final class ArroganceGameTests {
         var player = GuardGameTests.fixture(test);
         var defaults = TokenConfig.DEFAULT;
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
-                defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
+                defaults.venomousTip(), defaults.poisonedArrow(),
                 defaults.asuraForm(), defaults.resonanceHealing(), defaults.vernalTide(),
                 new TokenConfig.ArroganceSettings(0.7F, 3, 2, 5), defaults.executionEcho(), defaults.retribution(),
                 defaults.substitute(), defaults.fullBlessing(), defaults.fountainOfLife()));

@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenConfigTest {
     @Test void defaultJsonContainsEveryBuiltInToken() {
         var tokens = TokenConfig.DEFAULT.toJson();
-        assertEquals(14, tokens.size());
+        assertEquals(13, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
         var echo = tokens.getAsJsonObject("runelegend:echo");
         assertEquals(4, echo.size());
@@ -18,7 +18,6 @@ class TokenConfigTest {
         assertEquals(160, echo.get("duration_ticks").getAsInt());
         assertEquals(20, echo.get("interval_ticks").getAsInt());
         assertFalse(echo.has("radius"), "Echo radius is no longer configurable");
-        assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
         var venomous = tokens.getAsJsonObject("runelegend:venomous_tip");
         assertEquals(2, venomous.size());
         assertEquals(0.50F, venomous.get("chance").getAsFloat());
@@ -94,7 +93,6 @@ class TokenConfigTest {
         var config = new TokenConfig(
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
                 new TokenConfig.EchoSettings(0.33F, 4.0F, 80, 10),
-                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.35F, 8),
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10),
                 new TokenConfig.AsuraFormSettings(2, 1, 5.5F, 3, 30.5F, 0),
@@ -218,9 +216,6 @@ class TokenConfigTest {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 1, 20, 9));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 1, 20, 0));
         assertEquals(10, new TokenConfig.EchoSettings(0.5F, 1, 20, 10).intervalTicks(), "Ten ticks is the shortest interval");
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(-1, 20, 20));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, -1, 20));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, 20, -1));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(-0.1F, 6));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(1.1F, 6));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.VenomousTipSettings(Float.NaN, 6));

@@ -142,7 +142,7 @@ public final class AsuraFormGameTests {
         var clock = new AtomicLong(100);
         var defaults = TokenConfig.DEFAULT;
         var registry = TokenRegistry.builtIn(new TokenConfig(defaults.soulSiphon(), defaults.echo(),
-                defaults.immediateCounter(), defaults.venomousTip(), defaults.poisonedArrow(),
+                defaults.venomousTip(), defaults.poisonedArrow(),
                 new TokenConfig.AsuraFormSettings(2, 2, 5.5F, 3, 16, 1), defaults.resonanceHealing(),
                 defaults.vernalTide(), defaults.arrogance(), defaults.executionEcho(), defaults.retribution(),
                 defaults.substitute(), defaults.fullBlessing(), defaults.fountainOfLife()));

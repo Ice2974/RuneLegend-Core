@@ -34,8 +34,6 @@
   "token.runelegend.soul_siphon.description": "A %s chance on a hostile kill to add %s maximum HP, stacking per trigger",
   "token.runelegend.echo": "Echo",
   "token.runelegend.echo.description": "A %1$s chance on a hostile kill to leave a %2$s-block zone for %4$s seconds, dealing %3$s HP of true damage to hostiles every %5$s seconds",
-  "token.runelegend.immediate_counter": "Immediate Counter",
-  "token.runelegend.immediate_counter.description": "For %2$s seconds after a successful guard, each direct melee hit adds %1$s HP of true damage; cooldown %3$s seconds",
   "token.runelegend.venomous_tip": "Venomous Tip",
   "token.runelegend.venomous_tip.description": "Melee attacks have a %1$s chance to inflict Poison Ⅱ for %2$s seconds",
   "token.runelegend.substitute": "Substitute",

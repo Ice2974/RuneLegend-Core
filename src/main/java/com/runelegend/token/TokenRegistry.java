@@ -38,7 +38,6 @@ public final class TokenRegistry {
         return new Builder()
                 .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
                 .add("echo", new EchoEffect(config.echo()), KILL)
-                .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)
                 .add("venomous_tip", new VenomousTipEffect(config.venomousTip()), MELEE)
                 .add("poisoned_arrow", new PoisonedArrowEffect(config.poisonedArrow()), ARROW)
                 .add("asura_form", new AsuraFormEffect(config.asuraForm()), KILL, MELEE)

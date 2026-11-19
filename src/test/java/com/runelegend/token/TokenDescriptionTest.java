@@ -4,7 +4,6 @@ import com.google.gson.JsonParser;
 import com.runelegend.token.effect.AsuraFormEffect;
 import com.runelegend.token.effect.EchoEffect;
 import com.runelegend.token.effect.ExecutionEchoEffect;
-import com.runelegend.token.effect.ImmediateCounterEffect;
 import com.runelegend.token.effect.PoisonedArrowEffect;
 import com.runelegend.token.effect.ResonanceHealingEffect;
 import com.runelegend.token.effect.RetributionEffect;
@@ -74,12 +73,6 @@ class TokenDescriptionTest {
         assertEquals(TokenConfig.EchoSettings.RADIUS, arguments[1], "Echo radius is fixed, not configured");
         assertEquals("8", arguments[3], "Default 160-tick duration is 8 seconds");
         assertEquals("1", arguments[4], "Default 20-tick interval is 1 second");
-    }
-
-    @Test void immediateCounterDescriptionArgumentsAreSeconds() {
-        var arguments = new ImmediateCounterEffect(TokenConfig.ImmediateCounterSettings.DEFAULT).descriptionArguments();
-        assertEquals("8", arguments[1], "Default 160-tick duration is 8 seconds");
-        assertEquals("8", arguments[2], "Default 160-tick cooldown is 8 seconds");
     }
 
     @Test void poisonedArrowDescriptionUsesConfiguredChanceDurationAndFixedLevel() throws IOException {
