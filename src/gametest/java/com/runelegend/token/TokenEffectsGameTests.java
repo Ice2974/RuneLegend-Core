@@ -401,7 +401,7 @@ public final class TokenEffectsGameTests {
             server.game().startGame();
             tokens.dispatch(kill);
             tokens.dispatch(kill);
-            test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Soul Siphon refreshes without stacking");
+            test.assertValueEqual(first.getMaxHealth(), firstMax + 4, "Soul Siphon stacks per kill");
             test.assertValueEqual(first.getHealth(), firstHealth, "Soul Siphon does not heal");
             test.assertValueEqual(second.getMaxHealth(), firstMax, "An identical token does not buff the other player");
             test.assertTrue(tokens.views(second).stream().noneMatch(view -> (view.flags() & (TokenEngine.ACTIVE | TokenEngine.TRIGGERED)) != 0),

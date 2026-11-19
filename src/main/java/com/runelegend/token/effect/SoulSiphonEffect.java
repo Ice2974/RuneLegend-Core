@@ -25,7 +25,10 @@ public final class SoulSiphonEffect implements TokenEffectHandler {
         var player = context.player();
         var attribute = player.getAttribute(Attributes.MAX_HEALTH);
         if (attribute == null) return;
-        attribute.addOrUpdateTransientModifier(new AttributeModifier(MODIFIER, settings.maxHealthBonus(),
+        // Stack on the same modifier ID so cleanup and entity transfer keep a single anchor.
+        var existing = attribute.getModifier(MODIFIER);
+        float bonus = (existing == null ? 0.0F : (float) existing.amount()) + settings.maxHealthBonus();
+        attribute.addOrUpdateTransientModifier(new AttributeModifier(MODIFIER, bonus,
                 AttributeModifier.Operation.ADD_VALUE));
         state.flash(context.tick());
     }

@@ -31,7 +31,7 @@
   "runelegend.result.full": "三个令牌槽已满",
   "runelegend.result.not_equipped": "没有装备该令牌",
   "token.runelegend.soul_siphon": "灵魂摄取",
-  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命",
+  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命，可叠加",
   "token.runelegend.echo": "残响",
   "token.runelegend.echo.description": "击杀敌对怪物时有 %1$s 概率留下半径 %2$s 格的区域，持续 %4$s 秒，每 %5$s 秒对敌对目标造成 %3$s HP 伤害",
   "token.runelegend.immediate_counter": "即刻反击",
