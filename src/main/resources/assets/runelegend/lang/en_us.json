@@ -39,7 +39,7 @@
   "token.runelegend.venomous_tip": "Venomous Tip",
   "token.runelegend.venomous_tip.description": "Melee attacks have a %1$s chance to inflict Poison Ⅱ for %2$s seconds",
   "token.runelegend.substitute": "Substitute",
-  "token.runelegend.substitute.description": "At %1$s health or less, summon a full-health substitute with your maximum health and armor. Monsters prioritize substitutes within targeting range. It dies automatically after %2$s seconds and starts a %3$s-second cooldown",
+  "token.runelegend.substitute.description": "At %1$s health or less, summon a full-health substitute with your maximum health and armor. Monsters prioritize substitutes within targeting range. It dies automatically after %2$s seconds. On death, it deals %5$s HP of explosion damage to enemies within %4$s blocks and starts a %3$s-second cooldown",
   "token.runelegend.poisoned_arrow": "Poisoned Arrow",
   "token.runelegend.poisoned_arrow.description": "Arrow hits have a %1$s chance to inflict Poison Ⅱ for %2$s seconds",
   "token.runelegend.fountain_of_life": "Fountain of Life",

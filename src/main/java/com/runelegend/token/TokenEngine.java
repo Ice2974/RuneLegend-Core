@@ -4,11 +4,14 @@ import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.LivingEntity;
@@ -368,14 +371,17 @@ public final class TokenEngine {
             });
         }
 
-        public boolean summonSubstitute(String name, long expiresAt, Runnable ended) {
+        public boolean summonSubstitute(String name, long expiresAt, TokenConfig.SubstituteSettings settings, Runnable ended) {
             if (!valid()) return false;
             var owner = player();
             var level = owner.level();
             var model = new SubstituteMannequin(owner);
             if (!level.addFreshEntity(model) || !model.isAlive()) return false;
             substitutes.add(level, model);
-            model.onEnd(ended);
+            model.onEnd(died -> {
+                ended.run();
+                if (died && valid()) explodeSubstitute(level, model, settings);
+            });
             replaceEffect(name, () -> {
                 substitutes.remove(level, model);
                 model.onEnd(null);
@@ -384,6 +390,21 @@ public final class TokenEngine {
             if (model.isRemoved()) return false;
             at(name, expiresAt, model::expire);
             return true;
+        }
+
+        private void explodeSubstitute(ServerLevel level, SubstituteMannequin model, TokenConfig.SubstituteSettings settings) {
+            var center = model.position();
+            double radius = settings.explosionRadius();
+            double radiusSquared = radius * radius;
+            var area = model.getBoundingBox().inflate(radius);
+            var source = level.damageSources().explosion(model, player());
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 1, 0, 0, 0, 0);
+            level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE, SoundSource.NEUTRAL, 1, 1);
+            for (var enemy : level.getEntitiesOfClass(LivingEntity.class, area,
+                    target -> target.distanceToSqr(center) <= radiusSquared && TokenTargeting.enemy(target))) {
+                if (!canHarm(enemy)) continue;
+                TokenEventBridge.directDamage(enemy, source, () -> enemy.hurtServer(level, source, settings.explosionDamage()));
+            }
         }
 
         public void at(String effect, long tick, Runnable action) {

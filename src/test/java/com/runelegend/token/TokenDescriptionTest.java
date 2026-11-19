@@ -54,8 +54,8 @@ class TokenDescriptionTest {
         }
     }
 
-    @Test void substituteDescriptionsUseConfiguredThresholdDurationAndCooldown() throws IOException {
-        var args = new SubstituteEffect(new TokenConfig.SubstituteSettings(0.35F, 14, 27)).descriptionArguments();
+    @Test void substituteDescriptionsUseConfiguredSettings() throws IOException {
+        var args = new SubstituteEffect(new TokenConfig.SubstituteSettings(0.35F, 14, 27, 6.5, 12.5F)).descriptionArguments();
         for (var language : new String[]{"zh_cn", "en_us"}) {
             try (var reader = new InputStreamReader(getClass().getResourceAsStream(
                     "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
@@ -63,6 +63,7 @@ class TokenDescriptionTest {
                         .get("token.runelegend.substitute.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
                 assertTrue(description.contains("35%") && description.contains("14") && description.contains("27"), description);
+                assertTrue(description.contains("6.5") && description.contains("12.5"), description);
             }
         }
     }

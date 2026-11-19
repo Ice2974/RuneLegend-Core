@@ -4,14 +4,18 @@ import com.google.gson.JsonParser;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
 import com.runelegend.api.PlayerRoundStats;
+import com.runelegend.api.RoundMetric;
 import com.runelegend.game.GameController;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.player.PlayerTokenStore;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -19,8 +23,10 @@ import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
@@ -83,7 +89,16 @@ public final class SubstituteGameTests {
             other.setHealth(other.getMaxHealth() / 2);
             engine.updateHealth(other);
             var otherModel = liveModels(other).getFirst();
+            var inRange = explosionTarget(test, model.position().add(0, 5, 0));
+            var outside = explosionTarget(test, model.position().add(4, 0, 4));
+            var passive = test.spawnWithNoFreeWill(EntityTypes.PIG, 3, 2, 4);
+            float passiveHealth = passive.getHealth();
+            float otherHealth = other.getHealth();
             model.hurtServer(level, level.damageSources().genericKill(), 1000);
+            test.assertValueEqual(inRange.getHealth(), 20F, "A target at the five-block boundary takes 20 HP");
+            test.assertValueEqual(outside.getHealth(), 40F, "Outside the spherical radius");
+            test.assertValueEqual(passive.getHealth(), passiveHealth, "Non-enemies are spared");
+            test.assertValueEqual(other.getHealth(), otherHealth, "Nearby players are spared");
             test.assertValueEqual(view(engine, owner).flags(), TokenEngine.COOLDOWN, "Death starts cooldown");
             test.assertValueEqual(view(engine, owner).cooldownUntil(), 900L, "40 seconds from death");
             test.assertTrue(otherModel.isAlive(), "The other player is unaffected");
@@ -95,8 +110,10 @@ public final class SubstituteGameTests {
             var replacement = liveModels(owner).getFirst();
             test.assertTrue(replacement != model, "Continued low health automatically creates another model");
 
+            inRange.damageCooldownTime = 0;
             replacement.setRemoved(Entity.RemovalReason.UNLOADED_TO_CHUNK);
             test.assertValueEqual(view(engine, owner).cooldownUntil(), 1700L, "Unload starts cooldown");
+            test.assertValueEqual(inRange.getHealth(), 20F, "Removal and unload leave enemies unaffected");
             owner.setHealth(30);
             clock.set(1700);
             engine.tick(List.of(owner, other));
@@ -117,7 +134,7 @@ public final class SubstituteGameTests {
         var server = RuneLegendServer.find(level.getServer());
         var game = new GameController(() -> {}, (before, after) -> {});
         var config = TokenConfig.fromJson(JsonParser.parseString("""
-                {"runelegend:substitute":{"duration_seconds":3,"cooldown_seconds":1}}
+                {"runelegend:substitute":{"duration_seconds":3,"cooldown_seconds":1,"explosion_radius":2,"explosion_damage":7}}
                 """).getAsJsonObject());
         var registry = TokenRegistry.builtIn(config);
         var players = new PlayerTokenService(game, PlayerTokenStore.inMemory(), registry);
@@ -145,10 +162,14 @@ public final class SubstituteGameTests {
             engine.tick(online);
             test.assertTrue(replacement.isAlive(), "Still alive one tick before its deadline");
             test.assertValueEqual(replacement.getHealth(), replacement.getMaxHealth(), "No monsters have damaged it");
+            var inside = explosionTarget(test, replacement.position().add(0, 0, 2));
+            var outside = explosionTarget(test, replacement.position().add(0, 0, 3));
 
             clock.set(190);
             engine.tick(online);
             test.assertTrue(replacement.isDeadOrDying() && !replacement.isRemoved(), "Expiry runs normal death");
+            test.assertValueEqual(inside.getHealth(), 33F, "Expiry uses the configured explosion damage");
+            test.assertValueEqual(outside.getHealth(), 40F, "Expiry uses the configured explosion radius");
             test.assertValueEqual(view(engine, owner).flags(), TokenEngine.COOLDOWN, "Expiry ends the active state");
             test.assertValueEqual(view(engine, owner).cooldownUntil(), 210L, "Cooldown starts at expiry");
             test.succeed();
@@ -156,6 +177,69 @@ public final class SubstituteGameTests {
             engine.clearRound();
             server.leave(owner);
         }
+    }
+
+    @GameTest
+    public void substituteExplosionRespectsMitigationWithoutTriggeringMeleeBonuses(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var owner = GuardGameTests.fixture(test);
+        try {
+            server.game().stopGame();
+            equip(test, server.players(), owner);
+            test.assertValueEqual(server.players().equip(owner.getUUID(), RuneLegendMod.id("arrogance")),
+                    PlayerTokenService.Result.CHANGED, "Equip Arrogance to observe kill events");
+            server.game().startGame();
+            place(test, owner, 3.5, 4.5);
+            owner.setHealth(owner.getMaxHealth() / 2);
+            var model = liveModels(owner).getFirst();
+            owner.setHealth(owner.getMaxHealth());
+
+            var armored = explosionTarget(test, model.position().add(1, 0, 0));
+            var protectedTarget = explosionTarget(test, model.position().add(2, 0, 0));
+            var resistant = explosionTarget(test, model.position().add(3, 0, 0));
+            for (var target : List.of(armored, protectedTarget, resistant)) {
+                target.getAttribute(Attributes.ARMOR).setBaseValue(12);
+                var helmet = new ItemStack(Items.LEATHER_HELMET);
+                if (target != armored) helmet.enchant(level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+                        .getOrThrow(Enchantments.BLAST_PROTECTION), 4);
+                target.setItemSlot(EquipmentSlot.HEAD, helmet);
+            }
+            resistant.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 400));
+            var doomed = explosionTarget(test, model.position().add(0, 0, 2));
+            doomed.setHealth(1);
+            var meleeTarget = test.spawnWithNoFreeWill(EntityTypes.PIG, 3, 2, 5);
+            owner.resetAttackStrengthTicker();
+            owner.attack(meleeTarget);
+            float baseMelee = meleeTarget.getMaxHealth() - meleeTarget.getHealth();
+            test.assertTrue(baseMelee > 0, "Fixture receives an ordinary melee hit");
+
+            double hitsBefore = server.statistics().player(owner.getUUID()).value(RoundMetric.HITS_DEALT);
+            model.kill(level);
+            test.assertTrue(armored.getHealth() > 20 && armored.getHealth() < 40, "Armor mitigates the explosion");
+            test.assertTrue(protectedTarget.getHealth() > armored.getHealth(), "Blast Protection mitigates explosion damage");
+            test.assertTrue(resistant.getHealth() > protectedTarget.getHealth(), "Resistance further mitigates the explosion");
+            test.assertFalse(doomed.isAlive(), "The explosion can kill enemies");
+            test.assertValueEqual(server.statistics().player(owner.getUUID()).value(RoundMetric.HITS_DEALT), hitsBefore + 4,
+                    "Explosion hits are credited to the owner");
+            meleeTarget.setHealth(meleeTarget.getMaxHealth());
+            meleeTarget.damageCooldownTime = 0;
+            owner.resetAttackStrengthTicker();
+            owner.attack(meleeTarget);
+            test.assertValueEqual(meleeTarget.getMaxHealth() - meleeTarget.getHealth(), baseMelee,
+                    "Explosion kills do not trigger Arrogance or alter base melee damage");
+            test.succeed();
+        } finally {
+            cleanup(server, owner);
+        }
+    }
+
+    private static Skeleton explosionTarget(GameTestHelper test, Vec3 position) {
+        var target = test.spawnWithNoFreeWill(EntityTypes.SKELETON, 3, 2, 4);
+        target.setPos(position);
+        target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40);
+        target.setHealth(40);
+        return target;
     }
 
     @GameTest

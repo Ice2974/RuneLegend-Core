@@ -16,9 +16,11 @@ import net.minecraft.world.entity.player.PlayerModelPart;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueOutput;
 
+import java.util.function.Consumer;
+
 final class SubstituteMannequin extends Mannequin {
     private final float maximumHealth;
-    private Runnable onEnd;
+    private Consumer<Boolean> onEnd;
 
     SubstituteMannequin(ServerPlayer player) {
         super(player.level());
@@ -39,7 +41,7 @@ final class SubstituteMannequin extends Mannequin {
         setHealth(maximumHealth);
     }
 
-    void onEnd(Runnable action) {
+    void onEnd(Consumer<Boolean> action) {
         onEnd = action;
     }
 
@@ -49,10 +51,10 @@ final class SubstituteMannequin extends Mannequin {
         die(damageSources().genericKill());
     }
 
-    private void end() {
+    private void end(boolean died) {
         var action = onEnd;
         onEnd = null;
-        if (action != null) action.run();
+        if (action != null) action.accept(died);
     }
 
     @Override protected void onAttributeUpdated(Holder<Attribute> attribute) {
@@ -86,11 +88,11 @@ final class SubstituteMannequin extends Mannequin {
 
     @Override public void die(DamageSource source) {
         super.die(source);
-        if (isDeadOrDying()) end();
+        if (isDeadOrDying()) end(true);
     }
 
     @Override public void onRemoval(RemovalReason reason) {
         super.onRemoval(reason);
-        end();
+        end(false);
     }
 }

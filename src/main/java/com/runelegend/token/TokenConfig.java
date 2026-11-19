@@ -327,20 +327,31 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
-    public record SubstituteSettings(float healthThreshold, int durationSeconds, int cooldownSeconds) {
+    public record SubstituteSettings(float healthThreshold, int durationSeconds, int cooldownSeconds,
+                                     double explosionRadius, float explosionDamage) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
-        public static final SubstituteSettings DEFAULT = new SubstituteSettings(0.5F, 20, 40);
+        public static final SubstituteSettings DEFAULT = new SubstituteSettings(0.5F, 20, 40, 5.0, 20.0F);
         public static final Codec<SubstituteSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(SubstituteSettings::healthThreshold),
                 field(wholeNumber(1, MAX_SECONDS), "duration_seconds", DEFAULT.durationSeconds())
                         .forGetter(SubstituteSettings::durationSeconds),
                 field(wholeNumber(0, MAX_SECONDS), "cooldown_seconds", DEFAULT.cooldownSeconds())
-                        .forGetter(SubstituteSettings::cooldownSeconds)
+                        .forGetter(SubstituteSettings::cooldownSeconds),
+                field(Codec.DOUBLE.validate(value -> Double.isFinite(value) && value > 0
+                        ? DataResult.success(value) : DataResult.error(() -> "explosion_radius must be positive and finite")),
+                        "explosion_radius", DEFAULT.explosionRadius()).forGetter(SubstituteSettings::explosionRadius),
+                field(ExtraCodecs.POSITIVE_FLOAT, "explosion_damage", DEFAULT.explosionDamage())
+                        .forGetter(SubstituteSettings::explosionDamage)
         ).apply(instance, SubstituteSettings::new));
 
         public SubstituteSettings {
             TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
+            TokenSettingValidation.requireFinite(explosionDamage, "explosion_damage");
+            if (!Double.isFinite(explosionRadius) || explosionRadius <= 0) {
+                throw TokenSettingValidation.invalid("explosion_radius must be positive and finite");
+            }
+            if (explosionDamage <= 0) throw TokenSettingValidation.invalid("explosion_damage must be positive");
             if (healthThreshold < 0 || healthThreshold > 1) {
                 throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
             }
