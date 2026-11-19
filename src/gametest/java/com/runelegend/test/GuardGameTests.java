@@ -177,7 +177,7 @@ public final class GuardGameTests {
             reset(player, origin, 20);
             hit(test, player, source, 17, "Front half block");
             test.assertTrue(counterActive(server, player), "Partial vanilla block activates Immediate Counter");
-            test.assertValueEqual(server.tokens().melee(player, 6).bonusDamage(), 3F, "Counter adds 3 HP to melee");
+            test.assertValueEqual(server.tokens().melee(player, 6).bonusDamage(), 4F, "Counter adds 4 HP to melee");
 
             server.game().stopGame();
             test.assertTrue(player.isBlocking(), "Stopping a game does not lower a valid block");

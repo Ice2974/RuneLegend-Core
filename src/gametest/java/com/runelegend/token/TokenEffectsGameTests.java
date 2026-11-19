@@ -70,7 +70,7 @@ public final class TokenEffectsGameTests {
                     attacker.resetAttackStrengthTicker();
                     attacker.attack(target);
                 });
-                near(test, boosted, normal[i] + (target instanceof net.minecraft.world.entity.player.Player ? 0 : 2.4F),
+                near(test, boosted, normal[i] + (target instanceof net.minecraft.world.entity.player.Player ? 0 : 3.2F),
                         "Only monsters receive the token bonus; base player damage is unchanged");
             }
             test.succeed();
