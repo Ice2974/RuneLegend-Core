@@ -22,12 +22,12 @@ class TokenConfigTest {
         var venomous = tokens.getAsJsonObject("runelegend:venomous_tip");
         assertEquals(2, venomous.size());
         assertEquals(0.50F, venomous.get("chance").getAsFloat());
-        assertEquals(6, venomous.get("duration_seconds").getAsInt());
+        assertEquals(8, venomous.get("duration_seconds").getAsInt());
         assertFalse(venomous.has("level"), "Venomous Tip poison level is no longer configurable");
         var poisonedArrow = tokens.getAsJsonObject("runelegend:poisoned_arrow");
         assertEquals(2, poisonedArrow.size());
         assertEquals(0.50F, poisonedArrow.get("chance").getAsFloat());
-        assertEquals(12, poisonedArrow.get("duration_seconds").getAsInt());
+        assertEquals(16, poisonedArrow.get("duration_seconds").getAsInt());
         assertFalse(poisonedArrow.has("level"), "Poisoned Arrow poison level is no longer configurable");
         var asura = tokens.getAsJsonObject("runelegend:asura_form");
         assertEquals(6, asura.size());

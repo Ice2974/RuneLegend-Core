@@ -103,7 +103,7 @@ public record TokenConfig(
 
     /** The poison level is fixed at II; only chance and duration are configurable. */
     public record VenomousTipSettings(float chance, int durationSeconds) {
-        public static final VenomousTipSettings DEFAULT = new VenomousTipSettings(0.50F, 6);
+        public static final VenomousTipSettings DEFAULT = new VenomousTipSettings(0.50F, 8);
         public static final Codec<VenomousTipSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(VenomousTipSettings::chance),
                 field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())
@@ -123,7 +123,7 @@ public record TokenConfig(
 
     /** The applied poison level is fixed at Poison II; only the chance and duration are configurable. */
     public record PoisonedArrowSettings(float chance, int durationSeconds) {
-        public static final PoisonedArrowSettings DEFAULT = new PoisonedArrowSettings(0.50F, 12);
+        public static final PoisonedArrowSettings DEFAULT = new PoisonedArrowSettings(0.50F, 16);
         public static final Codec<PoisonedArrowSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(PoisonedArrowSettings::chance),
                 field(ExtraCodecs.POSITIVE_INT, "duration_seconds", DEFAULT.durationSeconds())

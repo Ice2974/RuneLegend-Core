@@ -230,7 +230,7 @@ public final class TokenEffectsGameTests {
             var poison = enemy.getEffect(MobEffects.POISON);
             test.assertTrue(poison != null, "A successful roll applies Poison to the melee target");
             test.assertValueEqual(poison.getAmplifier(), 1, "Default poison level 2 is amplifier 1");
-            test.assertValueEqual(poison.getDuration(), 120, "Default six seconds is 120 ticks");
+            test.assertValueEqual(poison.getDuration(), 160, "Default eight seconds is 160 ticks");
 
             enemy.removeEffect(MobEffects.POISON);
             enemy.setHealth(enemy.getMaxHealth());
@@ -278,7 +278,7 @@ public final class TokenEffectsGameTests {
             var poison = enemy.getEffect(MobEffects.POISON);
             test.assertTrue(poison != null, "A successful arrow hit applies Poison");
             test.assertValueEqual(poison.getAmplifier(), 1, "Default poison level 2 is amplifier 1");
-            test.assertValueEqual(poison.getDuration(), 240, "Default twelve seconds is 240 ticks");
+            test.assertValueEqual(poison.getDuration(), 320, "Default sixteen seconds is 320 ticks");
 
             enemy.removeEffect(MobEffects.POISON);
             enemy.setHealth(enemy.getMaxHealth());

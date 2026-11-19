@@ -24,8 +24,8 @@
 | `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 | 5% 概率增加 2 点最大生命，可叠加 |
 | `runelegend:echo` | 残响 | 击杀敌对目标 | 50% 概率在目标位置留下半径 5 格的残响，持续 8 秒，每秒对范围内的敌对目标造成 3 HP 令牌伤害 |
 | `runelegend:immediate_counter` | 即刻反击 | 成功格挡 | 随后 8 秒内每次直接近战命中额外造成 4 HP 令牌伤害；效果结束后冷却 8 秒 |
-| `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 6 秒中毒 II |
-| `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 12 秒中毒 II |
+| `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 8 秒中毒 II |
+| `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 16 秒中毒 II |
 | `runelegend:asura_form` | 修罗化身 | 击杀敌对目标 | 累计击杀 3 只后变身 12 秒：近战追加 4 HP 令牌伤害、移动速度 +40%、临时血条 16 HP；结束后恢复原血条并冷却 9 秒 |
 | `runelegend:resonance_healing` | 共鸣疗愈 | 成功格挡 | 自身生命不高于 50% 时，治疗自身周围 5 格内符合条件的玩家。范围内每有一只存活的敌人，每人恢复 2 HP。冷却 10 秒 |
 | `runelegend:vernal_tide` | 回春怒涛 | 近战命中 | 自身处于生命恢复状态时，50% 概率使本次命中追加 3 HP 真伤，并对以自身为中心半径 5 格内的其他敌人各造成 3 HP 令牌伤害 |
@@ -115,14 +115,14 @@
 | 字段 | 范围 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `chance` | 0–1 | `0.5` | 近战命中时的触发概率 |
-| `duration_seconds` | > 0 的整数 | `6` | 中毒持续时间（秒） |
+| `duration_seconds` | > 0 的整数 | `8` | 中毒持续时间（秒） |
 
 ### `runelegend:poisoned_arrow`
 
 | 字段 | 范围 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `chance` | 0–1 | `0.5` | 箭命中时的触发概率 |
-| `duration_seconds` | > 0 的整数 | `12` | 中毒持续时间（秒） |
+| `duration_seconds` | > 0 的整数 | `16` | 中毒持续时间（秒） |
 
 ### `runelegend:asura_form`
 
