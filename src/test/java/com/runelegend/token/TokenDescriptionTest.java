@@ -79,7 +79,7 @@ class TokenDescriptionTest {
     @Test void immediateCounterDescriptionArgumentsAreSeconds() {
         var arguments = new ImmediateCounterEffect(TokenConfig.ImmediateCounterSettings.DEFAULT).descriptionArguments();
         assertEquals("8", arguments[1], "Default 160-tick duration is 8 seconds");
-        assertEquals("12", arguments[2], "Default 240-tick cooldown is 12 seconds");
+        assertEquals("8", arguments[2], "Default 160-tick cooldown is 8 seconds");
     }
 
     @Test void poisonedArrowDescriptionUsesConfiguredChanceDurationAndFixedLevel() throws IOException {

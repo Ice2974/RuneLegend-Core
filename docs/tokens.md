@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 | 5% 概率增加 2 点最大生命，可叠加 |
 | `runelegend:echo` | 残响 | 击杀敌对目标 | 50% 概率在目标位置留下半径 5 格的残响，持续 8 秒，每秒对范围内的敌对目标造成 3 HP 令牌伤害 |
-| `runelegend:immediate_counter` | 即刻反击 | 成功格挡 | 随后 8 秒内每次直接近战命中额外造成 3 HP 令牌伤害；效果结束后冷却 12 秒 |
+| `runelegend:immediate_counter` | 即刻反击 | 成功格挡 | 随后 8 秒内每次直接近战命中额外造成 4 HP 令牌伤害；效果结束后冷却 8 秒 |
 | `runelegend:venomous_tip` | 刃尖毒发 | 近战命中 | 50% 概率赋予目标 6 秒中毒 II |
 | `runelegend:poisoned_arrow` | 淬毒之箭 | 箭命中 | 50% 概率赋予目标 12 秒中毒 II |
 | `runelegend:asura_form` | 修罗化身 | 击杀敌对目标 | 累计击杀 3 只后变身 12 秒：近战追加 4 HP 令牌伤害、移动速度 +40%、临时血条 16 HP；结束后恢复原血条并冷却 9 秒 |
@@ -108,7 +108,7 @@
 | --- | --- | --- | --- |
 | `bonus_damage` | ≥ 0 | `3.0` | 每次近战追加的令牌伤害 |
 | `duration_ticks` | ≥ 0 的整数 | `160` | 格挡成功后的生效时长（tick） |
-| `cooldown_after_effect_ticks` | ≥ 0 的整数 | `240` | 效果结束后的冷却时长（tick） |
+| `cooldown_after_effect_ticks` | ≥ 0 的整数 | `160` | 效果结束后的冷却时长（tick） |
 
 ### `runelegend:venomous_tip`
 

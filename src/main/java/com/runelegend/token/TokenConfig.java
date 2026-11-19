@@ -85,7 +85,7 @@ public record TokenConfig(
     }
 
     public record ImmediateCounterSettings(float bonusDamage, int durationTicks, int cooldownAfterEffectTicks) {
-        public static final ImmediateCounterSettings DEFAULT = new ImmediateCounterSettings(3.0F, 160, 240);
+        public static final ImmediateCounterSettings DEFAULT = new ImmediateCounterSettings(4.0F, 160, 160);
         public static final Codec<ImmediateCounterSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.NON_NEGATIVE_FLOAT, "bonus_damage", DEFAULT.bonusDamage()).forGetter(ImmediateCounterSettings::bonusDamage),
                 field(ExtraCodecs.NON_NEGATIVE_INT, "duration_ticks", DEFAULT.durationTicks()).forGetter(ImmediateCounterSettings::durationTicks),
