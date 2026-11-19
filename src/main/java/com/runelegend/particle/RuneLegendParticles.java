@@ -8,10 +8,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 
 public final class RuneLegendParticles {
     public static final SimpleParticleType FOUNTAIN_BUBBLE = FabricParticleTypes.simple();
+    public static final SimpleParticleType ECHO_PULSE = FabricParticleTypes.simple();
 
     private RuneLegendParticles() {}
 
     public static void register() {
         Registry.register(BuiltInRegistries.PARTICLE_TYPE, RuneLegendMod.id("fountain_bubble"), FOUNTAIN_BUBBLE);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE, RuneLegendMod.id("echo_pulse"), ECHO_PULSE);
     }
 }

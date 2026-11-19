@@ -22,7 +22,7 @@ class ProtocolStateTest {
             assertEquals(snapshot, PlayerSnapshot.CODEC.decode(buffer));
             assertEquals(0, buffer.readableBytes());
         } finally { buffer.release(); }
-        assertEquals(6, PROTOCOL);
+        assertEquals(7, PROTOCOL);
     }
 
     @Test void markerDeltaUpdatesAndRemovesOnlyNamedAnchors() {

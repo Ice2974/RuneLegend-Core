@@ -1,5 +1,6 @@
 package com.runelegend.token.effect;
 
+import com.runelegend.particle.RuneLegendParticles;
 import com.runelegend.token.*;
 import com.runelegend.token.TokenConfig.EchoSettings;
 import net.minecraft.world.entity.LivingEntity;
@@ -23,10 +24,14 @@ public final class EchoEffect implements TokenEffectHandler {
         for (int elapsed = settings.intervalTicks(); elapsed <= settings.durationTicks(); elapsed += settings.intervalTicks()) {
             context.at("echo", start + elapsed, () -> {
                 var area = new AABB(center, center).inflate(EchoSettings.RADIUS);
+                boolean hit = false;
                 for (var enemy : level.getEntitiesOfClass(LivingEntity.class, area,
                         mob -> mob.isAlive() && TokenTargeting.enemy(mob)
                                 && mob.distanceToSqr(center) <= EchoSettings.RADIUS * EchoSettings.RADIUS)) {
-                    context.damage(level, enemy, settings.damage());
+                    hit |= context.damage(level, enemy, settings.damage());
+                }
+                if (hit && settings.damage() > 0) {
+                    level.sendParticles(RuneLegendParticles.ECHO_PULSE, center.x, center.y, center.z, 1, 0, 0, 0, 0);
                 }
             });
         }

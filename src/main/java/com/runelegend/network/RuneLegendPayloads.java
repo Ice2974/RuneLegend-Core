@@ -20,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.HashSet;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 6;
+    public static final int PROTOCOL = 7;
     public static final int TOKENS = 1, STAMINA = 2, IDENTITY = 4, DOWNED = 8, TAB = 16, ALL = TOKENS | STAMINA | IDENTITY | DOWNED | TAB;
     private static final int MAX_MARKERS = 4096;
 

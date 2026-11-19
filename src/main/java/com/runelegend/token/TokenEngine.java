@@ -422,9 +422,9 @@ public final class TokenEngine {
             owned.remove(key);
         }
 
-        public void damage(ServerLevel level, LivingEntity victim, float amount) {
-            if (!canHarm(victim) || victim.level() != level) return;
-            victim.hurtServer(level, directDamageSource(level, player()), amount);
+        public boolean damage(ServerLevel level, LivingEntity victim, float amount) {
+            if (!canHarm(victim) || victim.level() != level) return false;
+            return victim.hurtServer(level, directDamageSource(level, player()), amount);
         }
 
         boolean normalDamage(LivingEntity victim, float amount) {
