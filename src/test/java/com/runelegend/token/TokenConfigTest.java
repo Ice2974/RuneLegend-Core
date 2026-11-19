@@ -41,7 +41,7 @@ class TokenConfigTest {
         assertEquals(4, resonance.size());
         assertEquals(0.5F, resonance.get("health_threshold").getAsFloat());
         assertEquals(5.0, resonance.get("radius").getAsDouble());
-        assertEquals(2.0F, resonance.get("heal_per_enemy").getAsFloat());
+        assertEquals(1.0F, resonance.get("heal_per_enemy").getAsFloat());
         assertEquals(10, resonance.get("cooldown_seconds").getAsInt());
         var vernal = tokens.getAsJsonObject("runelegend:vernal_tide");
         assertEquals(3, vernal.size());
@@ -344,7 +344,7 @@ class TokenConfigTest {
         var tokens = new JsonObject();
         tokens.add("runelegend:resonance_healing",
                 JsonParser.parseString("{\"radius\":4,\"heal_amount\":6}"));
-        assertEquals(new TokenConfig.ResonanceHealingSettings(0.5F, 4, 2, 10),
+        assertEquals(new TokenConfig.ResonanceHealingSettings(0.5F, 4, 1, 10),
                 TokenConfig.fromJson(tokens).resonanceHealing());
     }
 

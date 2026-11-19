@@ -75,8 +75,8 @@ public final class ResonanceHealingGameTests {
                     TokenEngine.READY | TokenEngine.PREPARING,
                     "At exactly 50% health the token enters preparation");
             tokens.dispatch(guard(healer, level));
-            test.assertValueEqual(healer.getHealth(), 14F,
-                    "The healer gains two HP per living enemy within five blocks, including the boundary");
+            test.assertValueEqual(healer.getHealth(), 12F,
+                    "The healer gains one HP per living enemy within five blocks, including the boundary");
             test.assertValueEqual(nearAlly.getHealth(), 20F,
                     "An ally inside the default five-block radius is healed and capped at max health");
             test.assertValueEqual(farAlly.getHealth(), 10F,
@@ -102,7 +102,7 @@ public final class ResonanceHealingGameTests {
                     TokenEngine.READY | TokenEngine.PREPARING,
                     "The cooldown expires after 200 ticks");
             tokens.dispatch(guard(healer, level));
-            test.assertValueEqual(healer.getHealth(), 14F,
+            test.assertValueEqual(healer.getHealth(), 12F,
                     "The token triggers again after the cooldown expires");
 
             nearbyEnemy.discard();
