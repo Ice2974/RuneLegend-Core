@@ -54,29 +54,33 @@ public record TokenConfig(
         }
     }
 
-    public record EchoSettings(float chance, double radius, float damage, int durationTicks, int intervalTicks) {
-        public static final EchoSettings DEFAULT = new EchoSettings(0.50F, 5.0, 3.0F, 160, 20);
+    /** The radius is fixed by design; only the chance, damage, and timing are configurable. */
+    public record EchoSettings(float chance, float damage, int durationTicks, int intervalTicks) {
+        public static final double RADIUS = 5.0;
+        public static final int MIN_INTERVAL_TICKS = 10;
+        public static final EchoSettings DEFAULT = new EchoSettings(0.50F, 3.0F, 160, 20);
         public static final Codec<EchoSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(EchoSettings::chance),
-                field(Codec.DOUBLE.validate(EchoSettings::positiveRadius), "radius", DEFAULT.radius()).forGetter(EchoSettings::radius),
                 field(ExtraCodecs.NON_NEGATIVE_FLOAT, "damage", DEFAULT.damage()).forGetter(EchoSettings::damage),
                 field(ExtraCodecs.NON_NEGATIVE_INT, "duration_ticks", DEFAULT.durationTicks()).forGetter(EchoSettings::durationTicks),
-                field(ExtraCodecs.POSITIVE_INT, "interval_ticks", DEFAULT.intervalTicks()).forGetter(EchoSettings::intervalTicks)
+                field(Codec.INT.validate(EchoSettings::validInterval), "interval_ticks", DEFAULT.intervalTicks())
+                        .forGetter(EchoSettings::intervalTicks)
         ).apply(instance, EchoSettings::new));
 
         public EchoSettings {
             TokenSettingValidation.requireFinite(chance, "chance");
             TokenSettingValidation.requireFinite(damage, "damage");
             if (chance < 0.0F || chance > 1.0F) throw TokenSettingValidation.invalid("chance must be between 0 and 1");
-            if (!Double.isFinite(radius) || radius <= 0.0) throw TokenSettingValidation.invalid("radius must be positive");
             if (damage < 0.0F) throw TokenSettingValidation.invalid("damage must be non-negative");
             if (durationTicks < 0) throw TokenSettingValidation.invalid("duration_ticks must be non-negative");
-            if (intervalTicks <= 0) throw TokenSettingValidation.invalid("interval_ticks must be positive");
+            if (intervalTicks < MIN_INTERVAL_TICKS) {
+                throw TokenSettingValidation.invalid("interval_ticks must be at least " + MIN_INTERVAL_TICKS);
+            }
         }
 
-        private static DataResult<Double> positiveRadius(double value) {
-            return Double.isFinite(value) && value > 0.0
-                    ? DataResult.success(value) : DataResult.error(() -> "radius must be positive");
+        private static DataResult<Integer> validInterval(int value) {
+            return value >= MIN_INTERVAL_TICKS ? DataResult.success(value)
+                    : DataResult.error(() -> "interval_ticks must be at least " + MIN_INTERVAL_TICKS);
         }
     }
 
@@ -406,18 +410,17 @@ public record TokenConfig(
         public int cooldownTicks() { return cooldownSeconds * 20; }
     }
 
-    public record FountainSettings(float healthThreshold, double radius, int regenerationLevel, int resistanceLevel,
+    /** The horizontal radius is fixed by design; every other value is configurable. */
+    public record FountainSettings(float healthThreshold, int regenerationLevel, int resistanceLevel,
                                    int regenerationLingerSeconds, int resistanceLingerSeconds,
                                    int durationSeconds, int cooldownSeconds) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
         private static final int MAX_LEVEL = MobEffectInstance.MAX_AMPLIFIER + 1;
-        public static final FountainSettings DEFAULT = new FountainSettings(0.5F, 3.0, 2, 2, 1, 5, 10, 10);
+        public static final double RADIUS = 3.0;
+        public static final FountainSettings DEFAULT = new FountainSettings(0.5F, 2, 2, 1, 5, 10, 10);
         public static final Codec<FountainSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(FountainSettings::healthThreshold),
-                field(Codec.DOUBLE.validate(value -> Double.isFinite(value) && value > 0
-                        ? DataResult.success(value) : DataResult.error(() -> "radius must be positive and finite")),
-                        "radius", DEFAULT.radius()).forGetter(FountainSettings::radius),
                 field(wholeNumber(1, MAX_LEVEL), "regeneration_level", DEFAULT.regenerationLevel())
                         .forGetter(FountainSettings::regenerationLevel),
                 field(wholeNumber(1, MAX_LEVEL), "resistance_level", DEFAULT.resistanceLevel())
@@ -434,8 +437,8 @@ public record TokenConfig(
 
         public FountainSettings {
             TokenSettingValidation.requireFinite(healthThreshold, "health_threshold");
-            if (healthThreshold < 0 || healthThreshold > 1 || !Double.isFinite(radius) || radius <= 0) {
-                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1 and radius must be positive and finite");
+            if (healthThreshold < 0 || healthThreshold > 1) {
+                throw TokenSettingValidation.invalid("health_threshold must be between 0 and 1");
             }
             if (regenerationLevel < 1 || regenerationLevel > MAX_LEVEL || resistanceLevel < 1 || resistanceLevel > MAX_LEVEL) {
                 throw TokenSettingValidation.invalid("effect levels must be between 1 and " + MAX_LEVEL);

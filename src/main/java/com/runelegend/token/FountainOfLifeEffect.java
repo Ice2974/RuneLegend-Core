@@ -44,7 +44,7 @@ final class FountainOfLifeEffect implements TokenEffectHandler {
     }
 
     @Override public Object[] descriptionArguments() {
-        return new Object[]{TokenConfig.percent(settings.healthThreshold()), settings.radius(), settings.durationSeconds(),
+        return new Object[]{TokenConfig.percent(settings.healthThreshold()), FountainSettings.RADIUS, settings.durationSeconds(),
                 settings.regenerationLevel(), settings.resistanceLevel(), settings.regenerationLingerSeconds(),
                 settings.resistanceLingerSeconds(), settings.cooldownSeconds()};
     }

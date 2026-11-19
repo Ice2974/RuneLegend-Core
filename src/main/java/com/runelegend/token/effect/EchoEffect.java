@@ -22,9 +22,10 @@ public final class EchoEffect implements TokenEffectHandler {
         state.activeUntil = start + settings.durationTicks();
         for (int elapsed = settings.intervalTicks(); elapsed <= settings.durationTicks(); elapsed += settings.intervalTicks()) {
             context.at("echo", start + elapsed, () -> {
-                var area = new AABB(center, center).inflate(settings.radius());
+                var area = new AABB(center, center).inflate(EchoSettings.RADIUS);
                 for (var enemy : level.getEntitiesOfClass(LivingEntity.class, area,
-                        mob -> mob.isAlive() && TokenTargeting.enemy(mob) && mob.distanceToSqr(center) <= settings.radius() * settings.radius())) {
+                        mob -> mob.isAlive() && TokenTargeting.enemy(mob)
+                                && mob.distanceToSqr(center) <= EchoSettings.RADIUS * EchoSettings.RADIUS)) {
                     context.damage(level, enemy, settings.damage());
                 }
             });
@@ -33,7 +34,7 @@ public final class EchoEffect implements TokenEffectHandler {
     }
 
     @Override public Object[] descriptionArguments() {
-        return new Object[]{TokenConfig.percent(settings.chance()), settings.radius(), settings.damage(),
+        return new Object[]{TokenConfig.percent(settings.chance()), EchoSettings.RADIUS, settings.damage(),
                 TokenConfig.seconds(settings.durationTicks()), TokenConfig.seconds(settings.intervalTicks())};
     }
 }

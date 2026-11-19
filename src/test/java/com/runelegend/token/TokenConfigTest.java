@@ -11,7 +11,13 @@ class TokenConfigTest {
         var tokens = TokenConfig.DEFAULT.toJson();
         assertEquals(14, tokens.size());
         assertEquals(2, tokens.getAsJsonObject("runelegend:soul_siphon").size());
-        assertEquals(5, tokens.getAsJsonObject("runelegend:echo").size());
+        var echo = tokens.getAsJsonObject("runelegend:echo");
+        assertEquals(4, echo.size());
+        assertEquals(0.5F, echo.get("chance").getAsFloat());
+        assertEquals(3.0F, echo.get("damage").getAsFloat());
+        assertEquals(160, echo.get("duration_ticks").getAsInt());
+        assertEquals(20, echo.get("interval_ticks").getAsInt());
+        assertFalse(echo.has("radius"), "Echo radius is no longer configurable");
         assertEquals(3, tokens.getAsJsonObject("runelegend:immediate_counter").size());
         var venomous = tokens.getAsJsonObject("runelegend:venomous_tip");
         assertEquals(2, venomous.size());
@@ -73,9 +79,9 @@ class TokenConfigTest {
         assertEquals(6, fullBlessing.get("max_stored_blessings").getAsInt());
         assertEquals(20, fullBlessing.get("cooldown_seconds").getAsInt());
         var fountain = tokens.getAsJsonObject("runelegend:fountain_of_life");
-        assertEquals(8, fountain.size());
+        assertEquals(7, fountain.size());
         assertEquals(0.5F, fountain.get("health_threshold").getAsFloat());
-        assertEquals(3.0, fountain.get("radius").getAsDouble());
+        assertFalse(fountain.has("radius"), "Fountain radius is no longer configurable");
         assertEquals(2, fountain.get("regeneration_level").getAsInt());
         assertEquals(2, fountain.get("resistance_level").getAsInt());
         assertEquals(1, fountain.get("regeneration_linger_seconds").getAsInt());
@@ -87,7 +93,7 @@ class TokenConfigTest {
     @Test void codecRoundTripsEverySetting() {
         var config = new TokenConfig(
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
-                new TokenConfig.EchoSettings(0.33F, 6.5, 4.0F, 80, 10),
+                new TokenConfig.EchoSettings(0.33F, 4.0F, 80, 10),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.35F, 8),
                 new TokenConfig.PoisonedArrowSettings(0.45F, 10),
@@ -99,7 +105,7 @@ class TokenConfigTest {
                 new TokenConfig.RetributionSettings(7, 0),
                 new TokenConfig.SubstituteSettings(0.4F, 12, 7, 3.5, 16.5F),
                 new TokenConfig.FullBlessingSettings(5, 0.6F, 2.5F, 0, 11),
-                new TokenConfig.FountainSettings(0.3F, 6.5, 3, 4, 0, 8, 19, 0));
+                new TokenConfig.FountainSettings(0.3F, 3, 4, 0, 8, 19, 0));
         assertEquals(config, TokenConfig.fromJson(config.toJson()));
     }
 
@@ -107,14 +113,28 @@ class TokenConfigTest {
         var tokens = new JsonObject();
         var defaults = TokenConfig.FountainSettings.DEFAULT;
         assertEquals(defaults, TokenConfig.fromJson(tokens).fountainOfLife());
+        // A legacy radius field is ignored, not treated as invalid.
         tokens.add("runelegend:fountain_of_life", JsonParser.parseString("{\"radius\":7,\"resistance_linger_seconds\":0}"));
-        assertEquals(new TokenConfig.FountainSettings(0.5F, 7, 2, 2, 1, 0, 10, 10), TokenConfig.fromJson(tokens).fountainOfLife());
+        assertEquals(new TokenConfig.FountainSettings(0.5F, 2, 2, 1, 0, 10, 10), TokenConfig.fromJson(tokens).fountainOfLife());
         for (var invalid : new String[]{"\"regeneration_level\":0", "\"resistance_level\":2.5", "\"resistance_level\":257",
-                "\"radius\":0", "\"health_threshold\":1.1", "\"duration_seconds\":0",
+                "\"health_threshold\":1.1", "\"duration_seconds\":0",
                 "\"regeneration_linger_seconds\":107374183", "\"resistance_linger_seconds\":-1", "\"cooldown_seconds\":-1"}) {
             tokens.add("runelegend:fountain_of_life", JsonParser.parseString("{\"unused\":true," + invalid + "}"));
             assertEquals(defaults, TokenConfig.fromJson(tokens).fountainOfLife(), invalid);
         }
+    }
+
+    @Test void echoIntervalBelowTenTicksFallsBackToDefaults() {
+        var tokens = new JsonObject();
+        var defaults = TokenConfig.EchoSettings.DEFAULT;
+        tokens.add("runelegend:echo", JsonParser.parseString("{\"interval_ticks\":9}"));
+        assertEquals(defaults, TokenConfig.fromJson(tokens).echo());
+        for (var invalid : new String[]{"\"interval_ticks\":0", "\"interval_ticks\":-1", "\"interval_ticks\":9.5"}) {
+            tokens.add("runelegend:echo", JsonParser.parseString("{\"unused\":true," + invalid + "}"));
+            assertEquals(defaults, TokenConfig.fromJson(tokens).echo(), invalid);
+        }
+        tokens.add("runelegend:echo", JsonParser.parseString("{\"interval_ticks\":10}"));
+        assertEquals(10, TokenConfig.fromJson(tokens).echo().intervalTicks(), "Ten ticks is accepted");
     }
 
     @Test void fullBlessingUsesDefaultFieldsAndRejectsInvalidSections() {
@@ -192,10 +212,12 @@ class TokenConfigTest {
 
     @Test void boundedSettingsRejectInvalidValues() {
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.SoulSiphonSettings(-0.1F, 1));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 0, 1, 20, 20));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 5, -1, 20, 20));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 5, 1, -1, 20));
-        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 5, 1, 20, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(1.1F, 1, 20, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, -1, 20, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 1, -1, 20));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 1, 20, 9));
+        assertThrows(IllegalArgumentException.class, () -> new TokenConfig.EchoSettings(0.5F, 1, 20, 0));
+        assertEquals(10, new TokenConfig.EchoSettings(0.5F, 1, 20, 10).intervalTicks(), "Ten ticks is the shortest interval");
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(-1, 20, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, -1, 20));
         assertThrows(IllegalArgumentException.class, () -> new TokenConfig.ImmediateCounterSettings(1, 20, -1));

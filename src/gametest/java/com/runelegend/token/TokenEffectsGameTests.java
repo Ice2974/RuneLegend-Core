@@ -99,14 +99,14 @@ public final class TokenEffectsGameTests {
         var minecraft = test.getLevel().getServer();
         var server = RuneLegendServer.find(minecraft);
         var player = GuardGameTests.fixture(test);
-        var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
-        var nearSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 3);
-        var farSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 4);
-        var venomTarget = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 2, 2, 5);
+        var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 1, 2, 1);
+        var nearSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 1, 2, 2);
+        var farSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 6, 2, 6);
+        var venomTarget = test.spawnWithNoFreeWill(EntityTypes.PILLAGER, 5, 2, 6);
         var clock = new AtomicLong(100);
         var config = new TokenConfig(
                 new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
-                new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
+                new TokenConfig.EchoSettings(1.0F, 4.0F, 40, 20),
                 new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30),
                 new TokenConfig.VenomousTipSettings(0.25F, 3),
                 new TokenConfig.PoisonedArrowSettings(0.25F, 4),
@@ -146,8 +146,8 @@ public final class TokenEffectsGameTests {
             clock.set(120);
             nearSpider.damageCooldownTime = 0;
             tokens.tick(List.of(player));
-            test.assertValueEqual(nearSpider.getHealth(), nearHealth - 4.0F, "Configured Echo damages inside its radius");
-            test.assertValueEqual(farSpider.getHealth(), farHealth, "Configured Echo excludes targets outside its radius");
+            test.assertValueEqual(nearSpider.getHealth(), nearHealth - 4.0F, "Echo damages targets inside its fixed radius");
+            test.assertValueEqual(farSpider.getHealth(), farHealth, "Echo excludes targets outside its fixed radius");
             clock.set(140);
             nearSpider.damageCooldownTime = 0;
             tokens.tick(List.of(player));

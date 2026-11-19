@@ -38,7 +38,7 @@ final class FountainEffects {
                   long startedAt, long expiresAt) {
         boolean covers(ServerPlayer player, long tick) {
             return tick < expiresAt && player.level() == level && Math.abs(player.getY() - center.y()) <= VERTICAL_REACH
-                    && Math.hypot(player.getX() - center.x(), player.getZ() - center.z()) <= settings.radius()
+                    && Math.hypot(player.getX() - center.x(), player.getZ() - center.z()) <= FountainSettings.RADIUS
                     && context.canHeal(player);
         }
 
@@ -47,7 +47,7 @@ final class FountainEffects {
             var random = ThreadLocalRandom.current();
             for (int particle = 0; particle < PARTICLES_PER_SAMPLE; particle++) {
                 double angle = random.nextDouble() * Math.TAU;
-                double radius = Math.sqrt(random.nextDouble()) * settings.radius();
+                double radius = Math.sqrt(random.nextDouble()) * FountainSettings.RADIUS;
                 double x = center.x() + Math.cos(angle) * radius;
                 double z = center.z() + Math.sin(angle) * radius;
                 level.sendParticles(RuneLegendParticles.FOUNTAIN_BUBBLE, x, center.y() + PARTICLE_HEIGHT, z, 1, 0, 0, 0, 0);

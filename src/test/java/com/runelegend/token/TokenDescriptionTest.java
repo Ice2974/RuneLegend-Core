@@ -22,16 +22,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Player-visible token descriptions report durations in seconds, never raw server ticks. */
 class TokenDescriptionTest {
-    @Test void fountainDescriptionsUseEveryConfiguredValue() throws IOException {
-        var settings = new TokenConfig.FountainSettings(0.35F, 4.5, 3, 6, 7, 8, 12, 21);
+    @Test void fountainDescriptionsUseEveryConfiguredValueAndFixedRadius() throws IOException {
+        var settings = new TokenConfig.FountainSettings(0.35F, 3, 6, 7, 8, 12, 21);
         var args = new FountainOfLifeEffect(settings).descriptionArguments();
+        assertEquals(TokenConfig.FountainSettings.RADIUS, args[1], "Fountain radius is fixed, not configured");
         for (var language : new String[]{"zh_cn", "en_us"}) {
             try (var reader = new InputStreamReader(getClass().getResourceAsStream(
                     "/assets/runelegend/lang/" + language + ".json"), StandardCharsets.UTF_8)) {
                 var format = JsonParser.parseReader(reader).getAsJsonObject()
                         .get("token.runelegend.fountain_of_life.description").getAsString();
                 var description = String.format(java.util.Locale.ROOT, format, args);
-                for (var value : new String[]{"35%", "4.5", " 3", " 6", " 7", " 8", " 12", " 21"}) {
+                for (var value : new String[]{"35%", "3.0", " 3", " 6", " 7", " 8", " 12", " 21"}) {
                     assertTrue(description.contains(value), description);
                 }
             }
@@ -70,6 +71,7 @@ class TokenDescriptionTest {
 
     @Test void echoDescriptionArgumentsAreSeconds() {
         var arguments = new EchoEffect(TokenConfig.EchoSettings.DEFAULT).descriptionArguments();
+        assertEquals(TokenConfig.EchoSettings.RADIUS, arguments[1], "Echo radius is fixed, not configured");
         assertEquals("8", arguments[3], "Default 160-tick duration is 8 seconds");
         assertEquals("1", arguments[4], "Default 20-tick interval is 1 second");
     }
