@@ -33,9 +33,9 @@
   "token.runelegend.soul_siphon": "灵魂摄取",
   "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命，可叠加",
   "token.runelegend.echo": "残响",
-  "token.runelegend.echo.description": "击杀敌对怪物时有 %1$s 概率留下半径 %2$s 格的区域，持续 %4$s 秒，每 %5$s 秒对敌对目标造成 %3$s HP 伤害",
+  "token.runelegend.echo.description": "击杀敌对怪物时有 %1$s 概率留下半径 %2$s 格的区域，持续 %4$s 秒，每 %5$s 秒对敌对目标造成 %3$s HP 真伤",
   "token.runelegend.immediate_counter": "即刻反击",
-  "token.runelegend.immediate_counter.description": "成功格挡后的 %2$s 秒内直接近战每击增加 %1$s HP；冷却 %3$s 秒",
+  "token.runelegend.immediate_counter.description": "成功格挡后的 %2$s 秒内直接近战每击追加 %1$s HP 真伤；冷却 %3$s 秒",
   "token.runelegend.venomous_tip": "刃尖毒发",
   "token.runelegend.venomous_tip.description": "近战攻击有 %s 概率赋予敌人 %s 秒中毒Ⅱ效果",
   "token.runelegend.substitute": "替身",
@@ -43,9 +43,9 @@
   "token.runelegend.poisoned_arrow": "淬毒之箭",
   "token.runelegend.poisoned_arrow.description": "弓箭命中有 %1$s 概率赋予敌人 %2$s 秒中毒Ⅱ效果",
   "token.runelegend.fountain_of_life": "生命之泉",
-  "token.runelegend.fountain_of_life.description": "生命值不高于 %1$s 时，在脚下留下半径 %2$s 格的生命之泉，持续 %3$s 秒。泉内的存活玩家获得生命恢复 %4$s 和抗性提升 %5$s。离泉或泉到期后，两种效果分别保留 %6$s 秒和 %7$s 秒。泉到期后冷却 %8$s 秒。",
+  "token.runelegend.fountain_of_life.description": "生命值不高于 %1$s 时，在脚下留下半径 %2$s 格的生命之泉，持续 %3$s 秒。泉内玩家获得生命恢复 %4$s 和抗性提升 %5$s。离开泉水后，两种效果分别保留 %6$s 秒和 %7$s 秒。持续时间结束后冷却 %8$s 秒。",
   "token.runelegend.full_blessing": "全域祝福",
-  "token.runelegend.full_blessing.description": "自身生命不高于 %1$s 时，立即祝福所有存活玩家 %2$s 次。受祝福者生命不高于该阈值时，每次恢复 %3$s HP。生命高于阈值时，每人最多储存 %4$s 次，生命达到阈值或以下时自动消耗。冷却 %5$s 秒。",
+  "token.runelegend.full_blessing.description": "自身生命不高于 %1$s 时，立即祝福所有存活玩家 %2$s 次。受祝福者生命不高于该阈值时，每次恢复 %3$s HP。生命高于阈值时，存储本次祝福。每人最多储存 %4$s 次，生命达到阈值或以下时自动消耗。冷却 %5$s 秒。",
   "token.runelegend.retribution": "奉还",
   "token.runelegend.retribution.description": "受到有伤害的主动攻击时触发，持续 %1$s 秒。累计从该次命中起每次受伤的数值，每次直接近战命中时追加等量真伤。效果结束时清零累计伤害并冷却 %2$s 秒。",
   "token.runelegend.asura_form": "修罗化身",
@@ -55,7 +55,7 @@
   "token.runelegend.execution_echo": "斩杀回响",
   "token.runelegend.execution_echo.description": "近战击杀敌对目标后，记录该次攻击结算全部令牌追加伤害后的伤害（向上取整，最多 %4$s HP）。之后每次近战攻击追加该记录值的真伤，每 %2$s 秒衰减 %1$s HP，衰减到 0 时结束，结束后冷却 %3$s 秒。",
   "token.runelegend.resonance_healing": "共鸣疗愈",
-  "token.runelegend.resonance_healing.description": "生命值不高于 %1$s 时，成功格挡会治疗自身周围 %2$s 格内符合条件的玩家。该范围内每有一只存活的敌人，每名受治疗玩家恢复 %3$s HP。冷却 %4$s 秒",
+  "token.runelegend.resonance_healing.description": "生命值不高于 %1$s 时，成功格挡会治疗自身周围 %2$s 格内符合条件的玩家。治疗量按范围内的敌人数量决定，每存在一个敌人治疗 %3$s HP。冷却 %4$s 秒",
   "token.runelegend.arrogance": "狂妄",
-  "token.runelegend.arrogance.description": "生命值高于 %1$s 时，首杀敌对目标后，直接近战命中追加 %3$s HP 真伤。此后每击杀 %2$s 个敌对目标，追加真伤再提高 %3$s HP，最多追加 %4$s HP。生命值降到阈值或以下时清空进度，无冷却。"
+  "token.runelegend.arrogance.description": "生命值高于 %1$s 时，击杀一个敌对目标后，直接近战命中追加 %3$s HP 真伤。此后每击杀 %2$s 个敌对目标，追加真伤再提高 %3$s HP，最多追加 %4$s HP。生命值降到阈值或以下时清空进度，无冷却。"
 }
