@@ -154,17 +154,17 @@ public final class ExecutionEchoGameTests {
             clock.set(119);
             near(test, bonus(local.engine(), player, cow), 10, "The first second keeps the full record");
             clock.set(120);
-            near(test, bonus(local.engine(), player, cow), 9, "Each interval removes 1 HP");
+            near(test, bonus(local.engine(), player, cow), 8, "Each interval removes 2 HP");
             clock.set(140);
-            near(test, bonus(local.engine(), player, cow), 8, "Two intervals leave 8 HP");
-            clock.set(299);
-            near(test, bonus(local.engine(), player, cow), 1, "The last second before the end still has 1 HP");
-            clock.set(300);
+            near(test, bonus(local.engine(), player, cow), 6, "Two intervals leave 6 HP");
+            clock.set(199);
+            near(test, bonus(local.engine(), player, cow), 2, "The last second before the end still has 2 HP");
+            clock.set(200);
             near(test, bonus(local.engine(), player, cow), 0, "The record reaches zero and ends");
             flags(test, local.engine(), player, TokenEngine.COOLDOWN, "The cooldown starts when the effect ends");
-            clock.set(499);
+            clock.set(399);
             flags(test, local.engine(), player, TokenEngine.COOLDOWN, "Still cooling down");
-            clock.set(500);
+            clock.set(400);
             flags(test, local.engine(), player, TokenEngine.READY, "Ready after the default 10 second cooldown");
             test.succeed();
         } finally {
@@ -187,7 +187,7 @@ public final class ExecutionEchoGameTests {
             clock.set(110);
             local.engine().dispatch(meleeKill(player, zombie, 30));
             near(test, bonus(local.engine(), player, cow), 10, "A kill during the effect is ignored");
-            clock.set(350);
+            clock.set(250);
             local.engine().dispatch(meleeKill(player, zombie, 7));
             near(test, bonus(local.engine(), player, cow), 0, "A kill during the cooldown is ignored");
             clock.set(500);
@@ -212,10 +212,10 @@ public final class ExecutionEchoGameTests {
             zombie.setHealth(0);
             local.engine().dispatch(meleeKill(player, zombie, 50));
             near(test, bonus(local.engine(), player, cow), 10, "The default cap is 10 HP");
-            clock.set(299);
-            near(test, bonus(local.engine(), player, cow), 1, "Ten intervals of 1 HP remove the capped record");
-            clock.set(300);
-            near(test, bonus(local.engine(), player, cow), 0, "The capped record ends after ten seconds");
+            clock.set(199);
+            near(test, bonus(local.engine(), player, cow), 2, "Five intervals of 2 HP remove the capped record");
+            clock.set(200);
+            near(test, bonus(local.engine(), player, cow), 0, "The capped record ends after five seconds");
             test.succeed();
         } finally {
             RuneLegendServer.find(player.level().getServer()).leave(player);

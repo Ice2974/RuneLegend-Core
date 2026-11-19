@@ -56,7 +56,7 @@ class TokenConfigTest {
         assertEquals(5.0F, arrogance.get("max_bonus_damage").getAsFloat());
         var executionEcho = tokens.getAsJsonObject("runelegend:execution_echo");
         assertEquals(4, executionEcho.size());
-        assertEquals(1.0F, executionEcho.get("decay_per_interval").getAsFloat());
+        assertEquals(2.0F, executionEcho.get("decay_per_interval").getAsFloat());
         assertEquals(1, executionEcho.get("decay_interval_seconds").getAsInt());
         assertEquals(10, executionEcho.get("cooldown_seconds").getAsInt());
         assertEquals(10, executionEcho.get("max_recorded_damage").getAsInt());
@@ -259,7 +259,7 @@ class TokenConfigTest {
 
     @Test void executionEchoDefaultsConvertSecondsToTicks() {
         var settings = TokenConfig.ExecutionEchoSettings.DEFAULT;
-        assertEquals(1.0F, settings.decayPerInterval());
+        assertEquals(2.0F, settings.decayPerInterval());
         assertEquals(20, settings.decayIntervalTicks());
         assertEquals(200, settings.cooldownTicks());
         assertEquals(10, settings.maxRecordedDamage());
@@ -282,7 +282,7 @@ class TokenConfigTest {
     @Test void executionEchoMissingFieldsUseTheirOwnDefaults() {
         var tokens = JsonParser.parseString("{\"runelegend:execution_echo\":{\"max_recorded_damage\":12}}")
                 .getAsJsonObject();
-        assertEquals(new TokenConfig.ExecutionEchoSettings(1.0F, 1, 10, 12), TokenConfig.fromJson(tokens).executionEcho());
+        assertEquals(new TokenConfig.ExecutionEchoSettings(2.0F, 1, 10, 12), TokenConfig.fromJson(tokens).executionEcho());
     }
 
     @Test void poisonedArrowConvertsSeconds() {

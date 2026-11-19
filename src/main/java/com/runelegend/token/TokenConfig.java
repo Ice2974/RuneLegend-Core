@@ -276,7 +276,7 @@ public record TokenConfig(
     public record ExecutionEchoSettings(float decayPerInterval, int decayIntervalSeconds, int cooldownSeconds,
                                         int maxRecordedDamage) {
         private static final int MAX_SECONDS = Integer.MAX_VALUE / 20;
-        public static final ExecutionEchoSettings DEFAULT = new ExecutionEchoSettings(1.0F, 1, 10, 10);
+        public static final ExecutionEchoSettings DEFAULT = new ExecutionEchoSettings(2.0F, 1, 10, 10);
         public static final Codec<ExecutionEchoSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.01F, 1024.0F), "decay_per_interval", DEFAULT.decayPerInterval())
                         .forGetter(ExecutionEchoSettings::decayPerInterval),
