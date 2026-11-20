@@ -226,7 +226,7 @@ public record TokenConfig(
 
     public record ArroganceSettings(float healthThreshold, int killsPerIncrease, float damagePerIncrease,
                                     float maxBonusDamage) {
-        public static final ArroganceSettings DEFAULT = new ArroganceSettings(0.6F, 1, 1.0F, 5.0F);
+        public static final ArroganceSettings DEFAULT = new ArroganceSettings(0.6F, 1, 1.0F, 4.0F);
         public static final Codec<ArroganceSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0, 1), "health_threshold", DEFAULT.healthThreshold())
                         .forGetter(ArroganceSettings::healthThreshold),

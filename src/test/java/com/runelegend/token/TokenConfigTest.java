@@ -52,7 +52,7 @@ class TokenConfigTest {
         assertEquals(0.6F, arrogance.get("health_threshold").getAsFloat());
         assertEquals(1, arrogance.get("kills_per_increase").getAsInt());
         assertEquals(1.0F, arrogance.get("damage_per_increase").getAsFloat());
-        assertEquals(5.0F, arrogance.get("max_bonus_damage").getAsFloat());
+        assertEquals(4.0F, arrogance.get("max_bonus_damage").getAsFloat());
         var executionEcho = tokens.getAsJsonObject("runelegend:execution_echo");
         assertEquals(4, executionEcho.size());
         assertEquals(2.0F, executionEcho.get("decay_per_interval").getAsFloat());
@@ -205,7 +205,7 @@ class TokenConfigTest {
             assertEquals(oldConfig, TokenConfig.fromJson(tokens), invalid);
         }
         tokens.add("runelegend:arrogance", JsonParser.parseString("{\"damage_per_increase\":0.5}"));
-        assertEquals(new TokenConfig.ArroganceSettings(0.6F, 1, 0.5F, 5.0F), TokenConfig.fromJson(tokens).arrogance());
+        assertEquals(new TokenConfig.ArroganceSettings(0.6F, 1, 0.5F, 4.0F), TokenConfig.fromJson(tokens).arrogance());
     }
 
     @Test void boundedSettingsRejectInvalidValues() {

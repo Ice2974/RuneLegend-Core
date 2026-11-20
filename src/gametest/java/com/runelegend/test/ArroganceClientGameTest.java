@@ -36,11 +36,12 @@ public final class ArroganceClientGameTest implements FabricClientGameTest {
                 connection.waitForClientboundPackets();
                 context.runOnClient(client -> {
                     long now = Util.getMillis();
-                    for (int i = 0; i < 5; i++) {
+                    // The default cap is reached after four increases, so four flashes are queued.
+                    for (int i = 0; i < 4; i++) {
                         frame(cache, now + i * 400L, 0);
                         frame(cache, now + i * 400L + 350, 7);
                     }
-                    frame(cache, now + 2000, -1);
+                    frame(cache, now + 1600, -1);
                 });
                 dedicated.runOnServer(mc -> RuneLegendServer.find(mc).sync().resync(connection.getServerPlayer()));
                 connection.waitForClientboundPackets();
